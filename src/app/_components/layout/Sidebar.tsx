@@ -4,6 +4,7 @@
 
 import Link from "next/link"
 import {
+	Play,
 	Home,
 	Layers,
 	Award,
@@ -18,11 +19,10 @@ export function Sidebar() {
 	return (
 		<div className="flex h-screen w-64 flex-col border-r bg-card px-3 py-4 dark:border-gray-800">
 			<div className="mb-8 px-4">
-				<h1 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Learnforce</h1>
-				<p className="text-sm text-muted-foreground">Metro Map Project</p>
-			</div>
+		</div>
 
 			<nav className="space-y-1">
+				<NavItem href="/skill-tree" icon={<Play className="h-5 w-5" />} text="Metro" />
 				<NavItem href="/" icon={<Home className="h-5 w-5" />} text="Dashboard" />
 				<NavItem href="/job-family" icon={<Layers className="h-5 w-5" />} text="Job Families" />
 				<NavItem href="/career-path" icon={<Award className="h-5 w-5" />} text="Career Paths" />

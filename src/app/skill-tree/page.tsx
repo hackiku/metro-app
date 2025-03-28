@@ -8,15 +8,17 @@ import { Sidebar } from "~/app/_components/layout/Sidebar"
 import { Metro } from "~/app/_components/metro/Metro"
 import { ChevronRight, ChevronLeft } from "lucide-react"
 import { Button } from "~/components/ui/button"
+import { GameTabs } from "./GameTabs"
 
 export default function SkillTreePage() {
 	const [sidebarOpen, setSidebarOpen] = useState(false)
+	const [activeTab, setActiveTab] = useState("core")
 
 	return (
 		<div className="flex h-screen bg-neutral-50 text-gray-900 dark:bg-neutral-900 dark:text-white">
 			{/* Collapsible Sidebar */}
 			<div
-				className={`fixed top-0 left-0 z-30 h-full transition-all duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+				className={`fixed top-16 left-0 z-30 h-full transition-all duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
 					}`}
 			>
 				<Sidebar />
@@ -38,7 +40,12 @@ export default function SkillTreePage() {
 				<main className="relative flex-1 overflow-hidden">
 					{/* Main Metro Component */}
 					<div className="absolute inset-0">
-						<Metro />
+						<Metro activeTab={activeTab} />
+					</div>
+
+					{/* Bottom centered tabs */}
+					<div className="absolute bottom-6 left-0 right-0 z-10 flex justify-center">
+						<GameTabs activeTab={activeTab} onTabChange={setActiveTab} />
 					</div>
 				</main>
 			</div>

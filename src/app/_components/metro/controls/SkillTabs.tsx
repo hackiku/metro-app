@@ -45,7 +45,7 @@ const SKILL_CATEGORIES = [
 
 export function SkillTabs({ activeTab, onTabChange }: SkillTabsProps) {
 	return (
-		<div className="mb-8 flex items-center space-x-1 rounded-full bg-white/90 p-1 shadow-xl backdrop-blur-sm dark:bg-neutral-800/90">
+		<div className="mb-8 flex flex-col items-center space-x-1 rounded-xl bg-white/90 py-4 shadow-xl backdrop-blur-xs dark:bg-neutral-800/90">
 			{SKILL_CATEGORIES.map(category => (
 				<button
 					key={category.id}
