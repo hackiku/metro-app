@@ -24,10 +24,11 @@ export function Sidebar() {
 			<nav className="space-y-1">
 				<NavItem href="/skill-tree" icon={<Play className="h-5 w-5" />} text="Metro" />
 				<NavItem href="/" icon={<Home className="h-5 w-5" />} text="Dashboard" />
+				<NavItem href="/development" icon={<BarChart2 className="h-5 w-5" />} text="Development" />
 				<NavItem href="/job-family" icon={<Layers className="h-5 w-5" />} text="Job Families" />
 				<NavItem href="/career-path" icon={<Award className="h-5 w-5" />} text="Career Paths" />
 				<NavItem href="/competences" icon={<Briefcase className="h-5 w-5" />} text="Competences" />
-				<NavItem href="/analytics" icon={<BarChart2 className="h-5 w-5" />} text="Analytics" />
+				{/* <NavItem href="/analytics" icon={<BarChart2 className="h-5 w-5" />} text="Analytics" /> */}
 				<NavItem href="/team" icon={<Users className="h-5 w-5" />} text="Team" />
 			</nav>
 
