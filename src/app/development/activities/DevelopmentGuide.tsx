@@ -1,7 +1,7 @@
-// src/app/development/DevelopmentGuide.tsx
+// src/app/development/activities/DevelopmentGuide.tsx
 "use client"
 
-import { Competence } from "./data"
+import { Competence } from "../data"
 import { Card } from "~/components/ui/card"
 import { Button } from "~/components/ui/button"
 import { Progress } from "~/components/ui/progress"

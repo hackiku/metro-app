@@ -31,6 +31,16 @@ export default function CompetenceSelect({
 		}
 	}
 
+	if (competences.length === 0) {
+		return (
+			<div className="rounded-lg border border-gray-200 p-6 text-center dark:border-gray-700">
+				<p className="text-gray-500 dark:text-gray-400">
+					No competences available for this job family.
+				</p>
+			</div>
+		)
+	}
+
 	return (
 		<div className="space-y-3">
 			{competences.map(competence => (
@@ -50,11 +60,11 @@ export default function CompetenceSelect({
 						<div className="flex-1">
 							<h3 className="font-medium">{competence.name}</h3>
 							<div className="mt-1 flex items-center justify-between">
-								<span className="text-xs text-gray-500 dark:text-gray-400">{competence.category}</span>
-								<span className="text-xs font-medium">{competence.userRating}%</span>
+								<span className="text-xs text-gray-500 dark:text-gray-400">{competence.category || "General"}</span>
+								<span className="text-xs font-medium">{competence.userRating || 0}%</span>
 							</div>
 							<Progress
-								value={competence.userRating}
+								value={competence.userRating || 0}
 								className="mt-1 h-1"
 							/>
 						</div>

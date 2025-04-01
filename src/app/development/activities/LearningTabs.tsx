@@ -1,7 +1,7 @@
-// src/app/development/LearningTabs.tsx
+// src/app/development/activities/LearningTabs.tsx
 "use client"
 
-import { DevelopmentActivity } from "./data"
+import { DevelopmentActivity } from "../data"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { Briefcase, Users, BookOpen } from "lucide-react"
 import ActivityCard from "./ActivityCard"
@@ -69,6 +69,7 @@ export default function LearningTabs({ activities }: LearningTabsProps) {
 				</div>
 			</TabsContent>
 
+			{/* Social tab content (similar structure) */}
 			<TabsContent value="social">
 				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					{socialActivities.length > 0 ? (
@@ -85,6 +86,7 @@ export default function LearningTabs({ activities }: LearningTabsProps) {
 				</div>
 			</TabsContent>
 
+			{/* Formal tab content (similar structure) */}
 			<TabsContent value="formal">
 				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					{formalActivities.length > 0 ? (
