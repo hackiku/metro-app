@@ -2,8 +2,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Navbar } from "~/app/_components/layout/Navbar"
-import { Sidebar } from "~/app/_components/layout/Sidebar"
 import { Card } from "~/components/ui/card"
 import JobFamiliesSlider from "./families/JobFamiliesSlider"
 import CompetenceSelect from "./CompetenceSelect"
@@ -27,43 +25,24 @@ export default function DevelopmentPage() {
 			try {
 				setIsLoading(true)
 
-				// First approach - using a join (if your job_family_competences table is ready)
+				// Simplified approach - just fetch all competences for now
 				const { data, error } = await supabase
-					.from('job_family_competences')
-					.select(`
-            competence_id,
-            competences:competence_id (
-              id, name, description, category, user_rating
-            )
-          `)
-					.eq('job_family_id', selectedFamily)
+					.from('competences')
+					.select('*')
 
 				if (error) {
 					console.error("Error fetching competences:", error)
-
-					// Fallback - if the join table isn't working, just get all competences
-					const { data: allCompetences, error: allError } = await supabase
-						.from('competences')
-						.select('*')
-
-					if (allError) {
-						console.error("Error fetching all competences:", allError)
-						return
-					}
-
-					setCompetences(allCompetences || [])
-					if (allCompetences && allCompetences.length > 0) {
-						setSelectedCompetence(allCompetences[0].id)
-					}
 					return
 				}
 
-				// Transform the joined data to match our Competence interface
+				// Transform the data to match our Competence interface
 				const transformedData: Competence[] = data.map(item => ({
-					...item.competences,
-					// Add any default values or transformations needed
-					category: item.competences.category || "General",
-					userRating: item.competences.user_rating || 50
+					id: item.id,
+					name: item.name,
+					description: item.description,
+					// Add default values for potentially missing fields
+					category: item.category || "General",
+					userRating: item.user_rating || 50 // Note the snake_case to camelCase conversion
 				}))
 
 				setCompetences(transformedData)
@@ -72,7 +51,6 @@ export default function DevelopmentPage() {
 				}
 			} catch (error) {
 				console.error("Error in competences fetch:", error)
-				// Fallback to local data if needed
 			} finally {
 				setIsLoading(false)
 			}
@@ -107,57 +85,49 @@ export default function DevelopmentPage() {
 	}, [selectedCompetence])
 
 	return (
-		<div className="flex h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white">
-			<Sidebar />
+		<div className="space-y-6 p-6">
+			<div className="mb-8">
+				<h1 className="text-3xl font-bold tracking-tight">Development Plan</h1>
+				<p className="text-muted-foreground">
+					Build your skills and competences with structured learning activities
+				</p>
+			</div>
 
-			<div className="flex flex-1 flex-col overflow-hidden">
-				<Navbar />
+			{/* Job Families Slider */}
+			<JobFamiliesSlider
+				selectedFamily={selectedFamily}
+				onSelectFamily={setSelectedFamily}
+			/>
 
-				<main className="flex-1 overflow-auto p-6">
-					<div className="mb-8">
-						<h1 className="text-3xl font-bold tracking-tight">Development Plan</h1>
-						<p className="text-gray-500 dark:text-gray-400">
-							Build your skills and competences with structured learning activities
-						</p>
-					</div>
+			<div className="grid gap-6 md:grid-cols-3">
+				<div className="md:col-span-1">
+					<Card className="p-6">
+						<h2 className="mb-4 text-xl font-semibold">Competences</h2>
+						{isLoading ? (
+							<div className="space-y-3">
+								{Array.from({ length: 4 }).map((_, i) => (
+									<div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />
+								))}
+							</div>
+						) : (
+							<CompetenceSelect
+								competences={competences}
+								selectedId={selectedCompetence || ''}
+								onSelect={setSelectedCompetence}
+							/>
+						)}
+					</Card>
+				</div>
 
-					{/* Job Families Slider */}
-					<JobFamiliesSlider
-						selectedFamily={selectedFamily}
-						onSelectFamily={setSelectedFamily}
+				<div className="md:col-span-2">
+					<DevelopmentGuide
+						competence={competences.find(c => c.id === selectedCompetence)}
 					/>
 
-					<div className="grid gap-6 md:grid-cols-3">
-						<div className="md:col-span-1">
-							<Card className="bg-white p-6 shadow-md dark:bg-gray-800">
-								<h2 className="mb-4 text-xl font-semibold">Competences</h2>
-								{isLoading ? (
-									<div className="space-y-3">
-										{Array.from({ length: 4 }).map((_, i) => (
-											<div key={i} className="h-20 animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700" />
-										))}
-									</div>
-								) : (
-									<CompetenceSelect
-										competences={competences}
-										selectedId={selectedCompetence || ''}
-										onSelect={setSelectedCompetence}
-									/>
-								)}
-							</Card>
-						</div>
-
-						<div className="md:col-span-2">
-							<DevelopmentGuide
-								competence={competences.find(c => c.id === selectedCompetence)}
-							/>
-
-							<div className="mt-6">
-								<LearningTabs activities={activities} />
-							</div>
-						</div>
+					<div className="mt-6">
+						<LearningTabs activities={activities} />
 					</div>
-				</main>
+				</div>
 			</div>
 		</div>
 	)

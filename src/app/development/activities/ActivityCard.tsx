@@ -1,7 +1,7 @@
 // src/app/development/ActivityCard.tsx
 "use client"
 
-import { DevelopmentActivity } from "./data"
+import { DevelopmentActivity } from "../data"
 import { Card } from "~/components/ui/card"
 import { Button } from "~/components/ui/button"
 import { BookOpen, Users, Briefcase, PlusCircle, CheckCircle } from "lucide-react"
@@ -38,7 +38,7 @@ export default function ActivityCard({ activity }: ActivityCardProps) {
 			case "formal":
 				return "bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
 			default:
-				return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+				return "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300"
 		}
 	}
 
@@ -57,7 +57,7 @@ export default function ActivityCard({ activity }: ActivityCardProps) {
 	}
 
 	return (
-		<Card className="flex h-full flex-col justify-between bg-white p-5 shadow-md dark:bg-gray-800">
+		<Card className="flex h-full flex-col justify-between bg-white p-5 shadow-md dark:bg-neutral-800">
 			<div>
 				<div className="mb-3 flex items-center gap-3">
 					<div className={`flex h-10 w-10 items-center justify-center rounded-full ${getColor()}`}>

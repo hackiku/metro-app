@@ -2,10 +2,9 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { Card } from "~/components/ui/card"
-import { Button } from "~/components/ui/button"
-import { ChevronLeft, ChevronRight, BriefcaseBusiness, Users, Code } from "lucide-react"
 import { supabase } from "~/server/db/supabase"
+import FamilyCard from "./FamilyCard"
+import FamilyModal from "./FamilyModal"
 
 interface JobFamily {
 	id: string
@@ -22,7 +21,12 @@ interface JobFamiliesSliderProps {
 export default function JobFamiliesSlider({ selectedFamily, onSelectFamily }: JobFamiliesSliderProps) {
 	const [jobFamilies, setJobFamilies] = useState<JobFamily[]>([])
 	const [isLoading, setIsLoading] = useState(true)
+	const [selectedFamilyDetails, setSelectedFamilyDetails] = useState<JobFamily | null>(null)
+	const [isModalOpen, setIsModalOpen] = useState(false)
 	const sliderRef = useRef<HTMLDivElement>(null)
+	const [isDragging, setIsDragging] = useState(false)
+	const [startX, setStartX] = useState(0)
+	const [scrollLeft, setScrollLeft] = useState(0)
 
 	// Fetch job families from Supabase
 	useEffect(() => {
@@ -53,119 +57,79 @@ export default function JobFamiliesSlider({ selectedFamily, onSelectFamily }: Jo
 		fetchJobFamilies()
 	}, [selectedFamily, onSelectFamily])
 
-	// Scroll slider left
-	const scrollLeft = () => {
+	// Handle mousedown for slider dragging
+	const handleMouseDown = (e: React.MouseEvent) => {
 		if (sliderRef.current) {
-			sliderRef.current.scrollBy({ left: -300, behavior: 'smooth' })
+			setIsDragging(true)
+			setStartX(e.pageX - sliderRef.current.offsetLeft)
+			setScrollLeft(sliderRef.current.scrollLeft)
 		}
 	}
 
-	// Scroll slider right
-	const scrollRight = () => {
+	// Handle mousemove for slider dragging
+	const handleMouseMove = (e: React.MouseEvent) => {
+		if (!isDragging) return
+		e.preventDefault()
 		if (sliderRef.current) {
-			sliderRef.current.scrollBy({ left: 300, behavior: 'smooth' })
+			const x = e.pageX - sliderRef.current.offsetLeft
+			const walk = (x - startX) * 2 // Scroll speed multiplier
+			sliderRef.current.scrollLeft = scrollLeft - walk
 		}
 	}
 
-	// Get department color
-	const getDepartmentColor = (department: string) => {
-		switch (department) {
-			case "Product & Technology":
-				return "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300"
-			case "Commercial":
-				return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
-			case "People&":
-				return "bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300"
-			default:
-				return "bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300"
-		}
+	// Handle mouseup/mouseleave for slider dragging
+	const handleDragEnd = () => {
+		setIsDragging(false)
 	}
 
-	// Get department icon
-	const getDepartmentIcon = (department: string) => {
-		switch (department) {
-			case "Product & Technology":
-				return <Code className="h-4 w-4" />
-			case "Commercial":
-				return <BriefcaseBusiness className="h-4 w-4" />
-			case "People&":
-				return <Users className="h-4 w-4" />
-			default:
-				return <BriefcaseBusiness className="h-4 w-4" />
-		}
+	// Show details modal for a family
+	const showFamilyDetails = (family: JobFamily) => {
+		setSelectedFamilyDetails(family)
+		setIsModalOpen(true)
 	}
 
 	return (
-		<div className="relative mb-8 w-full">
+		<div className="mb-8 w-full">
 			<h2 className="mb-4 text-xl font-semibold">Job Families</h2>
 
-			<div className="relative">
-				{/* Left scroll button */}
-				<Button
-					variant="outline"
-					size="icon"
-					className="absolute -left-4 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full bg-white shadow-md dark:bg-gray-800"
-					onClick={scrollLeft}
-				>
-					<ChevronLeft className="h-4 w-4" />
-				</Button>
-
-				{/* Slider container */}
-				<div
-					ref={sliderRef}
-					className="flex space-x-4 overflow-x-auto pb-4 scrollbar-hide"
-					style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-				>
-					{isLoading ? (
-						// Loading placeholders
-						Array.from({ length: 4 }).map((_, i) => (
-							<div
-								key={i}
-								className="h-36 w-72 min-w-[18rem] animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700"
-							/>
-						))
-					) : (
-						// Job family cards
-						jobFamilies.map(family => (
-							<Card
-								key={family.id}
-								className={`flex h-36 w-72 min-w-[18rem] cursor-pointer flex-col justify-between p-4 transition-all hover:shadow-md ${selectedFamily === family.id
-										? 'border-2 border-indigo-500 bg-indigo-50 dark:border-indigo-600 dark:bg-indigo-950/20'
-										: 'bg-white dark:bg-gray-800'
-									}`}
-								onClick={() => onSelectFamily(family.id)}
-							>
-								<div>
-									<div className="mb-2 flex items-center justify-between">
-										<h3 className="font-semibold">{family.name}</h3>
-										<span className={`flex items-center rounded-full px-2 py-0.5 text-xs ${getDepartmentColor(family.department)}`}>
-											{getDepartmentIcon(family.department)}
-											<span className="ml-1">{family.department}</span>
-										</span>
-									</div>
-									<p className="text-sm text-gray-600 line-clamp-2 dark:text-gray-300">
-										{family.description}
-									</p>
-								</div>
-								<div className="mt-2">
-									<div className={`mt-1 h-1 w-full rounded-full ${selectedFamily === family.id ? 'bg-indigo-400' : 'bg-gray-200 dark:bg-gray-700'
-										}`} />
-								</div>
-							</Card>
-						))
-					)}
-				</div>
-
-				{/* Right scroll button */}
-				<Button
-					variant="outline"
-					size="icon"
-					className="absolute -right-4 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full bg-white shadow-md dark:bg-gray-800"
-					onClick={scrollRight}
-				>
-					<ChevronRight className="h-4 w-4" />
-				</Button>
+			{/* Slider container */}
+			<div
+				ref={sliderRef}
+				className={`flex cursor-grab space-x-4 overflow-x-auto pb-4 scrollbar-hide ${isDragging ? "cursor-grabbing" : ""}`}
+				style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', userSelect: 'none' }}
+				onMouseDown={handleMouseDown}
+				onMouseMove={handleMouseMove}
+				onMouseUp={handleDragEnd}
+				onMouseLeave={handleDragEnd}
+			>
+				{isLoading ? (
+					// Loading placeholders
+					Array.from({ length: 4 }).map((_, i) => (
+						<div
+							key={i}
+							className="h-40 w-72 min-w-[18rem] animate-pulse rounded-lg bg-muted"
+						/>
+					))
+				) : (
+					// Job family cards
+					jobFamilies.map(family => (
+						<FamilyCard
+							key={family.id}
+							family={family}
+							isSelected={selectedFamily === family.id}
+							onSelect={onSelectFamily}
+							onShowDetails={showFamilyDetails}
+						/>
+					))
+				)}
 			</div>
+
+			{/* Family details modal */}
+			<FamilyModal
+				family={selectedFamilyDetails}
+				open={isModalOpen}
+				onOpenChange={setIsModalOpen}
+			/>
 		</div>
 	)
 }

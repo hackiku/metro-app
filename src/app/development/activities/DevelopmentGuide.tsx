@@ -15,10 +15,10 @@ export default function DevelopmentGuide({ competence }: DevelopmentGuideProps) 
 	if (!competence) return null
 
 	return (
-		<Card className="bg-white shadow-md dark:bg-gray-800">
-			<div className="border-b border-gray-200 p-6 dark:border-gray-700">
+		<Card className="bg-white shadow-md dark:bg-neutral-800">
+			<div className="border-b border-neutral-200 p-6 dark:border-neutral-700">
 				<h2 className="text-xl font-semibold">{competence.name}</h2>
-				<p className="mt-2 text-gray-600 dark:text-gray-300">
+				<p className="mt-2 text-neutral-600 dark:text-neutral-300">
 					{competence.description}
 				</p>
 			</div>

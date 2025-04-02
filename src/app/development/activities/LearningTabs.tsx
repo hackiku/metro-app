@@ -44,8 +44,8 @@ export default function LearningTabs({ activities }: LearningTabsProps) {
 							<ActivityCard key={activity.id} activity={activity} />
 						))
 					) : (
-						<div className="col-span-full rounded-lg border border-gray-200 p-6 text-center dark:border-gray-700">
-							<p className="text-gray-500 dark:text-gray-400">
+							<div className="col-span-full rounded-lg border border-neutral-200 p-6 text-center dark:border-neutral-700">
+							<p className="text-neutral-500 dark:text-neutral-400">
 								No activities available for this competence.
 							</p>
 						</div>
@@ -60,8 +60,8 @@ export default function LearningTabs({ activities }: LearningTabsProps) {
 							<ActivityCard key={activity.id} activity={activity} />
 						))
 					) : (
-						<div className="col-span-full rounded-lg border border-gray-200 p-6 text-center dark:border-gray-700">
-							<p className="text-gray-500 dark:text-gray-400">
+						<div className="col-span-full rounded-lg border border-neutral-200 p-6 text-center dark:border-neutral-700">
+							<p className="text-neutral-500 dark:text-neutral-400">
 								No on-the-job activities available for this competence.
 							</p>
 						</div>
@@ -77,8 +77,8 @@ export default function LearningTabs({ activities }: LearningTabsProps) {
 							<ActivityCard key={activity.id} activity={activity} />
 						))
 					) : (
-						<div className="col-span-full rounded-lg border border-gray-200 p-6 text-center dark:border-gray-700">
-							<p className="text-gray-500 dark:text-gray-400">
+						<div className="col-span-full rounded-lg border border-neutral-200 p-6 text-center dark:border-neutral-700">
+							<p className="text-neutral-500 dark:text-neutral-400">
 								No social learning activities available for this competence.
 							</p>
 						</div>
@@ -94,8 +94,8 @@ export default function LearningTabs({ activities }: LearningTabsProps) {
 							<ActivityCard key={activity.id} activity={activity} />
 						))
 					) : (
-						<div className="col-span-full rounded-lg border border-gray-200 p-6 text-center dark:border-gray-700">
-							<p className="text-gray-500 dark:text-gray-400">
+						<div className="col-span-full rounded-lg border border-neutral-200 p-6 text-center dark:border-neutral-700">
+							<p className="text-neutral-500 dark:text-neutral-400">
 								No formal learning activities available for this competence.
 							</p>
 						</div>

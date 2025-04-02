@@ -1,54 +1,25 @@
 // src/app/skill-tree/page.tsx
 
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Navbar } from "~/app/_components/layout/Navbar"
-import { Sidebar } from "~/app/_components/layout/Sidebar"
-import { Metro } from "~/app/_components/metro/Metro"
-import { ChevronRight, ChevronLeft } from "lucide-react"
-import { Button } from "~/components/ui/button"
-import { GameTabs } from "./GameTabs"
+import { useState } from "react";
+import { Metro } from "~/app/_components/metro/Metro";
+import { GameTabs } from "./GameTabs";
 
 export default function SkillTreePage() {
-	const [sidebarOpen, setSidebarOpen] = useState(false)
-	const [activeTab, setActiveTab] = useState("core")
+	const [activeTab, setActiveTab] = useState("core");
 
 	return (
-		<div className="flex h-screen bg-neutral-50 text-gray-900 dark:bg-neutral-900 dark:text-white">
-			{/* Collapsible Sidebar */}
-			<div
-				className={`fixed top-16 left-0 z-30 h-full transition-all duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
-					}`}
-			>
-				<Sidebar />
+		<div className="relative h-full">
+			{/* Main Metro Component */}
+			<div className="absolute inset-0">
+				<Metro activeTab={activeTab} />
 			</div>
 
-			{/* Sidebar Toggle Button */}
-			<Button
-				variant="ghost"
-				size="icon"
-				className="fixed left-4 top-4 z-40 h-10 w-10 rounded-full bg-white/80 text-gray-800 shadow-md backdrop-blur-sm dark:bg-neutral-800/80 dark:text-white"
-				onClick={() => setSidebarOpen(!sidebarOpen)}
-			>
-				{sidebarOpen ? <ChevronLeft /> : <ChevronRight />}
-			</Button>
-
-			<div className="flex flex-1 flex-col overflow-hidden">
-				<Navbar />
-
-				<main className="relative flex-1 overflow-hidden">
-					{/* Main Metro Component */}
-					<div className="absolute inset-0">
-						<Metro activeTab={activeTab} />
-					</div>
-
-					{/* Bottom centered tabs */}
-					<div className="absolute bottom-6 left-0 right-0 z-10 flex justify-center">
-						<GameTabs activeTab={activeTab} onTabChange={setActiveTab} />
-					</div>
-				</main>
+			{/* Bottom centered tabs */}
+			<div className="absolute bottom-6 left-0 right-0 z-10 flex justify-center">
+				<GameTabs activeTab={activeTab} onTabChange={setActiveTab} />
 			</div>
 		</div>
-	)
+	);
 }

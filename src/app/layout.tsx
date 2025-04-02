@@ -6,6 +6,7 @@ import { Geist } from "next/font/google";
 
 import { TRPCReactProvider } from "~/trpc/react";
 import { ThemeProvider } from "~/components/ui/theme-provider";
+import AppLayout from "./_components/layout/AppLayout";
 
 export const metadata: Metadata = {
 	title: "Metro Map - Career Development",
@@ -31,7 +32,7 @@ export default function RootLayout({
 						enableSystem
 						disableTransitionOnChange
 					>
-						{children}
+						<AppLayout>{children}</AppLayout>
 					</ThemeProvider>
 				</TRPCReactProvider>
 			</body>
