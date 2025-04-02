@@ -12,6 +12,7 @@ const globalForDb = globalThis as unknown as {
 	conn: postgres.Sql | undefined;
 };
 
+// original without transaction pooler
 // const conn = globalForDb.conn ?? postgres(env.DATABASE_URL);
 const conn = globalForDb.conn ?? postgres(env.DATABASE_URL, { 
   prepare: false // Required for Supabase Transaction Pooler
