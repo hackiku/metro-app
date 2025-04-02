@@ -28,13 +28,17 @@ export function MetroLine({ line }: MetroLineProps) {
 
 	// Generate the path for the line connecting all stations
 	const generatePath = () => {
-		if (line.stations.length < 2) return ""
+		// Check for empty stations array or if it has fewer than 2 stations
+		if (!line.stations || line.stations.length < 2) return ""
 
-		let path = `M ${line.stations[0].x} ${line.stations[0].y}`
+		// Now we can safely access line.stations[0]
+		// Using non-null assertion operator since we've already checked length
+		const firstStation = line.stations[0]!
+		let path = `M ${firstStation.x} ${firstStation.y}`
 
 		for (let i = 1; i < line.stations.length; i++) {
-			const prevStation = line.stations[i - 1]
-			const station = line.stations[i]
+			const prevStation = line.stations[i - 1]!
+			const station = line.stations[i]!
 
 			// Create a curved line between stations
 			// Calculate control points for a nice curve
@@ -45,6 +49,14 @@ export function MetroLine({ line }: MetroLineProps) {
 
 		return path
 	}
+
+	// If there are no stations, don't render anything
+	if (!line.stations || line.stations.length === 0) {
+		return null;
+	}
+
+	// Get first station for label positioning
+	const firstStation = line.stations[0]!
 
 	return (
 		<g className="metro-line">
@@ -59,8 +71,8 @@ export function MetroLine({ line }: MetroLineProps) {
 
 			{/* Line Label */}
 			<text
-				x={line.stations[0].x - 2}
-				y={line.stations[0].y - 4}
+				x={firstStation.x - 2}
+				y={firstStation.y - 4}
 				fontSize="2"
 				fontWeight="bold"
 				fill={line.color}

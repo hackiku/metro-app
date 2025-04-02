@@ -13,11 +13,20 @@ import { RelatedJobs } from "./RelatedJobs"
 
 // Type definitions
 interface Competence {
-	id: string
+	id: string // Assuming id is always a string from the DB
 	name: string
 	description: string
 	category?: string
 	userRating?: number
+}
+
+// Explicitly type the expected data from Supabase for competence
+// Adjust if your actual schema differs (e.g., if columns can be null)
+interface SupabaseCompetence {
+	id: string;
+	name: string;
+	description: string;
+	// Add other fields selected by '*' if needed for typing
 }
 
 interface JobFamily {
@@ -27,10 +36,16 @@ interface JobFamily {
 	department: string
 }
 
+// Explicitly type the relationship data
+interface JobFamilyCompetence {
+	job_family_id: string;
+}
+
 export default function CompetenceDetailPage() {
 	const params = useParams()
 	const router = useRouter()
-	const id = params?.id as string
+	// Ensure id is treated as string, handle potential array/undefined from params
+	const id = typeof params?.id === 'string' ? params.id : undefined;
 
 	const [competence, setCompetence] = useState<Competence | null>(null)
 	const [relatedJobs, setRelatedJobs] = useState<JobFamily[]>([])
@@ -39,72 +54,93 @@ export default function CompetenceDetailPage() {
 	// Fetch competence details
 	useEffect(() => {
 		async function fetchCompetenceDetails() {
-			if (!id) return
+			// Check if id is valid before fetching
+			if (!id) {
+				console.error("No competence ID found in URL params.");
+				setIsLoading(false); // Stop loading if no ID
+				// Optionally redirect or show an error message specific to missing ID
+				return;
+			}
 
-			setIsLoading(true)
+			setIsLoading(true);
 
 			try {
-				// Fetch competence data
+				// Fetch competence data - explicitly type the expected return data
 				const { data: competenceData, error: competenceError } = await supabase
 					.from('competences')
-					.select('*')
+					.select('*') // Consider selecting only necessary columns
 					.eq('id', id)
-					.single()
+					.single<SupabaseCompetence>(); // Use .single<Type>() for better type safety
 
-				if (competenceError) {
-					console.error("Error fetching competence:", competenceError)
-					return
+				// --- FIX STARTS HERE ---
+				// Check for errors *or* if data is null/undefined after the query
+				if (competenceError || !competenceData) {
+					console.error("Error fetching competence or competence not found:", competenceError);
+					// Set loading to false before returning
+					setIsLoading(false);
+					return;
 				}
+				// --- FIX ENDS HERE ---
+
+				// Now, competenceData is guaranteed to be non-null, and competenceData.id is a string
 
 				// Add random category and rating for demo purposes
-				// In a real app, these would come from the user's profile/assessment
-				const enhancedCompetence = {
+				const enhancedCompetence: Competence = { // Explicitly type enhancedCompetence
 					...competenceData,
-					userRating: Math.floor(Math.random() * 40) + 40, // Random rating between 40-80%
-					category: assignRandomCategory(competenceData.id) // Assign a random category
+					userRating: Math.floor(Math.random() * 40) + 40, // Random rating 40-80%
+					category: assignRandomCategory(competenceData.id) // competenceData.id is now safe
 				};
 
-				setCompetence(enhancedCompetence)
+				setCompetence(enhancedCompetence);
 
 				// Fetch job families that require this competence
 				const { data: relationshipsData, error: relationsError } = await supabase
 					.from('job_family_competences')
 					.select('job_family_id')
 					.eq('competence_id', id)
+					.returns<JobFamilyCompetence[]>(); // Add return type hint
 
 				if (relationsError) {
-					console.error("Error fetching relationships:", relationsError)
+					console.error("Error fetching relationships:", relationsError);
 				} else if (relationshipsData?.length) {
-					// Get the job family details
-					const jobFamilyIds = relationshipsData.map(rel => rel.job_family_id)
+					const jobFamilyIds = relationshipsData.map(rel => rel.job_family_id);
 
 					const { data: jobFamiliesData, error: jobFamiliesError } = await supabase
 						.from('job_families')
-						.select('*')
+						.select('*') // Consider selecting only necessary columns
 						.in('id', jobFamilyIds)
+						.returns<JobFamily[]>(); // Add return type hint
 
 					if (jobFamiliesError) {
-						console.error("Error fetching job families:", jobFamiliesError)
+						console.error("Error fetching job families:", jobFamiliesError);
 					} else {
-						setRelatedJobs(jobFamiliesData || [])
+						setRelatedJobs(jobFamiliesData || []); // Use empty array fallback
 					}
 				}
 			} catch (error) {
-				console.error("Error in data fetching:", error)
+				console.error("Error in data fetching:", error);
 			} finally {
-				setIsLoading(false)
+				setIsLoading(false);
 			}
 		}
 
-		fetchCompetenceDetails()
-	}, [id])
+		fetchCompetenceDetails();
+	}, [id]); // Depend only on the derived 'id' string
 
 	// Helper function to assign random categories
+	// Signature remains (id: string) because we now ensure a valid string is passed
 	function assignRandomCategory(id: string): string {
 		// Use a deterministic approach based on ID to ensure consistency
+		// The check below is technically redundant now if we always pass a valid string,
+		// but it doesn't hurt as a safeguard against empty strings.
+		if (!id) { // Handles empty string case
+			return "General";
+		}
+
 		const hash = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
 		const categories = ["Cognitive", "Interpersonal", "Execution"];
-		return categories[hash % categories.length];
+		// Basic modulo for distribution. Ensure categories array is not empty.
+		return categories.length > 0 ? categories[hash % categories.length]! : "General";
 	}
 
 	// Loading state
@@ -112,50 +148,49 @@ export default function CompetenceDetailPage() {
 		return (
 			<div className="space-y-6 p-6">
 				<div className="flex items-center gap-2">
+					{/* Use disabled attribute directly for clarity */}
 					<Button variant="ghost" size="sm" disabled>
 						<ChevronLeft className="mr-1 h-4 w-4" />
 						Back
 					</Button>
 				</div>
 
+				{/* Placeholder elements */}
 				<div className="h-10 w-1/3 animate-pulse rounded-lg bg-muted" />
 				<div className="h-6 w-1/4 animate-pulse rounded-lg bg-muted" />
-
 				<div className="mt-6 h-32 animate-pulse rounded-lg bg-muted" />
-
 				<div className="mt-6 grid gap-6 md:grid-cols-2">
 					<div className="h-64 animate-pulse rounded-lg bg-muted" />
 					<div className="h-64 animate-pulse rounded-lg bg-muted" />
 				</div>
 			</div>
-		)
+		);
 	}
 
-	// Handle not found
+	// Handle not found (competence is null after loading is false)
 	if (!competence) {
 		return (
 			<div className="flex flex-col items-center justify-center p-12 text-center">
-				<Briefcase className="mb-4 h-12 w-12 text-muted" />
+				<Briefcase className="mb-4 h-12 w-12 text-muted-foreground" /> {/* Use foreground color for icon */}
 				<h1 className="mb-2 text-2xl font-bold">Competence Not Found</h1>
 				<p className="mb-6 text-muted-foreground">
-					The competence you're looking for doesn't exist or has been removed.
+					The competence you're looking for might not exist or couldn't be loaded.
 				</p>
 				<Button asChild>
-					<Link href="/competences">
-						View All Competences
-					</Link>
+					<Link href="/competences">View All Competences</Link>
 				</Button>
 			</div>
-		)
+		);
 	}
 
+	// Competence found, render details
 	return (
 		<div className="space-y-8 p-6">
 			{/* Back button */}
 			<div className="flex items-center gap-2">
 				<Button variant="ghost" size="sm" onClick={() => router.back()}>
 					<ChevronLeft className="mr-1 h-4 w-4" />
-					Back to Competences
+					Back {/* Consider more specific text like "Back to Competences" if appropriate */}
 				</Button>
 			</div>
 
@@ -174,5 +209,5 @@ export default function CompetenceDetailPage() {
 				/>
 			</div>
 		</div>
-	)
+	);
 }

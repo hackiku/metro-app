@@ -66,13 +66,13 @@ export function CollapsibleSidebar({ isCollapsed }: CollapsibleSidebarProps) {
             isCollapsed={isCollapsed}
             isActive={pathname === "/job-family"}
           />
-          <NavItem 
+          {/* <NavItem 
             href="/career-path" 
             icon={<Award className="h-5 w-5" />} 
             text="Career Paths" 
             isCollapsed={isCollapsed}
             isActive={pathname === "/career-path"}
-          />
+          /> */}
           <NavItem 
             href="/competences" 
             icon={<Briefcase className="h-5 w-5" />} 
@@ -80,13 +80,13 @@ export function CollapsibleSidebar({ isCollapsed }: CollapsibleSidebarProps) {
             isCollapsed={isCollapsed}
             isActive={pathname === "/competences"}
           />
-          <NavItem 
+          {/* <NavItem 
             href="/team" 
             icon={<Users className="h-5 w-5" />} 
             text="Team" 
             isCollapsed={isCollapsed}
             isActive={pathname === "/team"}
-          />
+          /> */}
         </nav>
 
         <div className="mt-auto space-y-1">

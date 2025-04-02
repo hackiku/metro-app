@@ -11,16 +11,24 @@ import { CompetenceGrid } from "./CompetenceGrid"
 import { DevelopmentRecommendations } from "./DevelopmentRecommendations"
 
 // Type definitions
-export interface Competence {
-	id: string
-	name: string
-	description: string
-	category?: string
-	userRating?: number
+// Explicitly type the expected data from Supabase for competence
+// Adjust if your actual schema differs (e.g., if columns can be null)
+interface SupabaseCompetence {
+	id: string; // Assuming id is always a non-null string from DB
+	name: string;
+	description: string;
+	// Add other fields selected by '*' if needed for typing
+}
+
+// Type definition used within the component
+export interface Competence extends SupabaseCompetence {
+	category?: string // Optional because it's added client-side
+	userRating?: number // Optional because it's added client-side
 }
 
 // Filter categories
 const CATEGORIES = ["All", "Cognitive", "Interpersonal", "Execution"];
+const BASE_CATEGORIES = ["Cognitive", "Interpersonal", "Execution"]; // For assignment
 
 export default function CompetencesPage() {
 	const [competences, setCompetences] = useState<Competence[]>([])
@@ -35,63 +43,96 @@ export default function CompetencesPage() {
 			try {
 				setIsLoading(true)
 
+				// Add type hint for Supabase fetch
 				const { data, error } = await supabase
 					.from('competences')
-					.select('*')
+					.select('*') // Consider selecting only necessary columns
+					.returns<SupabaseCompetence[]>() // Helps TS understand the expected data shape
 
 				if (error) {
 					console.error("Error fetching competences:", error)
+					// Set loading to false on error before returning
+					setIsLoading(false);
 					return
 				}
 
+				// Ensure data is not null/undefined before proceeding
+				if (!data) {
+					console.error("No competence data received from Supabase.");
+					setCompetences([]);
+					setFilteredCompetences([]);
+					setIsLoading(false);
+					return;
+				}
+
 				// Add random user ratings and categories for demo purposes
-				// In a real app, these would come from the user's profile/assessment
-				const enhancedData = data.map(comp => ({
-					...comp,
-					userRating: Math.floor(Math.random() * 40) + 40, // Random rating between 40-80%
-					category: assignRandomCategory(comp.id) // Assign a random category
-				}));
+				const enhancedData: Competence[] = data.map(comp => {
+					// Ensure comp.id exists and is a string before calling assignRandomCategory
+					const category = comp.id ? assignRandomCategory(comp.id) : "General"; // Assign default if id is missing/falsy
+					return {
+						...comp,
+						userRating: Math.floor(Math.random() * 40) + 40, // Random rating 40-80%
+						category: category
+					};
+				});
 
 				setCompetences(enhancedData)
+				// Initialize filtered competences with the full fetched & enhanced list
 				setFilteredCompetences(enhancedData)
+
 			} catch (error) {
 				console.error("Error in competences fetch:", error)
+				// Ensure loading state is updated even if an unexpected error occurs
+				setCompetences([]);
+				setFilteredCompetences([]);
 			} finally {
 				setIsLoading(false)
 			}
 		}
 
 		fetchCompetences()
-	}, [])
+	}, []) // Empty dependency array means this runs once on mount
 
 	// Helper function to assign random categories
 	function assignRandomCategory(id: string): string {
 		// Use a deterministic approach based on ID to ensure consistency
+		// Check for empty string just in case, although handled before calling now
+		if (!id) {
+			return "General";
+		}
 		const hash = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-		const categories = ["Cognitive", "Interpersonal", "Execution"];
-		return categories[hash % categories.length];
+		// Use the base categories for assignment logic
+		// --- FIX STARTS HERE ---
+		// Add non-null assertion `!` because BASE_CATEGORIES is guaranteed non-empty
+		// and the modulo result will always be a valid index.
+		return BASE_CATEGORIES.length > 0
+			? BASE_CATEGORIES[hash % BASE_CATEGORIES.length]!
+			: "General"; // Fallback if BASE_CATEGORIES was empty (defensive)
+		// --- FIX ENDS HERE ---
 	}
 
 	// Filter competences based on search query and category
 	useEffect(() => {
-		let filtered = competences;
+		let filtered = competences; // Start with the full list
 
-		// Filter by search query
+		// Filter by search query (case-insensitive)
 		if (searchQuery) {
-			const query = searchQuery.toLowerCase();
-			filtered = filtered.filter(comp =>
-				comp.name.toLowerCase().includes(query) ||
-				comp.description.toLowerCase().includes(query)
-			);
+			const query = searchQuery.toLowerCase().trim(); // Trim whitespace
+			if (query) { // Only filter if query is non-empty after trimming
+				filtered = filtered.filter(comp =>
+					comp.name.toLowerCase().includes(query) ||
+					comp.description.toLowerCase().includes(query)
+				);
+			}
 		}
 
-		// Filter by category
+		// Filter by category (ensure category exists on competence)
 		if (activeCategory !== "All") {
 			filtered = filtered.filter(comp => comp.category === activeCategory);
 		}
 
 		setFilteredCompetences(filtered);
-	}, [searchQuery, activeCategory, competences]);
+	}, [searchQuery, activeCategory, competences]); // Re-run whenever these change
 
 	return (
 		<div className="space-y-6 p-6">
@@ -117,19 +158,21 @@ export default function CompetencesPage() {
 			</div>
 
 			{/* Your Competence Profile */}
+			{/* Pass only necessary props or consider if this component needs all competences */}
 			<CompetenceProfile
-				competences={competences}
+				competences={competences} // Maybe pass filteredCompetences or specific user profile data?
 				isLoading={isLoading}
 			/>
 
 			{/* Competences List */}
 			<Tabs
-				defaultValue="All"
-				value={activeCategory}
-				onValueChange={setActiveCategory}
+				defaultValue="All" // Sets the initially selected tab
+				value={activeCategory} // Controlled component value
+				onValueChange={setActiveCategory} // Update state when tab changes
 				className="space-y-4"
 			>
 				<TabsList>
+					{/* Use the CATEGORIES constant for rendering tabs */}
 					{CATEGORIES.map((category) => (
 						<TabsTrigger key={category} value={category}>
 							{category}
@@ -137,17 +180,26 @@ export default function CompetencesPage() {
 					))}
 				</TabsList>
 
-				{CATEGORIES.map((category) => (
-					<TabsContent key={category} value={category} className="space-y-4">
-						<CompetenceGrid
-							competences={filteredCompetences}
-							isLoading={isLoading}
-						/>
-					</TabsContent>
-				))}
+				{/* Render content based on the filtered list, no need to map TabsContent */}
+				{/* The active tab is controlled by the Tabs component value */}
+				{/* We only need one TabsContent area that displays the filtered data */}
+				<TabsContent value={activeCategory} className="mt-4 space-y-4"> {/* Added mt-4 for spacing */}
+					<CompetenceGrid
+						competences={filteredCompetences} // Display the filtered competences
+						isLoading={isLoading}
+					/>
+				</TabsContent>
+
+				{/* Note: Removed the loop for TabsContent. */}
+				{/* You typically only render the content for the *active* tab, */}
+				{/* or let the Tabs component handle showing/hiding content based on its value. */}
+				{/* Rendering a grid for *every* category inside its own TabsContent is redundant */}
+				{/* if the filtering logic already updates `filteredCompetences` based on `activeCategory`. */}
+
 			</Tabs>
 
 			{/* Development Recommendations */}
+			{/* Similar consideration as CompetenceProfile: does it need all competences? */}
 			<DevelopmentRecommendations
 				competences={competences}
 				isLoading={isLoading}
