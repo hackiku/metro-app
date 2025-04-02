@@ -1,0 +1,16 @@
+
+export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"
+
+
+
+pg_dump -h localhost -p 65432 -U postgres postgres \
+  --schema=public \
+  --no-owner \
+  --no-acl \
+  > supabase/backup/public_schema_backup.sql
+
+
+# Use psql to restore just your schema (tables without data)
+
+psql "postgresql://postgres.ojablctunvluhbprghpd:lA3kgVsB9yQMj1Cb@aws-0-us-east-2.pooler.supabase.com:6543/postgres" \
+  -c "$(grep -E 'CREATE (TABLE|TYPE|FUNCTION|EXTENSION|VIEW|SEQUENCE)' supabase/backup/public_schema_backup.sql)"
