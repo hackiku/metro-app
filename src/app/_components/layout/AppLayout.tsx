@@ -7,7 +7,7 @@ import {
 	ResizablePanelGroup
 } from "~/components/ui/resizable";
 import { Navbar } from "./Navbar";
-import { CollapsibleSidebar } from "./CollapsibleSidebar.tsx";
+import { CollapsibleSidebar } from "./CollapsibleSidebar";
 
 interface AppLayoutProps {
 	children: React.ReactNode;
@@ -44,7 +44,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 					<CollapsibleSidebar isCollapsed={isCollapsed} />
 				</ResizablePanel>
 
-				<ResizableHandle withHandle className="w-1.5 bg-muted" />
+				<ResizableHandle withHandle className="w-[0.2px] bg-muted" />
 
 				<ResizablePanel defaultSize={100 - defaultSidebarSize}>
 					<main className="h-full overflow-auto">
