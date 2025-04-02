@@ -1,24 +1,23 @@
 // src/app/development/CompetenceSelect.tsx
 "use client"
 
-// Define the Competence type directly in this file
-// REMOVED the import from "./data"
+// Keep the Competence interface assuming category exists
 export interface Competence {
 	id: string;
 	name: string;
-	description: string; // Keep even if not directly rendered, as it's part of the expected data
-	category?: string; // Optional as it might not always be present
-	userRating?: number; // Optional
+	description: string;
+	category?: string; // Keep category as optional
+	userRating?: number; // Keep userRating as optional
 }
 
-import { Brain, Target, Users, Zap, Star } from "lucide-react"; // Assuming Zap was intended somewhere or can be removed if unused
+import { Brain, Target, Users, Star } from "lucide-react"; // Removed Zap as it wasn't used
 import { Progress } from "~/components/ui/progress";
-import { cn } from "~/lib/utils"; // Import cn for combining class names conditionally
+import { cn } from "~/lib/utils";
 
-// Define Props interface using the local Competence type
+// Props interface remains the same
 interface CompetenceSelectProps {
 	competences: Competence[];
-	selectedId: string | null; // Allow null for when nothing is selected
+	selectedId: string | null;
 	onSelect: (id: string) => void;
 }
 
@@ -28,7 +27,7 @@ export default function CompetenceSelect({
 	onSelect
 }: CompetenceSelectProps) {
 
-	// Helper function to get icon based on category - logic remains the same
+	// getIcon function remains the same, relying on competence.category
 	const getIcon = (category?: string) => {
 		switch (category) {
 			case "Cognitive":
@@ -38,76 +37,78 @@ export default function CompetenceSelect({
 			case "Interpersonal":
 				return <Users className="h-4 w-4" />;
 			default:
-				return <Star className="h-4 w-4" />; // Default icon
+				return <Star className="h-4 w-4" />; // Default icon if category is missing or unknown
 		}
 	};
 
-	// Empty state logic remains the same
+	// Empty state check remains, but message adjusted slightly for clarity
 	if (!competences || competences.length === 0) {
 		return (
-			<div className="rounded-lg border border-neutral-200 bg-white p-6 text-center dark:border-neutral-700 dark:bg-neutral-800">
-				<p className="text-neutral-500 dark:text-neutral-400">
-					No competences available.
-					{/* Consider a more generic message if it's not always filtered by job family */}
+			// This component shouldn't render the empty state itself if the parent handles it,
+			// but keeping it as a fallback. The parent now handles the primary empty/loading states.
+			<div className="rounded-lg border border-neutral-700 bg-neutral-800 p-6 text-center">
+				<p className="text-neutral-400">
+					No competences to display.
 				</p>
 			</div>
 		);
 	}
 
-	// Map over competences - rendering logic remains largely the same
+	// Rendering logic remains mostly the same, using category and userRating
 	return (
 		<div className="space-y-3">
 			{competences.map(competence => {
 				const isSelected = selectedId === competence.id;
-				// Use a default rating of 0 if undefined
-				const displayRating = competence.userRating ?? 0;
+				const displayRating = competence.userRating ?? 0; // Handle potentially undefined rating
 
 				return (
 					<div
 						key={competence.id}
-						role="button" // Improve accessibility
-						tabIndex={0} // Make it focusable
+						role="button"
+						tabIndex={0}
+						// Adjusted styles to better match dark theme screenshot
 						className={cn(
-							"cursor-pointer rounded-lg border p-3 transition-colors duration-150 ease-in-out hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:hover:bg-neutral-700/50",
+							"cursor-pointer rounded-lg border p-3 transition-colors duration-150 ease-in-out hover:bg-neutral-700/80 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-neutral-800", // Added dark mode focus offset
 							isSelected
-								? 'border-indigo-500 bg-indigo-50 dark:border-indigo-600 dark:bg-indigo-900/30' // Enhanced selected state
-								: 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800' // Standard state
+								? 'border-indigo-500 bg-neutral-700 dark:border-indigo-600 dark:bg-neutral-700' // Adjusted selected background
+								: 'border-neutral-700 bg-neutral-800 dark:border-neutral-700 dark:bg-neutral-800' // Standard background
 						)}
 						onClick={() => onSelect(competence.id)}
-						onKeyDown={(e) => { // Allow selection with Enter/Space
+						onKeyDown={(e) => {
 							if (e.key === 'Enter' || e.key === ' ') {
 								onSelect(competence.id);
 							}
 						}}
-						aria-pressed={isSelected} // Indicate selection state for screen readers
+						aria-pressed={isSelected}
 					>
 						<div className="flex items-center gap-3">
-							{/* Icon rendering logic remains the same */}
 							<div className={cn(
-								"flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full", // Added flex-shrink-0
+								"flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full",
 								isSelected
-									? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-400'
-									: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400' // Adjusted dark mode background
+									? 'bg-indigo-900 text-indigo-300' // Adjusted selected icon colors
+									: 'bg-neutral-700 text-neutral-400' // Adjusted standard icon colors
 							)}>
 								{getIcon(competence.category)}
 							</div>
-							{/* Text content structure remains the same */}
-							<div className="flex-1 overflow-hidden"> {/* Added overflow-hidden */}
-								<h3 className="truncate font-medium text-neutral-800 dark:text-neutral-100"> {/* Added truncate */}
+							<div className="flex-1 overflow-hidden">
+								<h3 className="truncate font-medium text-neutral-100">
 									{competence.name}
 								</h3>
 								<div className="mt-1 flex items-center justify-between">
-									<span className="text-xs text-neutral-500 dark:text-neutral-400">
-										{competence.category || "General"}
-									</span>
-									<span className={`text-xs font-medium ${isSelected ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-700 dark:text-neutral-200'}`}>
+									{/* Display category if it exists */}
+									{competence.category && (
+										<span className="text-xs text-neutral-400">
+											{competence.category}
+										</span>
+									)}
+									<span className={`text-xs font-medium ${isSelected ? 'text-indigo-300' : 'text-neutral-300'}`}>
 										{displayRating}%
 									</span>
 								</div>
-								{/* Progress bar rendering remains the same */}
 								<Progress
 									value={displayRating}
-									className="mt-1 h-1 [&>*]:bg-indigo-500" // Example color customization
+									// Adjusted progress bar style for dark mode
+									className="mt-1 h-1 bg-neutral-600 [&>*]:bg-indigo-500"
 									aria-label={`Proficiency in ${competence.name}: ${displayRating}%`}
 								/>
 							</div>

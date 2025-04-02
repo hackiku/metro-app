@@ -1,205 +1,189 @@
 // src/app/development/page.tsx
+
 "use client"
 
 import { useState, useEffect } from "react"
 import { Card } from "~/components/ui/card"
-import JobFamiliesSlider from "./families/JobFamiliesSlider" // Assuming this component exists and works
-import CompetenceSelect from "./CompetenceSelect" // Assuming this component exists and works
+import JobFamiliesSlider from "./families/JobFamiliesSlider"
+import CompetenceSelect from "./CompetenceSelect"
 import DevelopmentGuide from "./activities/DevelopmentGuide"
-import LearningTabs from "./activities/LearningTabs" // Assuming this component exists and works
+import LearningTabs from "./activities/LearningTabs"
 import { supabase } from "~/server/db/supabase"
 
 // --- Type Definitions ---
 
-// Represents the raw data structure from the 'competences' table
-interface SupabaseCompetence {
-	id: string;
-	name: string;
-	description: string;
-	category: string | null; // From DB schema (assuming nullable)
-	// Add other fields if selected, e.g., user_rating if it existed in DB
-	// For demo, we'll add userRating client-side
-}
-
-// Represents the Competence data structure used within this page/component
-// Includes client-side additions like userRating
+// Structure expected by CompetenceSelect and DevelopmentGuide
 export interface Competence {
 	id: string;
 	name: string;
 	description: string;
-	category?: string; // Make optional as it might be null from DB or added later
-	userRating?: number; // Added client-side for demo
+	category?: string; // Added client-side
+	userRating?: number; // Added client-side
 }
 
-// Represents the raw data structure from the 'development_activities' table
-interface SupabaseDevelopmentActivity {
-	id: string;
-	competence_id: string; // snake_case from DB
-	activity_type: string; // raw string from DB ('job', 'social', 'formal')
-	description: string;
-}
-
-// Represents the DevelopmentActivity data structure used by child components (like ActivityCard)
-// Needs transformation from SupabaseDevelopmentActivity (camelCase, validated type)
+// Structure expected by LearningTabs and ActivityCard
 export interface DevelopmentActivity {
 	id: string;
-	// competenceId: string; // We might not need this if filtering is done here
-	activityType: 'job' | 'social' | 'formal' | 'unknown'; // Use validated union type
+	activityType: 'job' | 'social' | 'formal' | 'unknown';
 	description: string;
 }
 
-// Helper function to safely validate and cast activity type
+// Helper to assign category deterministically based on ID
+const COMPETENCE_CATEGORIES = ["Cognitive", "Interpersonal", "Execution", "General"];
+function assignCompetenceCategory(id: string): string {
+	if (!id) return "General";
+	const hash = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+	return COMPETENCE_CATEGORIES[hash % COMPETENCE_CATEGORIES.length]!;
+}
+
+// Helper to map DB activity type string
 function mapActivityType(typeString: string | null | undefined): DevelopmentActivity['activityType'] {
 	if (typeString === 'job' || typeString === 'social' || typeString === 'formal') {
 		return typeString;
 	}
-	console.warn(`Unknown activity type received: ${typeString}`);
-	return 'unknown'; // Default to 'unknown' if type is not recognized or null/undefined
+	if (typeString) console.warn(`Unknown activity type: ${typeString}`);
+	return 'unknown';
 }
 
 // --- Component ---
-
 export default function DevelopmentPage() {
-	const [selectedFamily, setSelectedFamily] = useState<string | null>(null) // Assuming family ID is string
-	const [selectedCompetenceId, setSelectedCompetenceId] = useState<string | null>(null)
-	const [competences, setCompetences] = useState<Competence[]>([]) // Use local Competence type
-	const [activities, setActivities] = useState<DevelopmentActivity[]>([]) // Use local DevelopmentActivity type
-	const [isLoadingCompetences, setIsLoadingCompetences] = useState(true)
-	const [isLoadingActivities, setIsLoadingActivities] = useState(false) // Separate loading state
+	const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
+	const [selectedCompetenceId, setSelectedCompetenceId] = useState<string | null>(null);
+	const [competences, setCompetences] = useState<Competence[]>([]);
+	const [activities, setActivities] = useState<DevelopmentActivity[]>([]);
+	const [isLoadingCompetences, setIsLoadingCompetences] = useState(false);
+	const [isLoadingActivities, setIsLoadingActivities] = useState(false);
+	const [fetchError, setFetchError] = useState<string | null>(null); // State to hold fetch error message
 
-	// TODO: Fetch Job Families for the Slider (if not already handled in JobFamiliesSlider)
-	// Example:
-	// useEffect(() => {
-	//   async function fetchFamilies() { ... supabase fetch ... setFamiliesState }
-	//   fetchFamilies();
-	// }, []);
-	// For now, let's assume JobFamiliesSlider fetches its own data or receives it via props
-
-	// Effect to fetch competences (runs initially or when selectedFamily changes)
-	// TEMP: Fetching *all* competences for now, ignoring selectedFamily as per original code
+	// Fetch competences based on selected family
 	useEffect(() => {
-		async function fetchCompetences() {
-			// if (!selectedFamily) { // Re-enable this if you want to filter by family
-			//     setCompetences([]);
-			//     setSelectedCompetenceId(null);
-			//     setIsLoadingCompetences(false);
-			//     return;
-			// }
+		async function fetchCompetencesForFamily() {
+			setFetchError(null); // Clear previous error
+			if (!selectedFamily) {
+				setCompetences([]);
+				setSelectedCompetenceId(null);
+				setIsLoadingCompetences(false);
+				return;
+			}
+
+			setIsLoadingCompetences(true);
+			setCompetences([]);
+			setSelectedCompetenceId(null);
 
 			try {
-				setIsLoadingCompetences(true)
-				setCompetences([]); // Clear previous competences
-				setSelectedCompetenceId(null); // Clear selected competence
-
-				// Fetch from Supabase, expecting SupabaseCompetence structure
+				// Fetch ALL competences for now (id, name, description ONLY)
+				// If this still fails with {}, the issue is likely RLS or client config
 				const { data, error } = await supabase
 					.from('competences')
-					.select('id, name, description, category') // Select specific columns
-					// .eq('job_family_id', selectedFamily) // TODO: Add filter if needed based on schema
-					.returns<SupabaseCompetence[]>()
+					.select('id, name, description'); // Match INSERT data
 
 				if (error) {
-					console.error("Error fetching competences:", error)
-					setCompetences([]); // Ensure state is empty on error
-					return
-				}
-
-				if (!data) {
-					console.warn("No competence data received.");
+					// Log more details if available
+					console.error("Error fetching competences:", error.message || error);
+					console.error("Error details:", error.details || 'N/A');
+					console.error("Error hint:", error.hint || 'N/A');
+					console.error("Error code:", error.code || 'N/A');
+					setFetchError(`Failed to load competences: ${error.message || 'Unknown error'}`);
 					setCompetences([]);
+					setIsLoadingCompetences(false);
 					return;
 				}
 
-				// Transform Supabase data to match our component's Competence interface
+				if (!data) {
+					setCompetences([]);
+					setIsLoadingCompetences(false);
+					return;
+				}
+
+				// TODO: Filter these 'data' based on 'selectedFamily' using 'job_family_competences'
+				// This requires fetching relationships first, similar to the previous attempt.
+				// For now, showing ALL fetched competences to test the basic fetch.
+
+				// Transform data: Add category and userRating client-side
 				const transformedData: Competence[] = data.map(item => ({
 					id: item.id,
 					name: item.name,
 					description: item.description,
-					category: item.category ?? undefined, // Handle null category from DB
-					userRating: Math.floor(Math.random() * 50) + 50 // Assign random rating (50-100) for demo
+					category: assignCompetenceCategory(item.id), // Assign category based on ID
+					userRating: Math.floor(Math.random() * 50) + 50 // Keep demo rating
 				}));
 
-				setCompetences(transformedData)
+				setCompetences(transformedData);
 
-				// Automatically select the first competence if available
 				if (transformedData.length > 0 && transformedData[0]?.id) {
-					setSelectedCompetenceId(transformedData[0].id)
+					setSelectedCompetenceId(transformedData[0].id);
 				} else {
-					setSelectedCompetenceId(null); // Ensure no competence is selected if list is empty
+					setSelectedCompetenceId(null);
 				}
 
-			} catch (error) {
-				console.error("Error transforming or setting competences:", error)
-				setCompetences([]); // Reset state on catch
+			} catch (err) {
+				// Catch any other unexpected errors during processing
+				console.error("Unexpected error in competence fetch/process:", err);
+				setFetchError("An unexpected error occurred while loading competences.");
+				setCompetences([]);
 				setSelectedCompetenceId(null);
 			} finally {
-				setIsLoadingCompetences(false)
+				setIsLoadingCompetences(false);
 			}
 		}
 
-		fetchCompetences()
-		// }, [selectedFamily]); // Re-enable selectedFamily dependency if filtering by it
-	}, []); // Run once on mount for now (fetching all)
+		fetchCompetencesForFamily();
+	}, [selectedFamily]); // Re-run when family changes
 
-
-	// Effect to fetch activities when selectedCompetenceId changes
+	// Fetch activities (no changes needed here for now)
 	useEffect(() => {
 		async function fetchActivities() {
 			if (!selectedCompetenceId) {
-				setActivities([]); // Clear activities if no competence is selected
+				setActivities([]);
 				setIsLoadingActivities(false);
 				return;
 			}
+			setIsLoadingActivities(true);
+			setActivities([]);
 
 			try {
-				setIsLoadingActivities(true);
-				setActivities([]); // Clear previous activities
-
-				// Fetch from Supabase, expecting SupabaseDevelopmentActivity structure
 				const { data, error } = await supabase
 					.from('development_activities')
-					.select('id, competence_id, activity_type, description') // Select specific columns
-					.eq('competence_id', selectedCompetenceId)
-					.returns<SupabaseDevelopmentActivity[]>()
+					.select('id, competence_id, activity_type, description')
+					.eq('competence_id', selectedCompetenceId); // Type inference is usually okay here
 
 				if (error) {
-					console.error("Error fetching activities:", error)
-					setActivities([]); // Ensure state is empty on error
-					return
-				}
-
-				if (!data) {
-					console.warn("No activity data received for competence:", selectedCompetenceId);
+					console.error("Error fetching activities:", error.message || error);
 					setActivities([]);
+					setIsLoadingActivities(false);
 					return;
 				}
 
-				// Transform Supabase data to match component's DevelopmentActivity interface
-				const transformedData: DevelopmentActivity[] = data.map(item => ({
+				const transformedData: DevelopmentActivity[] = (data || []).map(item => ({
 					id: item.id,
-					// competenceId: item.competence_id, // Include if needed by LearningTabs/ActivityCard
-					activityType: mapActivityType(item.activity_type), // Use helper for validation/casting
+					activityType: mapActivityType(item.activity_type),
 					description: item.description,
 				}));
+				setActivities(transformedData);
 
-				setActivities(transformedData || []); // Use empty array as fallback
-
-			} catch (error) {
-				console.error("Error transforming or setting activities:", error);
-				setActivities([]); // Reset state on catch
+			} catch (err) {
+				console.error("Unexpected error processing activities:", err);
+				setActivities([]);
 			} finally {
 				setIsLoadingActivities(false);
 			}
 		}
+		fetchActivities();
+	}, [selectedCompetenceId]);
 
-		fetchActivities()
-	}, [selectedCompetenceId]); // Re-run whenever the selected competence changes
-
-	// Find the full competence object based on the selected ID
 	const currentCompetence = competences.find(c => c.id === selectedCompetenceId);
+
+	// Derived states for rendering logic
+	const showCompetenceLoader = isLoadingCompetences;
+	const showActivityLoader = isLoadingActivities;
+	const showCompetenceError = !isLoadingCompetences && fetchError;
+	const showCompetenceEmptyState = !isLoadingCompetences && !fetchError && (!selectedFamily || competences.length === 0);
+	const showGuidePlaceholder = !selectedCompetenceId && !isLoadingCompetences && !fetchError;
+	const showActivityPlaceholder = !selectedCompetenceId && !isLoadingActivities && !isLoadingCompetences && !fetchError;
 
 	return (
 		<div className="space-y-6 p-6">
+			{/* Header */}
 			<div className="mb-8">
 				<h1 className="text-3xl font-bold tracking-tight">Development Plan</h1>
 				<p className="text-muted-foreground">
@@ -207,60 +191,65 @@ export default function DevelopmentPage() {
 				</p>
 			</div>
 
-			{/* Job Families Slider - Needs data/logic */}
+			{/* Job Families Slider */}
 			<JobFamiliesSlider
 				selectedFamily={selectedFamily}
-				onSelectFamily={(familyId) => {
-					setSelectedFamily(familyId);
-					// Optionally reset competence selection when family changes
-					// setSelectedCompetenceId(null);
-					// setActivities([]);
-				}}
+				onSelectFamily={setSelectedFamily}
 			/>
 
 			{/* Main Content Grid */}
 			<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-				{/* Left Column: Competence Selection */}
+				{/* Competence Selection Column */}
 				<div className="md:col-span-1">
-					<Card className="p-4 md:p-6"> {/* Adjusted padding */}
-						<h2 className="mb-4 text-xl font-semibold">Select Competence</h2>
-						{isLoadingCompetences ? (
+					<Card className="bg-neutral-800 p-4 md:p-6">
+						<h2 className="mb-4 text-xl font-semibold text-white">Select Competence</h2>
+						{showCompetenceLoader ? (
 							<div className="space-y-3">
-								{/* Skeleton Loader */}
 								{Array.from({ length: 4 }).map((_, i) => (
-									<div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />
+									<div key={i} className="h-16 animate-pulse rounded-lg bg-neutral-700" />
 								))}
 							</div>
-						) : competences.length === 0 ? (
-							<p className="text-muted-foreground">No competences found for the selected criteria.</p>
+						) : showCompetenceError ? (
+							<div className="rounded-lg border border-red-900 bg-neutral-800 p-6 text-center">
+								<p className="text-red-400">Error: {fetchError}</p>
+							</div>
+						) : showCompetenceEmptyState ? (
+							<div className="rounded-lg border border-neutral-700 bg-neutral-800 p-6 text-center">
+								<p className="text-neutral-400">
+									{!selectedFamily ? "Select a Job Family first." : "No competences found."}
+								</p>
+							</div>
 						) : (
 							<CompetenceSelect
 								competences={competences}
-								selectedId={selectedCompetenceId} // Pass ID, handle null
+								selectedId={selectedCompetenceId}
 								onSelect={setSelectedCompetenceId}
 							/>
 						)}
 					</Card>
 				</div>
 
-				{/* Right Column: Guide and Activities */}
-				<div className="md:col-span-2 space-y-6"> {/* Added space-y */}
-					{/* Development Guide */}
-					<DevelopmentGuide competence={currentCompetence} />
-
-					{/* Learning Activities Tabs */}
-					{/* Show loading state while activities are loading */}
-					{isLoadingActivities ? (
-						<Card className="p-6">
-							<div className="h-40 animate-pulse rounded-lg bg-muted" />
+				{/* Guide and Activities Column */}
+				<div className="md:col-span-2 space-y-6">
+					{showGuidePlaceholder ? (
+						<Card className="flex h-48 items-center justify-center bg-neutral-800 p-6">
+							<p className="text-neutral-400">Select a competence to see the guide.</p>
 						</Card>
-					) : selectedCompetenceId ? ( // Only show tabs if a competence is selected
-						<LearningTabs activities={activities} />
 					) : (
-						<Card className="p-6">
-							<p className="text-muted-foreground">Select a competence to see learning activities.</p>
-						</Card>
+						<DevelopmentGuide competence={currentCompetence} />
 					)}
+
+					{showActivityPlaceholder ? (
+						<Card className="flex h-48 items-center justify-center bg-neutral-800 p-6">
+							<p className="text-neutral-400">Select a competence to see learning activities.</p>
+						</Card>
+					) : showActivityLoader ? (
+						<Card className="bg-neutral-800 p-6">
+							<div className="h-40 animate-pulse rounded-lg bg-neutral-700" />
+						</Card>
+					) : selectedCompetenceId ? (
+						<LearningTabs activities={activities} />
+					) : null}
 				</div>
 			</div>
 		</div>
