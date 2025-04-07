@@ -26,8 +26,8 @@ export function PlayerCard() {
 	const xpProgress = (playerData.xp / playerData.xpToNextLevel) * 100
 
 	return (
-		<Card className="w-64 overflow-hidden bg-white/90 backdrop-blur-sm dark:bg-neutral-800/90">
-			<div className="bg-indigo-600 p-3 dark:bg-indigo-800">
+		<Card className="w-52 overflow-hidden bg-card backdrop-blur-sm">
+			<div className="bg-indigo-600 dark:bg-indigo-800">
 				<div className="flex items-center gap-3">
 					{/* Avatar placeholder */}
 					<div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-indigo-600">

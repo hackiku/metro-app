@@ -7,7 +7,7 @@ import { Metro } from "~/app/_components/metro/Metro";
 import { GameTabs } from "./GameTabs";
 
 export default function SkillTreePage() {
-	const [activeTab, setActiveTab] = useState("core");
+	const [activeTab, setActiveTab] = useState("technical");
 
 	return (
 		<div className="relative h-full">
@@ -17,7 +17,7 @@ export default function SkillTreePage() {
 			</div>
 
 			{/* Bottom centered tabs */}
-			<div className="absolute bottom-6 left-0 right-0 z-10 flex justify-center">
+			<div className="absolute bottom-2 left-0 right-0 z-10 flex justify-center">
 				<GameTabs activeTab={activeTab} onTabChange={setActiveTab} />
 			</div>
 		</div>

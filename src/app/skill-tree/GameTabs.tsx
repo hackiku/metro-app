@@ -12,16 +12,16 @@ interface GameTabsProps {
 // Visualization options
 const VISUALIZATIONS = [
 	{
-		id: "core",
-		name: "D3 Tangled Tree",
-		icon: <Network className="h-5 w-5" />,
-		color: "bg-indigo-600"
-	},
-	{
 		id: "technical",
 		name: "Metro Map",
 		icon: <Map className="h-5 w-5" />,
 		color: "bg-amber-500"
+	},
+	{
+		id: "core",
+		name: "D3 Tangled Tree",
+		icon: <Network className="h-5 w-5" />,
+		color: "bg-indigo-600"
 	},
 	{
 		id: "leadership",

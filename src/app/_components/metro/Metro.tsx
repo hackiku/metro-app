@@ -46,7 +46,7 @@ export function Metro({ activeTab }: MetroProps) {
 			</div>
 
 			{/* Player card in bottom right */}
-			<div className="absolute bottom-24 left-6 z-10">
+			<div className="absolute top-4 left-4 z-10">
 				<PlayerCard />
 			</div>
 
@@ -56,7 +56,7 @@ export function Metro({ activeTab }: MetroProps) {
 				<Card className="__p-4 shadow-md">
 				<SkillTabs
 					activeTab={activeTab}
-					onTabChange={() => { }} // Just for debug visualization
+					onTabChange={() => { }}
 				/>
 				</Card>
 			</div>
