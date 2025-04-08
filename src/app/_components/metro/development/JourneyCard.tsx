@@ -1,192 +1,213 @@
 // src/app/_components/metro/development/JourneyCard.tsx
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { useState } from "react"
+import {
+	MapPin,
+	Flag,
+	ArrowRight,
+	Clock,
+	Layers,
+	Circle,
+	CheckCircle2,
+	ChevronDown,
+	ChevronUp
+} from "lucide-react"
+import {
+	Card,
+	CardHeader,
+	CardTitle,
+	CardDescription,
+	CardContent
+} from "~/components/ui/card"
+import { Button } from "~/components/ui/button"
 import { Badge } from "~/components/ui/badge"
 import { Progress } from "~/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
-import { Briefcase, Users, BookOpen } from "lucide-react"
-import type { DevelopmentJourney } from "../types/development"
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger
+} from "~/components/ui/collapsible"
+
+interface DevelopmentStep {
+	title: string
+	type: "onTheJob" | "socialLearning" | "formalLearning"
+	description: string
+	durationInWeeks: number
+	completed: boolean
+}
 
 interface JourneyCardProps {
-	journey: DevelopmentJourney
-	className?: string
+	currentPosition: {
+		name: string
+		level: number
+	}
+	targetPosition: {
+		name: string
+		level: number
+	}
+	estimatedMonths: number
+	progressPercentage: number
+	steps: DevelopmentStep[]
 }
 
-export function JourneyCard({ journey, className = "" }: JourneyCardProps) {
-	// Group development steps by type (70/20/10 model)
-	const onTheJobActivities = journey.developmentSteps.filter(step =>
-		step.type === "onTheJob"
-	)
-	const socialLearningActivities = journey.developmentSteps.filter(step =>
-		step.type === "socialLearning"
-	)
-	const formalLearningActivities = journey.developmentSteps.filter(step =>
-		step.type === "formalLearning"
-	)
+export function JourneyCard({
+	currentPosition,
+	targetPosition,
+	estimatedMonths,
+	progressPercentage,
+	steps
+}: JourneyCardProps) {
+	const [isExpanded, setIsExpanded] = useState(true)
 
-	// If no development steps are available, show demo data
-	const hasRealData = journey.developmentSteps.length > 0
+	const completedSteps = steps.filter(step => step.completed).length
+	const totalSteps = steps.length
 
-	// Default development steps if none provided
-	const defaultOnTheJob = [
-		{
-			id: "demo-1",
-			name: "Take ownership of small, project-based initiatives",
-			description: "Lead small projects within your current team to develop project management skills",
-			type: "onTheJob" as const,
-			durationWeeks: 12
-		},
-		{
-			id: "demo-2",
-			name: "Lead retrospectives or sprint planning",
-			description: "Analyze delivery gaps and improve team processes",
-			type: "onTheJob" as const,
-			durationWeeks: 4
+	const getStepTypeColor = (type: string) => {
+		switch (type) {
+			case "onTheJob": return "bg-blue-500"
+			case "socialLearning": return "bg-purple-500"
+			case "formalLearning": return "bg-amber-500"
+			default: return "bg-gray-500"
 		}
-	]
+	}
 
-	const defaultSocialLearning = [
-		{
-			id: "demo-3",
-			name: "Find a mentor within the Project Management job family",
-			description: "Learn from experienced project managers through regular mentoring sessions",
-			type: "socialLearning" as const,
-			durationWeeks: 24
-		},
-		{
-			id: "demo-4",
-			name: "Join intervision groups with project managers",
-			description: "Participate in peer learning to develop project management skills",
-			type: "socialLearning" as const,
-			durationWeeks: 12
+	const getStepTypeLabel = (type: string) => {
+		switch (type) {
+			case "onTheJob": return "On-the-job"
+			case "socialLearning": return "Social learning"
+			case "formalLearning": return "Formal learning"
+			default: return "Learning"
 		}
-	]
+	}
 
-	const defaultFormalLearning = [
-		{
-			id: "demo-5",
-			name: "Attend 'project-based working' training",
-			description: "Learn structured project management approaches and methodologies",
-			type: "formalLearning" as const,
-			durationWeeks: 2
-		}
-	]
-
-	// Use real data or fallback to demo data
-	const displayOnTheJob = onTheJobActivities.length > 0 ? onTheJobActivities : defaultOnTheJob
-	const displaySocialLearning = socialLearningActivities.length > 0 ? socialLearningActivities : defaultSocialLearning
-	const displayFormalLearning = formalLearningActivities.length > 0 ? formalLearningActivities : defaultFormalLearning
+	if (!isExpanded) {
+		return (
+			<Button
+				variant="outline"
+				className="flex items-center gap-2 fixed bottom-4 right-4 z-10 bg-background/90 backdrop-blur-sm"
+				onClick={() => setIsExpanded(true)}
+			>
+				<MapPin className="h-4 w-4 text-primary" />
+				<span>View Journey</span>
+			</Button>
+		)
+	}
 
 	return (
-		<Card className={className}>
-			<CardHeader>
-				<CardTitle>Development Activities</CardTitle>
-				{!hasRealData && (
-					<p className="text-sm text-muted-foreground">
-						Example development activities based on the 70/20/10 model
-					</p>
-				)}
-
-				{/* Competency gaps */}
-				{journey.competencyGaps.length > 0 && (
-					<div className="mt-4">
-						<h4 className="mb-2 text-sm font-medium">Key Skills to Develop</h4>
-						<div className="flex flex-wrap gap-2">
-							{journey.competencyGaps.map(gap => (
-								<Badge key={gap.skillId} variant="secondary">
-									{gap.skillName} ({gap.currentLevel} → {gap.requiredLevel})
-								</Badge>
-							))}
-						</div>
+		<Card className="w-80 fixed bottom-4 right-4 z-10 shadow-lg bg-background/95 backdrop-blur-sm border-primary/10">
+			<CardHeader className="pb-2">
+				<div className="flex justify-between items-center">
+					<CardTitle className="text-base">Your Development Journey</CardTitle>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-7 w-7 p-0"
+						onClick={() => setIsExpanded(false)}
+					>
+						<ChevronDown className="h-4 w-4" />
+					</Button>
+				</div>
+				<CardDescription>
+					<div className="flex items-center text-xs">
+						<Badge variant="outline" className="font-normal mr-2">
+							{completedSteps}/{totalSteps} steps
+						</Badge>
+						<Progress value={progressPercentage} className="h-1.5 flex-1" />
 					</div>
-				)}
+				</CardDescription>
 			</CardHeader>
 
-			<CardContent>
-				<Tabs defaultValue="onTheJob">
-					<TabsList className="grid w-full grid-cols-3">
-						<TabsTrigger value="onTheJob" className="flex items-center gap-2">
-							<Briefcase className="h-4 w-4" />
-							<span className="hidden sm:inline">On the Job (70%)</span>
-							<span className="sm:hidden">70%</span>
-						</TabsTrigger>
-						<TabsTrigger value="socialLearning" className="flex items-center gap-2">
-							<Users className="h-4 w-4" />
-							<span className="hidden sm:inline">Social Learning (20%)</span>
-							<span className="sm:hidden">20%</span>
-						</TabsTrigger>
-						<TabsTrigger value="formalLearning" className="flex items-center gap-2">
-							<BookOpen className="h-4 w-4" />
-							<span className="hidden sm:inline">Formal Learning (10%)</span>
-							<span className="sm:hidden">10%</span>
-						</TabsTrigger>
-					</TabsList>
+			<CardContent className="pt-0">
+				{/* From-To Section */}
+				<div className="flex items-center gap-1 mb-3 text-sm">
+					<div className="flex items-center gap-1.5">
+						<MapPin className="h-4 w-4 text-muted-foreground" />
+						<span className="font-medium">{currentPosition.name}</span>
+						<Badge variant="outline" className="h-5 px-1.5 rounded-sm text-xs">
+							L{currentPosition.level}
+						</Badge>
+					</div>
 
-					<TabsContent value="onTheJob" className="mt-4 space-y-4">
-						{displayOnTheJob.map(activity => (
-							<ActivityCard
-								key={activity.id}
-								activity={activity}
-								type="onTheJob"
-							/>
-						))}
-					</TabsContent>
+					<ArrowRight className="h-3.5 w-3.5 mx-1 text-muted-foreground" />
 
-					<TabsContent value="socialLearning" className="mt-4 space-y-4">
-						{displaySocialLearning.map(activity => (
-							<ActivityCard
-								key={activity.id}
-								activity={activity}
-								type="socialLearning"
-							/>
-						))}
-					</TabsContent>
-
-					<TabsContent value="formalLearning" className="mt-4 space-y-4">
-						{displayFormalLearning.map(activity => (
-							<ActivityCard
-								key={activity.id}
-								activity={activity}
-								type="formalLearning"
-							/>
-						))}
-					</TabsContent>
-				</Tabs>
-			</CardContent>
-		</Card>
-	)
-}
-
-// Helper component for activity cards
-function ActivityCard({
-	activity,
-	type
-}: {
-	activity: { id: string; name: string; description: string; durationWeeks: number }
-	type: "onTheJob" | "socialLearning" | "formalLearning"
-}) {
-	// Set icon based on type
-	let Icon = Briefcase
-	if (type === "socialLearning") Icon = Users
-	if (type === "formalLearning") Icon = BookOpen
-
-	return (
-		<div className="rounded-lg border bg-card p-4 shadow-sm">
-			<div className="flex items-start gap-3">
-				<div className="mt-1 rounded-full bg-primary/10 p-2">
-					<Icon className="h-4 w-4 text-primary" />
-				</div>
-				<div className="flex-1">
-					<h4 className="text-sm font-medium">{activity.name}</h4>
-					<p className="mt-1 text-xs text-muted-foreground">{activity.description}</p>
-					<div className="mt-3 flex items-center gap-2">
-						<div className="text-xs text-muted-foreground">Duration: {activity.durationWeeks} weeks</div>
-						<Progress value={0} className="h-1 flex-1" />
-						<div className="text-xs font-medium">0%</div>
+					<div className="flex items-center gap-1.5">
+						<Flag className="h-4 w-4 text-primary" />
+						<span className="font-medium">{targetPosition.name}</span>
+						<Badge variant="outline" className="h-5 px-1.5 rounded-sm text-xs">
+							L{targetPosition.level}
+						</Badge>
 					</div>
 				</div>
-			</div>
-		</div>
+
+				{/* Estimated time */}
+				<div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
+					<Clock className="h-3.5 w-3.5" />
+					<span>Estimated time: {estimatedMonths} months</span>
+				</div>
+
+				{/* Steps List */}
+				<div className="space-y-3">
+					<div className="flex items-center gap-2">
+						<Layers className="h-4 w-4 text-primary" />
+						<h3 className="text-sm font-medium">Development Steps</h3>
+					</div>
+
+					<div className="space-y-2 pl-1">
+						{steps.map((step, index) => (
+							<Collapsible key={index} className="border rounded-md">
+								<div className="flex items-center p-2">
+									<div className="flex-shrink-0 mr-2">
+										{step.completed ? (
+											<CheckCircle2 className="h-5 w-5 text-primary" />
+										) : (
+											<Circle className="h-5 w-5 text-muted-foreground" />
+										)}
+									</div>
+
+									<div className="flex-grow min-w-0">
+										<div className="flex items-center justify-between">
+											<h4 className="text-sm font-medium truncate">
+												{step.title}
+											</h4>
+											<div className="flex items-center gap-1.5">
+												<Badge
+													className={`px-1.5 py-0 text-xs h-5 text-white ${getStepTypeColor(step.type)}`}
+												>
+													{getStepTypeLabel(step.type)}
+												</Badge>
+												<CollapsibleTrigger asChild>
+													<Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+														<ChevronDown className="h-3.5 w-3.5" />
+													</Button>
+												</CollapsibleTrigger>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<CollapsibleContent>
+									<div className="px-9 pb-2.5 text-xs text-muted-foreground">
+										<p className="mb-1.5">{step.description}</p>
+										<div className="flex items-center gap-1">
+											<Clock className="h-3 w-3" />
+											<span>{step.durationInWeeks} weeks</span>
+										</div>
+									</div>
+								</CollapsibleContent>
+							</Collapsible>
+						))}
+					</div>
+				</div>
+
+				{/* Actions */}
+				<div className="flex justify-end mt-4">
+					<Button size="sm" className="gap-1">
+						<Flag className="h-3.5 w-3.5" />
+						<span>Change Destination</span>
+					</Button>
+				</div>
+			</CardContent>
+		</Card>
 	)
 }

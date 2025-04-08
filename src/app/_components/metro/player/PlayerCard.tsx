@@ -2,11 +2,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, Brain, Shield, Zap, Star, ChevronDown, ChevronUp } from "lucide-react"
-import { Card } from "~/components/ui/card"
-import { Progress } from "~/components/ui/progress"
-import { Button } from "~/components/ui/button"
-import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar"
+import { Brain, Shield, Zap, Star, ChevronUp, MapPin } from "lucide-react"
+import { Card, CardContent } from "~/components/ui/card"
+import { Avatar } from "./Avatar"
+import { PlayerInfo } from "./PlayerInfo"
 import { supabase } from "~/server/db/supabase"
 
 interface UserSkill {
@@ -149,13 +148,6 @@ export function PlayerCard() {
 		fetchUserData()
 	}, [])
 
-	// The rest of the component remains the same...
-
-	// Calculate progress level for XP (simulated)
-	const currentLevel = userData?.station_level || 1
-	const years = userData?.years_experience || 0
-	const experienceProgress = Math.min(100, (years / 5) * 100)
-
 	// Group skills by type for visualization
 	const skillsByType = userSkills.reduce((acc, skill) => {
 		const type = skill.skill_type || 'Technical'
@@ -187,100 +179,58 @@ export function PlayerCard() {
 		}
 	})
 
-	// For collapsed state, show only the avatar
+	// For collapsed state, show only the avatar with level indicator
 	if (!isExpanded) {
 		return (
 			<div className="absolute top-4 left-4 z-10">
-				<Button
-					variant="outline"
-					size="icon"
-					className="h-12 w-12 rounded-full bg-background/80 p-0 backdrop-blur-sm"
+				<Avatar
+					src={userData?.avatar_url}
+					name={userData?.name}
+					level={userData?.station_level}
+					isExpanded={false}
 					onClick={() => setIsExpanded(true)}
-				>
-					<Avatar className="h-10 w-10">
-						<AvatarImage src={userData?.avatar_url || ""} alt={userData?.name || "User"} />
-						<AvatarFallback>{userData?.name?.charAt(0) || "U"}</AvatarFallback>
-					</Avatar>
-				</Button>
+				/>
 			</div>
 		)
 	}
 
 	return (
 		<div className="absolute top-4 left-4 z-10">
-			<Card className="w-64 overflow-hidden bg-background/90 shadow-lg backdrop-blur-sm">
-				<div className="flex justify-between bg-primary p-2 text-primary-foreground">
+			<Card className="w-72 overflow-hidden bg-background/95 shadow-lg backdrop-blur-sm border-primary/10">
+				{/* Header section - entire header is clickable to collapse */}
+				<div
+					className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/10 transition-colors"
+					onClick={() => setIsExpanded(false)}
+				>
 					<div className="flex items-center gap-3">
-						<Avatar className="h-12 w-12 border-2 border-primary-foreground">
-							<AvatarImage src={userData?.avatar_url || ""} alt={userData?.name || "User"} />
-							<AvatarFallback>{userData?.name?.charAt(0) || "U"}</AvatarFallback>
-						</Avatar>
+						<Avatar
+							src={userData?.avatar_url}
+							name={userData?.name}
+							level={userData?.station_level}
+							isExpanded={true}
+							onClick={() => { }}
+						/>
 
 						<div>
 							<h3 className="font-semibold">{userData?.name || "Loading..."}</h3>
-							<p className="text-xs opacity-90">{userData?.station_name || "Position loading..."}</p>
-						</div>
-					</div>
-
-					<Button
-						variant="ghost"
-						size="icon"
-						className="h-6 w-6 self-start text-primary-foreground/80 hover:text-primary-foreground"
-						onClick={() => setIsExpanded(false)}
-					>
-						<ChevronUp className="h-4 w-4" />
-					</Button>
-				</div>
-
-				<div className="p-3">
-					{/* Level and Experience */}
-					<div className="mb-3">
-						<div className="flex items-center justify-between text-sm">
-							<span className="font-medium">Level {currentLevel}</span>
-							<span className="text-xs text-muted-foreground">
-								{userData?.years_experience || 0} years experience
-							</span>
-						</div>
-						<Progress value={experienceProgress} className="mt-1 h-1.5" />
-					</div>
-
-					{/* Skills */}
-					<div className="space-y-2">
-						{skillScores.map((stat, index) => (
-							<div key={index} className="flex items-center gap-2">
-								<div className="text-muted-foreground">
-									{stat.icon}
-								</div>
-								<div className="flex-1">
-									<div className="flex items-center justify-between">
-										<span className="text-xs">{stat.name}</span>
-										<span className="text-xs font-medium">{stat.value}%</span>
-									</div>
-									<Progress value={stat.value} className="h-1" />
-								</div>
+							<div className="flex items-center gap-1 text-xs text-muted-foreground">
+								<MapPin className="h-3 w-3" />
+								<span>{userData?.station_name || "Position loading..."}</span>
 							</div>
-						))}
+						</div>
 					</div>
 
-					{/* Brief description */}
-					{userData?.profile_description && (
-						<p className="mt-3 text-xs italic text-muted-foreground">
-							"{userData.profile_description}"
-						</p>
-					)}
+					<ChevronUp className="h-4 w-4 text-muted-foreground" />
 				</div>
 
-				{/* Quick actions */}
-				<div className="border-t p-3 dark:border-gray-800">
-					<div className="flex items-center justify-between text-xs">
-						<Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary">
-							View Profile
-						</Button>
-						<Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary">
-							Development Plans
-						</Button>
-					</div>
-				</div>
+				<CardContent className="p-3 pt-1">
+					<PlayerInfo
+						years={userData?.years_experience || 0}
+						level={userData?.station_level || 1}
+						skills={skillScores}
+						description={userData?.profile_description}
+					/>
+				</CardContent>
 			</Card>
 		</div>
 	)
