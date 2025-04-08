@@ -1,17 +1,15 @@
-// src/app/_components/metro/MetroApp.tsx
+// src/app/_components/metro/Metro.tsx
 "use client"
 
-import { useEffect, useState, useRef } from "react"
-import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react"
-import { Button } from "~/components/ui/button"
-
-import { Player } from "./player/Player"
+import { useState, useRef, useEffect } from "react"
+// import { Player } from "./player/Player"
 import { PlayerCard } from "./player/PlayerCard"
 import { MetroMap, type MetroMapRef } from "./d3/MetroMap"
 import { fetchMetroLines, fetchStationDetails } from "./services/metroDataService"
-import type { MetroLine, MetroStation, StationDetail, StationSkill, DevelopmentStep } from "./types/metro"
+import type { MetroLine, MetroStation, StationDetail } from "./types/metro"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog"
 import { Badge } from "~/components/ui/badge"
+import { Button } from "~/components/ui/button"
 
 // Extend Window interface to store station coordinates
 declare global {
@@ -20,16 +18,15 @@ declare global {
 	}
 }
 
-interface MetroAppProps {
+interface MetroProps {
 	activeSkillCategory: string;
 	schema?: string;
 }
 
-export function MetroApp({ activeSkillCategory, schema = 'gasunie' }: MetroAppProps) {
+export function Metro({ activeSkillCategory, schema = 'gasunie' }: MetroProps) {
 	// Core state
 	const [metroLines, setMetroLines] = useState<MetroLine[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
-	const [zoomLevel, setZoomLevel] = useState(100);
 
 	// Station state
 	const [selectedStation, setSelectedStation] = useState<MetroStation | null>(null);
@@ -82,30 +79,6 @@ export function MetroApp({ activeSkillCategory, schema = 'gasunie' }: MetroAppPr
 		loadMetroData();
 	}, [activeSkillCategory, schema]);
 
-	// Zoom control handlers
-	const handleZoomIn = () => {
-		if (metroMapRef.current) {
-			metroMapRef.current.zoomIn();
-		}
-	};
-
-	const handleZoomOut = () => {
-		if (metroMapRef.current) {
-			metroMapRef.current.zoomOut();
-		}
-	};
-
-	const handleZoomReset = () => {
-		if (metroMapRef.current) {
-			metroMapRef.current.zoomReset();
-		}
-	};
-
-	// Track zoom level changes
-	const handleZoomChange = (transform: { k: number }) => {
-		setZoomLevel(Math.round(transform.k * 100));
-	};
-
 	return (
 		<div className="relative h-[calc(100dvh-4rem)] w-full bg-background overflow-hidden">
 			{/* Metro Map */}
@@ -116,51 +89,13 @@ export function MetroApp({ activeSkillCategory, schema = 'gasunie' }: MetroAppPr
 				onStationSelect={handleStationSelect}
 				selectedStation={selectedStation}
 				currentStation={currentStation}
-				onZoomChange={handleZoomChange}
 			/>
 
 			{/* Player - only show when map is loaded */}
-			{!isLoading && <Player currentStationId={currentStation?.id} />}
+			{/* {!isLoading && <Player currentStationId={currentStation?.id} />} */}
 
 			{/* Player Card */}
 			<PlayerCard />
-
-			{/* Zoom controls */}
-			<div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
-				<Button
-					variant="outline"
-					size="icon"
-					onClick={handleZoomIn}
-					className="bg-background/80 backdrop-blur-sm shadow-sm"
-				>
-					<ZoomIn className="h-4 w-4" />
-					<span className="sr-only">Zoom In</span>
-				</Button>
-
-				<Button
-					variant="outline"
-					size="icon"
-					onClick={handleZoomReset}
-					className="bg-background/80 backdrop-blur-sm shadow-sm"
-				>
-					<RotateCcw className="h-4 w-4" />
-					<span className="sr-only">Reset View</span>
-				</Button>
-
-				<Button
-					variant="outline"
-					size="icon"
-					onClick={handleZoomOut}
-					className="bg-background/80 backdrop-blur-sm shadow-sm"
-				>
-					<ZoomOut className="h-4 w-4" />
-					<span className="sr-only">Zoom Out</span>
-				</Button>
-
-				<div className="text-xs text-center text-muted-foreground">
-					{zoomLevel}%
-				</div>
-			</div>
 
 			{/* Station Details Dialog */}
 			<Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
@@ -188,7 +123,7 @@ export function MetroApp({ activeSkillCategory, schema = 'gasunie' }: MetroAppPr
 									<h3 className="mb-2 font-medium">Key Skills Required</h3>
 									{stationDetails.skills.length > 0 ? (
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-											{stationDetails.skills.map((skill: StationSkill, index: number) => (
+											{stationDetails.skills.map((skill, index) => (
 												<div key={index} className="flex items-center p-2 border rounded-md">
 													<div className="mr-2">
 														<div className="h-3 w-3 rounded-full"
@@ -214,7 +149,7 @@ export function MetroApp({ activeSkillCategory, schema = 'gasunie' }: MetroAppPr
 									<h3 className="mb-2 font-medium">Development Path</h3>
 									{stationDetails.developmentSteps.length > 0 ? (
 										<div className="space-y-3">
-											{stationDetails.developmentSteps.map((step: DevelopmentStep, index: number) => (
+											{stationDetails.developmentSteps.map((step, index) => (
 												<div key={index} className="p-3 border rounded-md bg-muted/40">
 													<div className="flex justify-between items-center mb-1">
 														<h4 className="font-medium">{step.name}</h4>

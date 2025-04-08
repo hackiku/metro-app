@@ -2,7 +2,7 @@
 "use client"
 
 import { useState } from "react"
-import { MetroApp } from "~/app/_components/metro/MetroApp"
+import { Metro } from "~/app/_components/metro/Metro"
 import { GameTabs } from "~/app/metro/GameTabs"
 
 export default function MetroPage() {
@@ -12,7 +12,7 @@ export default function MetroPage() {
 		<div className="relative h-full">
 			{/* Main Metro Component */}
 			<div className="absolute inset-0">
-				<MetroApp activeSkillCategory={activeTab} />
+				<Metro activeSkillCategory={activeTab} />
 			</div>
 
 			{/* Bottom centered tabs */}
