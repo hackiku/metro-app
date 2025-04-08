@@ -3,7 +3,7 @@
 
 import { useState } from "react"
 import { MetroApp } from "~/app/_components/metro/MetroApp"
-// import { GameTabs } from "~/app/skill-tree/GameTabs"
+import { GameTabs } from "~/app/metro/GameTabs"
 
 export default function MetroPage() {
 	const [activeTab, setActiveTab] = useState("technical")

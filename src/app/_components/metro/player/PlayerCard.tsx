@@ -209,7 +209,7 @@ export function PlayerCard() {
 	return (
 		<div className="absolute top-4 left-4 z-10">
 			<Card className="w-64 overflow-hidden bg-background/90 shadow-lg backdrop-blur-sm">
-				<div className="flex justify-between bg-primary p-3 text-primary-foreground">
+				<div className="flex justify-between bg-primary p-2 text-primary-foreground">
 					<div className="flex items-center gap-3">
 						<Avatar className="h-12 w-12 border-2 border-primary-foreground">
 							<AvatarImage src={userData?.avatar_url || ""} alt={userData?.name || "User"} />
@@ -277,7 +277,7 @@ export function PlayerCard() {
 							View Profile
 						</Button>
 						<Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary">
-							Development Plan
+							Development Plans
 						</Button>
 					</div>
 				</div>

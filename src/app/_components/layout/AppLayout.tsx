@@ -17,7 +17,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 	// Keep track of sidebar collapsed state
 	const [isCollapsed, setIsCollapsed] = useState(false);
 	// Default sidebar width percentage
-	const defaultSidebarSize = 18; // 15% of screen width
+	const defaultSidebarSize = 4; // 15% of screen width
 	// Threshold at which sidebar collapses (in %)
 	const collapseThreshold = 10;
 
