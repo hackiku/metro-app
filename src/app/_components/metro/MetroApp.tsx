@@ -2,6 +2,10 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
+
+import { Player } from "./player/Player"
+import { PlayerCard } from "./player/PlayerCard"
+
 import { D3MetroMap } from "./d3/MetroMap"
 import { ZoomControls } from "./controls/ZoomControls"
 import { fetchMetroLines, fetchStationDetails } from "./services/metroDataService"
@@ -101,6 +105,11 @@ export function MetroApp({ activeSkillCategory, schema = 'gasunie' }: MetroAppPr
 				selectedStation={selectedStation}
 				stationDetails={stationDetails}
 			/>
+
+			<Player />
+
+			<PlayerCard />
+
 
 			{/* Zoom controls */}
 			<div className="absolute top-4 right-4 z-10">

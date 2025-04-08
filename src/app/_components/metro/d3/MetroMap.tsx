@@ -137,7 +137,7 @@ export function D3MetroMap({
 			})
 		})
 	}, [lines, selectedStation, onStationSelect, width, height])
-	
+
 	if (isLoading) {
 		return (
 			<Card className="w-full h-full flex items-center justify-center">
