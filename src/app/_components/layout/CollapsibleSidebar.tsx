@@ -6,6 +6,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Play,
+  FolderTree,
+  Factory,
   Home,
   Layers,
   Award,
@@ -39,9 +41,23 @@ export function CollapsibleSidebar({ isCollapsed }: CollapsibleSidebarProps) {
       <TooltipProvider delayDuration={0}>
         <nav className="space-y-1">
           <NavItem 
-            href="/skill-tree" 
+            href="/metro" 
             icon={<Play className="h-5 w-5" />} 
             text="Metro" 
+            isCollapsed={isCollapsed}
+            isActive={pathname === "/metro"}
+          />
+          <NavItem 
+            href="/skill-tree" 
+						icon={<FolderTree className="h-5 w-5" />} 
+            text="Skill Tree" 
+            isCollapsed={isCollapsed}
+            isActive={pathname === "/skill-tree"}
+          />
+          <NavItem 
+            href="/organization" 
+						icon={<Factory className="h-5 w-5" />} 
+            text="Organization" 
             isCollapsed={isCollapsed}
             isActive={pathname === "/skill-tree"}
           />
