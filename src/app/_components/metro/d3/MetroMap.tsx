@@ -19,7 +19,7 @@ interface MetroMapProps {
 	height?: number
 }
 
-export function D3MetroMap({
+export function MetroMap({
 	lines,
 	isLoading = false,
 	onStationSelect,

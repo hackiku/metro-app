@@ -6,7 +6,7 @@ import { useEffect, useState, useRef } from "react"
 import { Player } from "./player/Player"
 import { PlayerCard } from "./player/PlayerCard"
 
-import { D3MetroMap } from "./d3/MetroMap"
+import { MetroMap } from "./d3/MetroMap"
 import { ZoomControls } from "./controls/ZoomControls"
 import { fetchMetroLines, fetchStationDetails } from "./services/metroDataService"
 import type { MetroLine, MetroStation, StationDetail, StationSkill, DevelopmentStep } from "./types/metro"
@@ -98,7 +98,7 @@ export function MetroApp({ activeSkillCategory, schema = 'gasunie' }: MetroAppPr
 
 	return (
 		<div className="relative h-full w-full bg-background">
-			<D3MetroMap
+			<MetroMap
 				lines={metroLines}
 				isLoading={isLoading}
 				onStationSelect={handleStationSelect}
