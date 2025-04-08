@@ -40,7 +40,7 @@ export function PlayerCard() {
 				setIsLoading(true)
 
 				// Fetch demo user (in a real app, this would be the current authenticated user)
-				const { data: userData, error: userError } = await supabase
+				const { data: userDataResponse, error: userError } = await supabase
 					.schema('gasunie')
 					.from('demo_users')
 					.select(`
@@ -53,22 +53,32 @@ export function PlayerCard() {
           `)
 					.single()
 
-				if (userError) {
+				if (userError || !userDataResponse) {
 					console.error('Error fetching user data:', userError)
 					return
 				}
 
+				// Create a proper UserData object
+				const userDataObject: UserData = {
+					id: userDataResponse.id,
+					name: userDataResponse.name,
+					current_station_id: userDataResponse.current_station_id,
+					years_experience: userDataResponse.years_experience,
+					profile_description: userDataResponse.profile_description,
+					avatar_url: userDataResponse.avatar_url,
+				};
+
 				// Get station details
-				if (userData?.current_station_id) {
+				if (userDataObject.current_station_id) {
 					const { data: stationData } = await supabase
 						.schema('gasunie')
 						.from('metro_stations')
 						.select('name, job_level_id')
-						.eq('id', userData.current_station_id)
+						.eq('id', userDataObject.current_station_id)
 						.single()
 
 					if (stationData) {
-						userData.station_name = stationData.name
+						userDataObject.station_name = stationData.name
 
 						// Get job level
 						if (stationData.job_level_id) {
@@ -80,16 +90,16 @@ export function PlayerCard() {
 								.single()
 
 							if (levelData) {
-								userData.station_level = levelData.level_number
+								userDataObject.station_level = levelData.level_number
 							}
 						}
 					}
 				}
 
-				setUserData(userData)
+				setUserData(userDataObject)
 
 				// Fetch user skills
-				if (userData?.id) {
+				if (userDataObject.id) {
 					const { data: skillsData, error: skillsError } = await supabase
 						.schema('gasunie')
 						.from('user_skills')
@@ -98,7 +108,7 @@ export function PlayerCard() {
               skill_id,
               proficiency_level
             `)
-						.eq('user_id', userData.id)
+						.eq('user_id', userDataObject.id)
 
 					if (skillsError) {
 						console.error('Error fetching user skills:', skillsError)
@@ -138,6 +148,8 @@ export function PlayerCard() {
 
 		fetchUserData()
 	}, [])
+
+	// The rest of the component remains the same...
 
 	// Calculate progress level for XP (simulated)
 	const currentLevel = userData?.station_level || 1

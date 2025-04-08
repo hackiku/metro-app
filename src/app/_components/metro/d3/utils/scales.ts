@@ -1,6 +1,6 @@
 // src/app/_components/metro/d3/utils/scales.ts
 import * as d3 from "d3"
-import { MetroLine } from "../../types/metro"
+import type { MetroLine } from "../../types/metro"
 
 // Create scales for metro map based on data
 export function createMetroScales(lines: MetroLine[], width: number, height: number, padding = 40) {

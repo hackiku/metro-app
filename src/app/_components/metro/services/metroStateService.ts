@@ -1,6 +1,6 @@
 // src/app/_components/metro/services/metroStateService.ts
 import { useState, useCallback } from 'react'
-import { MetroFilterOptions, MetroViewState, MetroStation, MetroLine } from '../types/metro'
+import type { MetroFilterOptions, MetroViewState, MetroStation, MetroLine } from '../types/metro'
 
 // Default state values
 const defaultViewState: MetroViewState = {

@@ -31,7 +31,7 @@ export async function fetchHrData(year: number): Promise<HrDataRow[]> {
             .select('*')
             .eq('report_year', year)
             .order('area', { ascending: true }) // Optional: order by area for consistent display
-            .order('sub_area', { ascending: true, nullsfirst: true }); // Order sub_area as well
+            .order('sub_area', { ascending: true, nullsFirst: true }); // Order sub_area as well
 
         if (error) {
             console.error('Error fetching HR data:', error.message);

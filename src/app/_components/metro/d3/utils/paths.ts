@@ -1,6 +1,6 @@
 // src/app/_components/metro/d3/utils/paths.ts
 import * as d3 from "d3"
-import { MetroStation } from "../../types/metro"
+import type { MetroStation } from "../../types/metro"
 
 // Generate smooth curve path for a line
 export function generateLinePath(stations: MetroStation[]) {

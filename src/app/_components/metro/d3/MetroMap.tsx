@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import * as d3 from "d3"
-import { MetroLine, MetroStation } from "../types/metro"
+import type { MetroLine, MetroStation } from "../types/metro"
 import { Card } from "~/components/ui/card"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"

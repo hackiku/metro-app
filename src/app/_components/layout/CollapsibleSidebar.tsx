@@ -55,13 +55,13 @@ export function CollapsibleSidebar({ isCollapsed }: CollapsibleSidebarProps) {
             isCollapsed={isCollapsed}
             isActive={pathname === "/hr"}
           />
-          <NavItem 
+          {/* <NavItem 
             href="/skill-tree" 
 						icon={<FolderTree className="h-5 w-5" />} 
             text="Skill Tree" 
             isCollapsed={isCollapsed}
             isActive={pathname === "/skill-tree"}
-          />
+          /> */}
           <NavItem 
             href="/organization" 
 						icon={<Factory className="h-5 w-5" />} 
