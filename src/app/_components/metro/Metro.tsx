@@ -3,6 +3,7 @@
 
 import { useState } from "react"
 import { MetroMap } from "./map/MetroMap"
+import { MiniMap } from "./map/MiniMap"
 import { PositionIndicator } from "./map/PositionIndicator"
 import { SkillTabs } from "./controls/SkillTabs"
 import { PlayerCard } from "./player/PlayerCard"
@@ -59,6 +60,9 @@ export function Metro({ activeTab }: MetroProps) {
 					onTabChange={() => { }}
 				/>
 				</Card>
+			</div>
+			<div className="absolute bottom-4 right-4 z-10">
+				<MiniMap />
 			</div>
 		</div>
 	)

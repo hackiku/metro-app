@@ -36,7 +36,8 @@ export function TableSelector({ tables, selectedTable, onSelectTable }: TableSel
 					aria-expanded={open}
 					className="w-[220px] justify-between"
 				>
-					{selectedTable ? `gasunie.${selectedTable}` : "Select table..."}
+					{selectedTable ? selectedTable : "Select table..."}
+					{/* {selectedTable ? `gasunie.${selectedTable}` : "Select table..."} */}
 					<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
 				</Button>
 			</PopoverTrigger>

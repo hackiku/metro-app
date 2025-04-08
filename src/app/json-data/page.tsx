@@ -39,7 +39,7 @@ export default function JsonDataPage() {
 			try {
 				let query = supabase
 					.from(selectedTable)
-					.select('gasunie')
+					.select('*')
 					// .schema('gasunie')
 					.limit(rowLimit)
 

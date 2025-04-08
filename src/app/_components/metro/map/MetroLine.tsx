@@ -3,14 +3,7 @@
 "use client"
 
 import { useState } from "react"
-
-interface Station {
-	id: string
-	name: string
-	level: number
-	x: number
-	y: number
-}
+import type { MetroLine } from "../services/metroDataService"
 
 interface LineProps {
 	id: string
