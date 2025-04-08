@@ -97,7 +97,8 @@ export function MetroApp({ activeSkillCategory, schema = 'gasunie' }: MetroAppPr
 	}
 
 	return (
-		<div className="relative h-full w-full bg-background">
+		<div className="relative h-[calc(100dvh-4rem)] w-full bg-background overflow-hidden">
+			{/* 4rem is the height of your navbar */}
 			<MetroMap
 				lines={metroLines}
 				isLoading={isLoading}
@@ -105,7 +106,6 @@ export function MetroApp({ activeSkillCategory, schema = 'gasunie' }: MetroAppPr
 				selectedStation={selectedStation}
 				stationDetails={stationDetails}
 			/>
-
 			<Player />
 
 			<PlayerCard />
@@ -113,12 +113,13 @@ export function MetroApp({ activeSkillCategory, schema = 'gasunie' }: MetroAppPr
 
 			{/* Zoom controls */}
 			<div className="absolute top-4 right-4 z-10">
-				<ZoomControls
+				
+				{/* <ZoomControls
 					onZoomIn={handleZoomIn}
 					onZoomOut={handleZoomOut}
 					onReset={handleZoomReset}
 					zoom={zoom}
-				/>
+				/> */}
 			</div>
 
 			{/* Station Details Dialog */}

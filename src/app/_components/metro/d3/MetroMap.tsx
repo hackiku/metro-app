@@ -1,20 +1,16 @@
-// src/app/_components/metro/d3/MetroMap.tsx
+// src/app/_components/metro/d3/MetroMap.tsx (updated)
 "use client"
 
 import { useEffect, useRef, useState } from "react"
 import * as d3 from "d3"
 import type { MetroLine, MetroStation } from "../types/metro"
-import { Card } from "~/components/ui/card"
-import { Badge } from "~/components/ui/badge"
-import { Button } from "~/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog"
 
 interface MetroMapProps {
 	lines: MetroLine[]
 	isLoading?: boolean
 	onStationSelect?: (station: MetroStation) => void
 	selectedStation?: MetroStation | null
-	stationDetails?: any // Replace with proper type
+	stationDetails?: any
 	width?: number
 	height?: number
 }
@@ -29,12 +25,9 @@ export function MetroMap({
 	height = 600
 }: MetroMapProps) {
 	const svgRef = useRef<SVGSVGElement>(null)
-	const [zoom, setZoom] = useState({ k: 1, x: 0, y: 0 })
+	const [transform, setTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity)
 
-	// Setup zoom behavior
-	// src/app/_components/metro/d3/MetroMap.tsx
-	// Update the rendering effect:
-
+	// Setup D3 visualization
 	useEffect(() => {
 		if (!svgRef.current || lines.length === 0) return
 
@@ -70,7 +63,7 @@ export function MetroMap({
 			.domain([minY, maxY])
 			.range([height * 0.1, height * 0.9]) // Add padding of 10% on each side
 
-		// Create a group for each line
+		// Draw metro lines
 		lines.forEach(line => {
 			const lineGroup = g.append("g")
 				.attr("class", `line-${line.id}`)
@@ -91,13 +84,14 @@ export function MetroMap({
 					.attr("stroke-linecap", "round")
 			}
 
-			// Create a group for each station
+			// Create stations
 			line.stations.forEach(station => {
 				const stationGroup = lineGroup.append("g")
 					.attr("class", "station")
 					.attr("transform", `translate(${xScale(station.x)},${yScale(station.y)})`)
 					.style("cursor", "pointer")
-					.on("click", () => {
+					.on("click", (event) => {
+						event.stopPropagation(); // Prevent triggering zoom/pan
 						if (onStationSelect) onStationSelect(station)
 					})
 
@@ -109,13 +103,10 @@ export function MetroMap({
 					.attr("stroke-width", 3)
 					.attr("class", "station-circle")
 
-				// Station name - offset based on station position to avoid overlaps
-				const labelX = 0
-				const labelY = -15
-
+				// Station name
 				stationGroup.append("text")
-					.attr("x", labelX)
-					.attr("y", labelY)
+					.attr("x", 0)
+					.attr("y", -15)
 					.attr("text-anchor", "middle")
 					.attr("class", "fill-foreground text-sm font-medium")
 					.text(station.name)
@@ -136,27 +127,57 @@ export function MetroMap({
 				}
 			})
 		})
-	}, [lines, selectedStation, onStationSelect, width, height])
+	}, [lines, selectedStation, onStationSelect, width, height, transform])
 
+	// Setup zoom behavior
+	useEffect(() => {
+		if (!svgRef.current) return
+
+		const svg = d3.select(svgRef.current)
+		const g = svg.select(".zoom-container")
+
+		// Create zoom behavior
+		const zoom = d3.zoom<SVGSVGElement, unknown>()
+			.scaleExtent([0.5, 5]) // Min and max zoom levels
+			.on("zoom", (event) => {
+				// Update the transform state
+				setTransform(event.transform)
+
+				// Apply transform to the container
+				g.attr("transform", event.transform.toString())
+			})
+
+		// Initialize zoom and enable wheel/drag
+		svg.call(zoom)
+			.on("dblclick.zoom", null) // Disable double-click zoom
+
+		// Reset zoom on component changes
+		return () => {
+			svg.on(".zoom", null)
+		}
+	}, [])
+
+	// Loading state
 	if (isLoading) {
 		return (
-			<Card className="w-full h-full flex items-center justify-center">
+			<div className="w-full h-full flex items-center justify-center">
 				<div className="text-center">
 					<div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-primary mx-auto mb-4"></div>
 					<p className="text-muted-foreground">Loading metro map...</p>
 				</div>
-			</Card>
+			</div>
 		)
 	}
 
+	// Empty state
 	if (lines.length === 0) {
 		return (
-			<Card className="w-full h-full flex items-center justify-center">
+			<div className="w-full h-full flex items-center justify-center">
 				<div className="text-center">
 					<p className="font-semibold text-foreground">No career paths found</p>
 					<p className="text-muted-foreground">No data available for the current view</p>
 				</div>
-			</Card>
+			</div>
 		)
 	}
 
@@ -164,19 +185,15 @@ export function MetroMap({
 		<div className="relative w-full h-full">
 			<svg
 				ref={svgRef}
-				width={width}
-				height={height}
+				width="100%"
+				height="100%"
 				className="w-full h-full bg-background"
 				viewBox={`0 0 ${width} ${height}`}
 				preserveAspectRatio="xMidYMid meet"
 			>
-				{/* Transform group for zoom */}
-				<g
-					className="zoom-container"
-					transform={`translate(${zoom.x},${zoom.y}) scale(${zoom.k})`}
-				/>
+				{/* Container for zoomable content */}
+				<g className="zoom-container" />
 			</svg>
 		</div>
 	)
 }
-

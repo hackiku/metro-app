@@ -28,7 +28,7 @@ interface UserData {
 }
 
 export function PlayerCard() {
-	const [isExpanded, setIsExpanded] = useState(true)
+	const [isExpanded, setIsExpanded] = useState(false)
 	const [userData, setUserData] = useState<UserData | null>(null)
 	const [userSkills, setUserSkills] = useState<UserSkill[]>([])
 	const [isLoading, setIsLoading] = useState(true)
