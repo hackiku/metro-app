@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   Play,
   FolderTree,
+  Handshake,
   Factory,
   Home,
   Layers,
@@ -46,6 +47,13 @@ export function CollapsibleSidebar({ isCollapsed }: CollapsibleSidebarProps) {
             text="Metro" 
             isCollapsed={isCollapsed}
             isActive={pathname === "/metro"}
+          />
+          <NavItem 
+            href="/hr" 
+						icon={<Handshake className="h-5 w-5" />} 
+            text="HR Metrics" 
+            isCollapsed={isCollapsed}
+            isActive={pathname === "/hr"}
           />
           <NavItem 
             href="/skill-tree" 

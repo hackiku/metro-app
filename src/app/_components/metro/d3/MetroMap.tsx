@@ -32,28 +32,9 @@ export function D3MetroMap({
 	const [zoom, setZoom] = useState({ k: 1, x: 0, y: 0 })
 
 	// Setup zoom behavior
-	useEffect(() => {
-		if (!svgRef.current) return
+	// src/app/_components/metro/d3/MetroMap.tsx
+	// Update the rendering effect:
 
-		const svg = d3.select(svgRef.current)
-
-		const zoomBehavior = d3.zoom()
-			.scaleExtent([0.5, 5])
-			.on("zoom", (event) => {
-				setZoom(event.transform)
-			})
-
-		svg.call(zoomBehavior as any)
-
-		// Reset zoom when lines change
-		zoomBehavior.transform(svg as any, d3.zoomIdentity)
-
-		return () => {
-			svg.on(".zoom", null)
-		}
-	}, [lines])
-
-	// Render the metro map with D3
 	useEffect(() => {
 		if (!svgRef.current || lines.length === 0) return
 
@@ -75,23 +56,31 @@ export function D3MetroMap({
 			})
 		})
 
-		// Add padding
-		minX -= 10
-		minY -= 10
-		maxX += 10
-		maxY += 10
+		// Calculate the spacing and scaling
+		const xRange = maxX - minX || 1
+		const yRange = maxY - minY || 1
+		const scaleFactor = Math.min(width / xRange, height / yRange) * 0.8
+
+		// Create scales for consistent spacing
+		const xScale = d3.scaleLinear()
+			.domain([minX, maxX])
+			.range([width * 0.1, width * 0.9]) // Add padding of 10% on each side
+
+		const yScale = d3.scaleLinear()
+			.domain([minY, maxY])
+			.range([height * 0.1, height * 0.9]) // Add padding of 10% on each side
 
 		// Create a group for each line
 		lines.forEach(line => {
 			const lineGroup = g.append("g")
 				.attr("class", `line-${line.id}`)
 
-			// Draw the line path
+			// Draw the line path if there are at least 2 stations
 			if (line.stations.length >= 2) {
 				// Line generator for curved paths
-				const lineGenerator = d3.line<MetroStation>()
-					.x(d => d.x)
-					.y(d => d.y)
+				const lineGenerator = d3.line<{ x: number, y: number }>()
+					.x(d => xScale(d.x))
+					.y(d => yScale(d.y))
 					.curve(d3.curveMonotoneX)
 
 				lineGroup.append("path")
@@ -106,7 +95,7 @@ export function D3MetroMap({
 			line.stations.forEach(station => {
 				const stationGroup = lineGroup.append("g")
 					.attr("class", "station")
-					.attr("transform", `translate(${station.x},${station.y})`)
+					.attr("transform", `translate(${xScale(station.x)},${yScale(station.y)})`)
 					.style("cursor", "pointer")
 					.on("click", () => {
 						if (onStationSelect) onStationSelect(station)
@@ -114,36 +103,41 @@ export function D3MetroMap({
 
 				// Station circle
 				stationGroup.append("circle")
-					.attr("r", 12)
-					.attr("fill", "white")
+					.attr("r", 8)
+					.attr("fill", "var(--background)")
 					.attr("stroke", line.color)
 					.attr("stroke-width", 3)
 					.attr("class", "station-circle")
 
-				// Station name
+				// Station name - offset based on station position to avoid overlaps
+				const labelX = 0
+				const labelY = -15
+
 				stationGroup.append("text")
-					.attr("y", -20)
+					.attr("x", labelX)
+					.attr("y", labelY)
 					.attr("text-anchor", "middle")
-					.attr("class", "text-foreground text-sm")
+					.attr("class", "fill-foreground text-sm font-medium")
 					.text(station.name)
 
 				// Station level
 				stationGroup.append("text")
-					.attr("y", 25)
+					.attr("x", 0)
+					.attr("y", 20)
 					.attr("text-anchor", "middle")
-					.attr("class", "text-xs text-muted-foreground")
+					.attr("class", "fill-muted-foreground text-xs")
 					.text(`Level ${station.level}`)
 
 				// Highlight selected station
 				if (selectedStation && selectedStation.id === station.id) {
 					stationGroup.select("circle")
-						.attr("r", 15)
+						.attr("r", 10)
 						.attr("stroke-width", 4)
 				}
 			})
 		})
-	}, [lines, selectedStation, onStationSelect])
-
+	}, [lines, selectedStation, onStationSelect, width, height])
+	
 	if (isLoading) {
 		return (
 			<Card className="w-full h-full flex items-center justify-center">
