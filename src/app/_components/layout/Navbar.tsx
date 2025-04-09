@@ -3,6 +3,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ModeToggle } from "~/components/ui/mode-toggle";
 import { Search, Bell, User } from "lucide-react";
 import { Button } from "~/components/ui/button";
@@ -11,9 +12,14 @@ import { Input } from "~/components/ui/input";
 export function Navbar() {
 	return (
 		<nav className="flex h-16 items-center justify-between border-b border-border px-6">
-			<div className="flex items-center gap-2">
-				<Link href="/" className="text-lg font-semibold text-primary">
-					Metro Map
+			<div className="flexitems-center gap-2">
+				<Link href="/" className="flex flex-col items-end w-28">
+					<Image 
+						src="/assets/logos/gasunie-logo.svg"
+						alt="Gasunie logo"
+						height={26} width={100}
+					/>
+					<span className="text-foreground/60 font-thin text-[10px] ml-6 -mt-1">Metro Map</span>
 				</Link>
 			</div>
 
