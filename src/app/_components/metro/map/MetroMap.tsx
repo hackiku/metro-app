@@ -3,9 +3,19 @@
 
 import { useEffect, useRef, forwardRef, useImperativeHandle, useState, useCallback } from "react";
 import * as d3 from "d3";
-import type { MetroLine, MetroStation } from "../types/metro";
 import { Line } from "./components/Line";
 import { Station } from "./components/Station";
+import { ConnectionPath } from "./components/ConnectionPath";
+import {
+	fetchMetroData,
+	type MetroData,
+	type Line as LineData,
+	type Station as StationData
+} from "../services/dataService";
+import {
+	calculateLayout,
+	type LayoutConfig
+} from "../services/layoutEngine";
 
 // Create a persistent zoom state object
 const PersistentZoomState = {
@@ -44,15 +54,21 @@ export interface MetroMapRef {
 
 // Props interface
 interface MetroMapProps {
-	lines: MetroLine[];
-	isLoading?: boolean;
-	onStationSelect?: (station: MetroStation) => void;
-	selectedStation?: MetroStation | null;
-	currentStation?: MetroStation | null;
+	schema?: string;
+	onStationSelect?: (station: StationData) => void;
+	selectedStation?: StationData | null;
+	currentStation?: StationData | null;
+	activeCategory?: string;
 }
 
 export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap(
-	{ lines, isLoading = false, onStationSelect, selectedStation, currentStation },
+	{
+		schema = 'gasunie',
+		onStationSelect,
+		selectedStation,
+		currentStation,
+		activeCategory
+	},
 	ref
 ) {
 	// Core refs
@@ -64,12 +80,24 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 	const isMounted = useRef(true);
 
 	// Internal component state
-	const [hasData, setHasData] = useState(false);
-	const [internalLoading, setInternalLoading] = useState(isLoading);
+	const [metroData, setMetroData] = useState<MetroData | null>(null);
+	const [processedData, setProcessedData] = useState<MetroData | null>(null);
+	const [isLoading, setIsLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 	const [scales, setScales] = useState<{
 		xScale: d3.ScaleLinear<number, number>;
 		yScale: d3.ScaleLinear<number, number>
 	} | null>(null);
+
+	// Layout configuration
+	const [layoutConfig] = useState<LayoutConfig>({
+		lineSpacing: 100,
+		levelSpacing: 150,
+		padding: 50,
+		adjustInterchanges: true,
+		stationRadius: 12,
+		lineWidth: 8
+	});
 
 	// Store dimensions as a ref to prevent unnecessary re-renders
 	const dimensionsRef = useRef({
@@ -77,43 +105,79 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 		height: typeof window !== 'undefined' ? window.innerHeight - 64 : 600
 	});
 
-	// Update internal loading state when prop changes
+	// Fetch metro data
 	useEffect(() => {
-		setInternalLoading(isLoading);
-	}, [isLoading]);
+		let isActive = true;
 
-	// Update hasData when lines change
+		async function loadData() {
+			if (!isActive) return;
+
+			setIsLoading(true);
+			setError(null);
+
+			try {
+				const data = await fetchMetroData(schema);
+
+				if (isActive) {
+					setMetroData(data);
+				}
+			} catch (err) {
+				console.error("Error loading metro data:", err);
+				if (isActive) {
+					setError("Failed to load metro data");
+				}
+			} finally {
+				if (isActive) {
+					setIsLoading(false);
+				}
+			}
+		}
+
+		loadData();
+
+		return () => {
+			isActive = false;
+		};
+	}, [schema, activeCategory]);
+
+	// Process and layout the data
 	useEffect(() => {
-		setHasData(lines.length > 0);
-	}, [lines]);
+		if (!metroData) return;
+
+		// Apply layout to position stations
+		const data = calculateLayout(metroData, layoutConfig);
+		setProcessedData(data);
+	}, [metroData, layoutConfig]);
 
 	// Calculate bounds based on station data
 	const calculateBounds = useCallback(() => {
 		// Default bounds if no data
-		if (lines.length === 0) {
+		if (!processedData || processedData.lines.length === 0) {
 			return { minX: 0, minY: 0, maxX: 100, maxY: 100 };
 		}
 
-		// Find min/max coordinates
+		// Find min/max coordinates across all stations
 		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-		lines.forEach(line => {
+		processedData.lines.forEach(line => {
 			line.stations.forEach(station => {
-				minX = Math.min(minX, station.x);
-				minY = Math.min(minY, station.y);
-				maxX = Math.max(maxX, station.x);
-				maxY = Math.max(maxY, station.y);
+				if (station.x !== undefined && station.y !== undefined) {
+					minX = Math.min(minX, station.x);
+					minY = Math.min(minY, station.y);
+					maxX = Math.max(maxX, station.x);
+					maxY = Math.max(maxY, station.y);
+				}
 			});
 		});
 
 		// Add padding
-		const padding = 50;
+		const padding = layoutConfig.padding;
 		return {
 			minX: minX - padding,
 			minY: minY - padding,
 			maxX: maxX + padding,
 			maxY: maxY + padding
 		};
-	}, [lines]);
+	}, [processedData, layoutConfig.padding]);
 
 	// Create scales based on bounds and dimensions
 	const createScales = useCallback(() => {
@@ -228,10 +292,10 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 
 	// Initial setup of scales when data is available
 	useEffect(() => {
-		if (lines.length > 0) {
+		if (processedData && processedData.lines.length > 0) {
 			setScales(createScales());
 		}
-	}, [lines, createScales]);
+	}, [processedData, createScales]);
 
 	// Initialize and manage D3 zoom behavior
 	useEffect(() => {
@@ -283,17 +347,19 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 
 	// Store station coordinates in global variable for external components
 	useEffect(() => {
-		if (!scales || lines.length === 0 || typeof window === 'undefined') return;
+		if (!scales || !processedData || processedData.lines.length === 0 || typeof window === 'undefined') return;
 
 		const { xScale, yScale } = scales;
 		const coordinates: Record<string, { x: number, y: number }> = {};
 
-		lines.forEach(line => {
+		processedData.lines.forEach(line => {
 			line.stations.forEach(station => {
-				coordinates[station.id] = {
-					x: xScale(station.x),
-					y: yScale(station.y)
-				};
+				if (station.x !== undefined && station.y !== undefined) {
+					coordinates[station.id] = {
+						x: xScale(station.x),
+						y: yScale(station.y)
+					};
+				}
 			});
 		});
 
@@ -304,7 +370,19 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 				window._metroStationCoordinates = undefined;
 			}
 		};
-	}, [lines, scales]);
+	}, [processedData, scales]);
+
+	// Find selectedStation in our processed data if needed
+	const findStationById = useCallback((id: string): StationData | undefined => {
+		if (!processedData) return undefined;
+
+		for (const line of processedData.lines) {
+			const station = line.stations.find(s => s.id === id);
+			if (station) return station;
+		}
+
+		return undefined;
+	}, [processedData]);
 
 	// Base SVG component - this is ALWAYS rendered, even during loading
 	// This prevents the zoom state from being lost during loading/reloading
@@ -319,10 +397,31 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 			>
 				<g ref={zoomContainerRef} className="zoom-container">
 					{/* Only render content when we have data and scales */}
-					{!internalLoading && hasData && scales && (
+					{!isLoading && processedData && scales && (
 						<>
-							{/* Render lines first */}
-							{lines.map(line => (
+							{/* Render connections between stations */}
+							{processedData.connections.map(connection => {
+								const fromStation = findStationById(connection.fromStationId);
+								const toStation = findStationById(connection.toStationId);
+								const lineForStation = processedData.lines.find(
+									line => line.stations.some(s => s.id === connection.fromStationId)
+								);
+
+								if (!fromStation || !toStation || !lineForStation) return null;
+
+								return (
+									<ConnectionPath
+										key={connection.id}
+										fromStation={fromStation}
+										toStation={toStation}
+										color={lineForStation.color}
+										isRecommended={connection.isRecommended}
+									/>
+								);
+							})}
+
+							{/* Render lines */}
+							{processedData.lines.map(line => (
 								<Line
 									key={line.id}
 									stations={line.stations}
@@ -332,18 +431,19 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 								/>
 							))}
 
-							{/* Then render stations */}
-							{lines.map(line =>
+							{/* Render stations */}
+							{processedData.lines.map(line =>
 								line.stations.map(station => (
 									<Station
 										key={station.id}
 										station={station}
-										x={scales.xScale(station.x)}
-										y={scales.yScale(station.y)}
+										x={scales.xScale(station.x || 0)}
+										y={scales.yScale(station.y || 0)}
 										color={line.color}
 										isSelected={selectedStation?.id === station.id}
 										isCurrent={currentStation?.id === station.id}
-										onClick={onStationSelect || (() => { })}
+										isInterchange={station.isInterchange}
+										onClick={() => onStationSelect?.(station)}
 									/>
 								))
 							)}
@@ -353,7 +453,7 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 			</svg>
 
 			{/* Loading overlay - sits on top of the SVG */}
-			{internalLoading && (
+			{isLoading && (
 				<div className="absolute inset-0 flex items-center justify-center bg-background/90 z-10">
 					<div className="flex flex-col items-center">
 						<div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-primary"></div>
@@ -362,8 +462,18 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 				</div>
 			)}
 
-			{/* Empty state overlay - sits on top of the SVG */}
-			{!internalLoading && !hasData && (
+			{/* Error state overlay */}
+			{error && (
+				<div className="absolute inset-0 flex items-center justify-center bg-background/90 z-10">
+					<div className="text-center">
+						<p className="text-lg font-semibold text-destructive">Error loading metro map</p>
+						<p className="mt-2 text-muted-foreground">{error}</p>
+					</div>
+				</div>
+			)}
+
+			{/* Empty state overlay */}
+			{!isLoading && !error && (!processedData || processedData.lines.length === 0) && (
 				<div className="absolute inset-0 flex items-center justify-center bg-background/90 z-10">
 					<div className="text-center">
 						<p className="text-lg font-semibold">No metro lines found</p>

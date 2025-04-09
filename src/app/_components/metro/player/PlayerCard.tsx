@@ -199,7 +199,7 @@ export function PlayerCard() {
 			<Card className="w-72 overflow-hidden bg-background/95 shadow-lg backdrop-blur-sm border-primary/10">
 				{/* Header section - entire header is clickable to collapse */}
 				<div
-					className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/10 transition-colors"
+					className="flex items-center justify-between p-4 -mt-6 bg-muted/60 cursor-pointer hover:bg-muted transition-colors"
 					onClick={() => setIsExpanded(false)}
 				>
 					<div className="flex items-center gap-3">

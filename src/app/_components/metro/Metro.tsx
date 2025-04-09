@@ -4,8 +4,9 @@
 import { useState, useRef, useEffect } from "react";
 import { PlayerCard } from "./player/PlayerCard";
 import { MetroMap, type MetroMapRef } from "./map/MetroMap";
-import { fetchMetroLines, fetchStationDetails } from "./services/metroDataService";
-import type { MetroLine, MetroStation, StationDetail } from "./types/metro";
+import { fetchStationDetails } from "./services/dataService";
+import type { StationDetail } from "./services/dataService";
+import type { Station } from "./services/dataService";
 import { StationDetailsDialog } from "./map/components/StationDetailsDialog";
 
 // Extend Window interface to store station coordinates
@@ -21,13 +22,9 @@ interface MetroProps {
 }
 
 export function Metro({ activeSkillCategory, schema = 'gasunie' }: MetroProps) {
-	// Core state
-	const [metroLines, setMetroLines] = useState<MetroLine[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
-
 	// Station state
-	const [selectedStation, setSelectedStation] = useState<MetroStation | null>(null);
-	const [currentStation, setCurrentStation] = useState<MetroStation | null>(null);
+	const [selectedStation, setSelectedStation] = useState<Station | null>(null);
+	const [currentStation, setCurrentStation] = useState<Station | null>(null);
 	const [stationDetails, setStationDetails] = useState<StationDetail | null>(null);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	const [detailsLoading, setDetailsLoading] = useState(false);
@@ -48,7 +45,7 @@ export function Metro({ activeSkillCategory, schema = 'gasunie' }: MetroProps) {
 	}, []);
 
 	// Function to handle station selection
-	const handleStationSelect = async (station: MetroStation) => {
+	const handleStationSelect = async (station: Station) => {
 		setSelectedStation(station);
 		setDetailsOpen(true);
 		setDetailsLoading(true);
@@ -71,64 +68,21 @@ export function Metro({ activeSkillCategory, schema = 'gasunie' }: MetroProps) {
 	};
 
 	// When current station changes, update selection
-	const handleSetCurrentStation = (station: MetroStation) => {
+	const handleSetCurrentStation = (station: Station) => {
 		setCurrentStation(station);
 		setDetailsOpen(false);
 	};
 
-	// Fetch metro lines and stations with cleanup handling
-	useEffect(() => {
-		// For cancellation tracking
-		let isActive = true;
-
-		async function loadMetroData() {
-			try {
-				setIsLoading(true);
-
-				// Fetch lines from the API
-				const lines = await fetchMetroLines(schema);
-
-				// Only update state if component is still active
-				if (isActive) {
-					setMetroLines(lines);
-
-					// Find a default current station (first station of first line)
-					if (lines.length > 0 && lines[0].stations.length > 0) {
-						setCurrentStation(lines[0].stations[0]);
-					}
-				}
-			} catch (error) {
-				console.error('Error loading metro data:', error);
-
-				if (isActive) {
-					setMetroLines([]);
-				}
-			} finally {
-				if (isActive) {
-					setIsLoading(false);
-				}
-			}
-		}
-
-		// Start loading data
-		loadMetroData();
-
-		// Cleanup function
-		return () => {
-			isActive = false;
-		};
-	}, [activeSkillCategory, schema]);
-
 	return (
 		<div className="relative h-[calc(100dvh-4rem)] w-full bg-background overflow-hidden">
-			{/* Metro Map - now handles its own loading state */}
+			{/* MetroMap now handles its own data loading and rendering */}
 			<MetroMap
 				ref={metroMapRef}
-				lines={metroLines}
-				isLoading={isLoading}
+				schema={schema}
 				onStationSelect={handleStationSelect}
 				selectedStation={selectedStation}
 				currentStation={currentStation}
+				activeCategory={activeSkillCategory}
 			/>
 
 			{/* Player Card */}
