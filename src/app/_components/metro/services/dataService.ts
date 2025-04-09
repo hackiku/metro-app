@@ -2,17 +2,17 @@
 
 import { supabase } from "~/server/db/supabase";
 
-// Core data types
 export interface Station {
 	id: string;
 	name: string;
 	description?: string;
 	level: number;
 	isInterchange: boolean;
-	x?: number; // Will be calculated by layout engine
-	y?: number; // Will be calculated by layout engine
-	lineId: string; // Original line this station belongs to
+	x: number; // Change from optional to required to match MetroStation
+	y: number; // Change from optional to required to match MetroStation
+	lineId: string;
 }
+
 
 export interface Line {
 	id: string;
@@ -167,8 +167,8 @@ export async function fetchMetroData(schema: string = 'gasunie'): Promise<MetroD
 				level,
 				isInterchange: station.is_interchange || false,
 				lineId: station.metro_line_id,
-				x: station.position_x,
-				y: station.position_y
+				x: station.position_x || 0,
+				y: station.position_y || 0
 			};
 
 			// Add to its line's station list
@@ -286,7 +286,7 @@ export async function fetchStationDetails(stationId: string, schema: string = 'g
 
 		// Process skills
 		const skills = skillsData?.map(skill => ({
-			name: skill.skills?.name || 'Unnamed Skill',
+			name: (typeof skill.skills === 'object' && skill.skills !== null) ? skill.skills.name : 'Unnamed Skill',
 			importance: skill.importance_level || 3
 		})) || [];
 
@@ -381,6 +381,7 @@ export async function fetchStationDetails(stationId: string, schema: string = 'g
 }
 
 // Generate dummy data for testing and fallback
+// Generate dummy data for testing and fallback
 function generateDummyData(): MetroData {
 	const lines: Line[] = [
 		{
@@ -411,28 +412,36 @@ function generateDummyData(): MetroData {
 			name: "Junior Engineer",
 			level: 1,
 			isInterchange: false,
-			lineId: "line1"
+			lineId: "line1",
+			x: 150, // Added default coordinates
+			y: 100
 		},
 		{
 			id: "s2",
 			name: "Engineer",
 			level: 2,
 			isInterchange: false,
-			lineId: "line1"
+			lineId: "line1",
+			x: 300,
+			y: 100
 		},
 		{
 			id: "s3",
 			name: "Senior Engineer",
 			level: 3,
 			isInterchange: false,
-			lineId: "line1"
+			lineId: "line1",
+			x: 450,
+			y: 100
 		},
 		{
 			id: "s4",
 			name: "Principal Engineer",
 			level: 4,
 			isInterchange: false,
-			lineId: "line1"
+			lineId: "line1",
+			x: 600,
+			y: 100
 		},
 
 		// Management Track
@@ -441,21 +450,27 @@ function generateDummyData(): MetroData {
 			name: "Team Lead",
 			level: 2,
 			isInterchange: true,
-			lineId: "line2"
+			lineId: "line2",
+			x: 300,
+			y: 200
 		},
 		{
 			id: "s6",
 			name: "Manager",
 			level: 3,
 			isInterchange: false,
-			lineId: "line2"
+			lineId: "line2",
+			x: 450,
+			y: 200
 		},
 		{
 			id: "s7",
 			name: "Director",
 			level: 4,
 			isInterchange: false,
-			lineId: "line2"
+			lineId: "line2",
+			x: 600,
+			y: 200
 		},
 
 		// Support Track
@@ -464,21 +479,27 @@ function generateDummyData(): MetroData {
 			name: "Analyst",
 			level: 1,
 			isInterchange: false,
-			lineId: "line3"
+			lineId: "line3",
+			x: 150,
+			y: 300
 		},
 		{
 			id: "s9",
 			name: "Specialist",
 			level: 2,
 			isInterchange: false,
-			lineId: "line3"
+			lineId: "line3",
+			x: 300,
+			y: 300
 		},
 		{
 			id: "s10",
 			name: "Project Manager",
 			level: 3,
 			isInterchange: true,
-			lineId: "line3"
+			lineId: "line3",
+			x: 450,
+			y: 300
 		}
 	];
 

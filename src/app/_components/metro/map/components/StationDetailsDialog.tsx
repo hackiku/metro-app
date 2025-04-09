@@ -4,15 +4,29 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
+// Import both types
+import type { Station } from "../../services/dataService"
 import type { MetroStation, StationDetail } from "../../types/metro"
+
+// Create a utility function to convert between types if needed
+function convertToMetroStation(station: Station): MetroStation {
+	return {
+		id: station.id,
+		name: station.name,
+		description: station.description,
+		level: station.level,
+		x: station.x,
+		y: station.y
+	};
+}
 
 interface StationDetailsDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	station: MetroStation | null;
+	station: Station | null;
 	details: StationDetail | null;
 	isLoading: boolean;
-	onSetCurrentStation: (station: MetroStation) => void;
+	onSetCurrentStation: (station: Station) => void;
 }
 
 export function StationDetailsDialog({
@@ -96,7 +110,7 @@ export function StationDetailsDialog({
 							{/* Next Steps Button */}
 							<div className="flex justify-end">
 								<Button
-									onClick={() => onSetCurrentStation(station)}
+									onClick={() => station && onSetCurrentStation(station)}
 								>
 									Set as Current Position
 								</Button>

@@ -2,7 +2,7 @@
 "use client"
 
 import { useState } from "react"
-import { LevelUp } from "lucide-react"
+// import { Award } from "lucide-react"
 import { Avatar as ShadcnAvatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar"
 import { Button } from "~/components/ui/button"
 import { cn } from "~/lib/utils"

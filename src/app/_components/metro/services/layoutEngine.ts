@@ -140,12 +140,14 @@ function smoothAdjacentStations(stations: Station[], interchangeStation: Station
 	const maxAdjustmentFactor = 0.6; // How much of the y-diff to apply to adjacent stations
 
 	// Original line y-position (base position for this line)
-	const baseLineY = stations.filter(s => !s.isInterchange)
-		.reduce((sum, s) => sum + (s.y || 0), 0) /
-		stations.filter(s => !s.isInterchange).length;
+	const nonInterchangeStations = stations.filter(s => s && !s.isInterchange);
+	if (nonInterchangeStations.length === 0) return; // Exit if no non-interchange stations
+
+	const baseLineY = nonInterchangeStations
+		.reduce((sum, s) => sum + s.y, 0) / nonInterchangeStations.length;
 
 	// The y-difference we're dealing with
-	const yDiff = (interchangeStation.y || 0) - baseLineY;
+	const yDiff = interchangeStation.y - baseLineY;
 
 	// Apply gradually decreasing adjustments to nearby stations
 	for (let i = 1; i <= adjustmentRadius; i++) {
@@ -153,7 +155,7 @@ function smoothAdjacentStations(stations: Station[], interchangeStation: Station
 		if (stationIndex - i >= 0) {
 			const station = stations[stationIndex - i];
 			// Only adjust if not an interchange itself
-			if (!station.isInterchange) {
+			if (station && !station.isInterchange) {
 				const adjustmentFactor = maxAdjustmentFactor * (1 - (i / (adjustmentRadius + 1)));
 				station.y = baseLineY + (yDiff * adjustmentFactor);
 			}
@@ -163,7 +165,7 @@ function smoothAdjacentStations(stations: Station[], interchangeStation: Station
 		if (stationIndex + i < stations.length) {
 			const station = stations[stationIndex + i];
 			// Only adjust if not an interchange itself
-			if (!station.isInterchange) {
+			if (station && !station.isInterchange) {
 				const adjustmentFactor = maxAdjustmentFactor * (1 - (i / (adjustmentRadius + 1)));
 				station.y = baseLineY + (yDiff * adjustmentFactor);
 			}
@@ -192,7 +194,12 @@ export function generateLinePath(
 	stations: Station[],
 	config: LayoutConfig = DEFAULT_CONFIG
 ): string {
-	if (stations.length < 2) return '';
+	if (!stations || stations.length < 2) return '';
+
+	// Check the first station exists and has coordinates
+	if (!stations[0] || stations[0].x === undefined || stations[0].y === undefined) {
+		return '';
+	}
 
 	let pathData = `M ${stations[0].x},${stations[0].y}`;
 
@@ -201,11 +208,18 @@ export function generateLinePath(
 		const prev = stations[i - 1];
 		const curr = stations[i];
 
+		// Skip if either station is undefined or missing coordinates
+		if (!prev || !curr ||
+			prev.x === undefined || prev.y === undefined ||
+			curr.x === undefined || curr.y === undefined) {
+			continue;
+		}
+
 		// If stations are not adjacent levels, we should create a curved path
-		if (Math.abs(curr.level - prev.level) > 1 || Math.abs((curr.y || 0) - (prev.y || 0)) > config.lineSpacing / 2) {
+		if (Math.abs(curr.level - prev.level) > 1 || Math.abs(curr.y - prev.y) > config.lineSpacing / 2) {
 			// Create a bezier curve
-			const controlPoint1X = prev.x || 0;
-			const controlPoint1Y = curr.y || 0;
+			const controlPoint1X = prev.x;
+			const controlPoint1Y = curr.y;
 
 			pathData += ` C ${controlPoint1X},${controlPoint1Y} ${controlPoint1X},${controlPoint1Y} ${curr.x},${curr.y}`;
 		} else {
