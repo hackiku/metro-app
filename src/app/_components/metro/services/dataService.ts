@@ -285,11 +285,18 @@ export async function fetchStationDetails(stationId: string, schema: string = 'g
 			.eq('station_id', stationId);
 
 		// Process skills
-		const skills = skillsData?.map(skill => ({
-			name: (typeof skill.skills === 'object' && skill.skills !== null) ? skill.skills.name : 'Unnamed Skill',
-			importance: skill.importance_level || 3
-		})) || [];
+		// Process skills
+		const skills = skillsData?.map(skill => {
+			// Check if skill.skills is an array, has at least one element, and that element has a name
+			const skillName = (Array.isArray(skill.skills) && skill.skills.length > 0 && skill.skills[0]?.name)
+				? skill.skills[0].name // Access name from the first element
+				: 'Unnamed Skill'; // Fallback if any check fails
 
+			return {
+				name: skillName,
+				importance: skill.importance_level || 3
+			};
+		}) || [];
 		// Get development steps
 		const { data: connectionsData } = await supabase
 			.schema(schema)
