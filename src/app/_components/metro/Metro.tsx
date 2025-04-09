@@ -1,17 +1,17 @@
 // src/app/_components/metro/Metro.tsx
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { PlayerCard } from "./player/PlayerCard"
-import { MetroMap, type MetroMapRef } from "./map/MetroMap"
-import { fetchMetroLines, fetchStationDetails } from "./services/metroDataService"
-import type { MetroLine, MetroStation, StationDetail } from "./types/metro"
-import { StationDetailsDialog } from "./map/components/StationDetailsDialog"
+import { useState, useRef, useEffect } from "react";
+import { PlayerCard } from "./player/PlayerCard";
+import { MetroMap, type MetroMapRef } from "./map/MetroMap";
+import { fetchMetroLines, fetchStationDetails } from "./services/metroDataService";
+import type { MetroLine, MetroStation, StationDetail } from "./types/metro";
+import { StationDetailsDialog } from "./map/components/StationDetailsDialog";
 
 // Extend Window interface to store station coordinates
 declare global {
 	interface Window {
-		_metroStationCoordinates?: Record<string, { x: number, y: number }>;
+		_metroStationCoordinates?: Record<string, { x: number; y: number }>;
 	}
 }
 
@@ -35,6 +35,18 @@ export function Metro({ activeSkillCategory, schema = 'gasunie' }: MetroProps) {
 	// Ref to access MetroMap methods
 	const metroMapRef = useRef<MetroMapRef>(null);
 
+	// Mounted status tracking
+	const isMountedRef = useRef(true);
+
+	// Set mounted flag on component mount and clean up on unmount
+	useEffect(() => {
+		isMountedRef.current = true;
+
+		return () => {
+			isMountedRef.current = false;
+		};
+	}, []);
+
 	// Function to handle station selection
 	const handleStationSelect = async (station: MetroStation) => {
 		setSelectedStation(station);
@@ -43,13 +55,18 @@ export function Metro({ activeSkillCategory, schema = 'gasunie' }: MetroProps) {
 
 		try {
 			const details = await fetchStationDetails(station.id, schema);
-			if (details) {
+
+			// Only update state if component is still mounted
+			if (isMountedRef.current && details) {
 				setStationDetails(details);
 			}
 		} catch (error) {
 			console.error("Error fetching station details:", error);
 		} finally {
-			setDetailsLoading(false);
+			// Only update state if component is still mounted
+			if (isMountedRef.current) {
+				setDetailsLoading(false);
+			}
 		}
 	};
 
@@ -59,32 +76,52 @@ export function Metro({ activeSkillCategory, schema = 'gasunie' }: MetroProps) {
 		setDetailsOpen(false);
 	};
 
-	// Fetch metro lines and stations
+	// Fetch metro lines and stations with cleanup handling
 	useEffect(() => {
+		// For cancellation tracking
+		let isActive = true;
+
 		async function loadMetroData() {
 			try {
 				setIsLoading(true);
-				const lines = await fetchMetroLines(schema);
-				setMetroLines(lines);
 
-				// Find a default current station (first station of first line)
-				if (lines.length > 0 && lines[0].stations.length > 0) {
-					setCurrentStation(lines[0].stations[0]);
+				// Fetch lines from the API
+				const lines = await fetchMetroLines(schema);
+
+				// Only update state if component is still active
+				if (isActive) {
+					setMetroLines(lines);
+
+					// Find a default current station (first station of first line)
+					if (lines.length > 0 && lines[0].stations.length > 0) {
+						setCurrentStation(lines[0].stations[0]);
+					}
 				}
 			} catch (error) {
 				console.error('Error loading metro data:', error);
-				setMetroLines([]);
+
+				if (isActive) {
+					setMetroLines([]);
+				}
 			} finally {
-				setIsLoading(false);
+				if (isActive) {
+					setIsLoading(false);
+				}
 			}
 		}
 
+		// Start loading data
 		loadMetroData();
+
+		// Cleanup function
+		return () => {
+			isActive = false;
+		};
 	}, [activeSkillCategory, schema]);
 
 	return (
-		<div className="relative h-[calc(100dvh-4rem)] w-full bg-neutral-100 dark:bg-neutral-900 border-2 border-dashed overflow-hidden">
-			{/* Metro Map */}
+		<div className="relative h-[calc(100dvh-4rem)] w-full bg-background overflow-hidden">
+			{/* Metro Map - now handles its own loading state */}
 			<MetroMap
 				ref={metroMapRef}
 				lines={metroLines}

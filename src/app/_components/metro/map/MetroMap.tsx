@@ -7,21 +7,42 @@ import type { MetroLine, MetroStation } from "../types/metro";
 import { Line } from "./components/Line";
 import { Station } from "./components/Station";
 
-// Store zoom state globally to persist between navigation
-// This is a simple solution for the demo; consider using React Context for production
-let globalZoomState: {
-	transform?: d3.ZoomTransform;
-	initialized: boolean;
-} = {
-	initialized: false
+// Create a persistent zoom state object
+const PersistentZoomState = {
+	transform: null as d3.ZoomTransform | null,
+	initialized: false,
+
+	// Method to save current transform
+	save(transform: d3.ZoomTransform) {
+		this.transform = transform;
+		this.initialized = true;
+	},
+
+	// Method to get current transform
+	get() {
+		return this.transform;
+	},
+
+	// Check if we have an initial state
+	hasState() {
+		return this.initialized;
+	},
+
+	// Reset the state if needed
+	reset() {
+		this.transform = null;
+		this.initialized = false;
+	}
 };
 
+// Interface for the component ref
 export interface MetroMapRef {
 	zoomIn: () => void;
 	zoomOut: () => void;
 	zoomReset: () => void;
 }
 
+// Props interface
 interface MetroMapProps {
 	lines: MetroLine[];
 	isLoading?: boolean;
@@ -34,40 +55,156 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 	{ lines, isLoading = false, onStationSelect, selectedStation, currentStation },
 	ref
 ) {
+	// Core refs
 	const svgRef = useRef<SVGSVGElement>(null);
-	const containerRef = useRef<SVGGElement>(null);
-
-	// Use refs to maintain instance references across renders
+	const zoomContainerRef = useRef<SVGGElement>(null);
 	const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
-	// Store current dimensions
-	const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+	// Component lifecycle tracking
+	const isMounted = useRef(true);
 
-	// Track whether the component is mounted
-	const isMountedRef = useRef(false);
+	// Internal component state
+	const [hasData, setHasData] = useState(false);
+	const [internalLoading, setInternalLoading] = useState(isLoading);
+	const [scales, setScales] = useState<{
+		xScale: d3.ScaleLinear<number, number>;
+		yScale: d3.ScaleLinear<number, number>
+	} | null>(null);
 
-	// Function to handle zoom events
-	const handleZoom = useCallback((event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
-		if (!containerRef.current) return;
+	// Store dimensions as a ref to prevent unnecessary re-renders
+	const dimensionsRef = useRef({
+		width: typeof window !== 'undefined' ? window.innerWidth : 800,
+		height: typeof window !== 'undefined' ? window.innerHeight - 64 : 600
+	});
 
-		// Store the transform globally for persistence
-		globalZoomState.transform = event.transform;
+	// Update internal loading state when prop changes
+	useEffect(() => {
+		setInternalLoading(isLoading);
+	}, [isLoading]);
 
-		// Apply transformation to the container
-		d3.select(containerRef.current).attr("transform", event.transform.toString());
+	// Update hasData when lines change
+	useEffect(() => {
+		setHasData(lines.length > 0);
+	}, [lines]);
+
+	// Calculate bounds based on station data
+	const calculateBounds = useCallback(() => {
+		// Default bounds if no data
+		if (lines.length === 0) {
+			return { minX: 0, minY: 0, maxX: 100, maxY: 100 };
+		}
+
+		// Find min/max coordinates
+		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+		lines.forEach(line => {
+			line.stations.forEach(station => {
+				minX = Math.min(minX, station.x);
+				minY = Math.min(minY, station.y);
+				maxX = Math.max(maxX, station.x);
+				maxY = Math.max(maxY, station.y);
+			});
+		});
+
+		// Add padding
+		const padding = 50;
+		return {
+			minX: minX - padding,
+			minY: minY - padding,
+			maxX: maxX + padding,
+			maxY: maxY + padding
+		};
+	}, [lines]);
+
+	// Create scales based on bounds and dimensions
+	const createScales = useCallback(() => {
+		const bounds = calculateBounds();
+		const { width, height } = dimensionsRef.current;
+
+		const xScale = d3.scaleLinear()
+			.domain([bounds.minX, bounds.maxX])
+			.range([50, width - 50]);
+
+		const yScale = d3.scaleLinear()
+			.domain([bounds.minY, bounds.maxY])
+			.range([50, height - 50]);
+
+		return { xScale, yScale };
+	}, [calculateBounds]);
+
+	// Zoom control methods
+	const zoomIn = useCallback(() => {
+		if (!svgRef.current || !zoomBehaviorRef.current) return;
+
+		try {
+			const svg = d3.select(svgRef.current);
+			const currentTransform = d3.zoomTransform(svg.node()!);
+			const newScale = Math.min(5, currentTransform.k * 1.2);
+
+			svg.transition().duration(300)
+				.call(zoomBehaviorRef.current.transform, currentTransform.scale(newScale / currentTransform.k));
+
+			// Save transform state
+			PersistentZoomState.save(currentTransform.scale(newScale / currentTransform.k));
+		} catch (error) {
+			console.error("Error in zoomIn:", error);
+		}
 	}, []);
 
-	// Update dimensions when window resizes
-	useEffect(() => {
-		function updateDimensions() {
-			if (!svgRef.current) return;
+	const zoomOut = useCallback(() => {
+		if (!svgRef.current || !zoomBehaviorRef.current) return;
 
-			const { width, height } = svgRef.current.getBoundingClientRect();
-			setDimensions({
-				width: width || 800,
-				height: height || 600
-			});
+		try {
+			const svg = d3.select(svgRef.current);
+			const currentTransform = d3.zoomTransform(svg.node()!);
+			const newScale = Math.max(0.5, currentTransform.k / 1.2);
+
+			svg.transition().duration(300)
+				.call(zoomBehaviorRef.current.transform, currentTransform.scale(newScale / currentTransform.k));
+
+			// Save transform state
+			PersistentZoomState.save(currentTransform.scale(newScale / currentTransform.k));
+		} catch (error) {
+			console.error("Error in zoomOut:", error);
 		}
+	}, []);
+
+	const zoomReset = useCallback(() => {
+		if (!svgRef.current || !zoomBehaviorRef.current) return;
+
+		try {
+			const svg = d3.select(svgRef.current);
+			const { width, height } = dimensionsRef.current;
+
+			const initialTransform = d3.zoomIdentity.scale(1.1).translate(width / 4, height / 8);
+
+			svg.transition().duration(300)
+				.call(zoomBehaviorRef.current.transform, initialTransform);
+
+			// Save transform state
+			PersistentZoomState.save(initialTransform);
+		} catch (error) {
+			console.error("Error in zoomReset:", error);
+		}
+	}, []);
+
+	// Expose zoom methods via ref
+	useImperativeHandle(ref, () => ({
+		zoomIn,
+		zoomOut,
+		zoomReset
+	}), [zoomIn, zoomOut, zoomReset]);
+
+	// Track window resizing and update dimensions
+	useEffect(() => {
+		const updateDimensions = () => {
+			dimensionsRef.current = {
+				width: window.innerWidth,
+				height: window.innerHeight - 64 // Subtract navbar height
+			};
+
+			// Update scales when dimensions change
+			setScales(createScales());
+		};
 
 		// Initial update
 		updateDimensions();
@@ -78,173 +215,77 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 		return () => {
 			window.removeEventListener('resize', updateDimensions);
 		};
+	}, [createScales]);
+
+	// Component lifecycle tracking
+	useEffect(() => {
+		isMounted.current = true;
+
+		return () => {
+			isMounted.current = false;
+		};
 	}, []);
 
-	// Calculate bounds based on stations
-	const getBounds = useCallback(() => {
-		if (lines.length === 0) {
-			return { minX: 0, minY: 0, maxX: 100, maxY: 100, padding: 20 };
+	// Initial setup of scales when data is available
+	useEffect(() => {
+		if (lines.length > 0) {
+			setScales(createScales());
 		}
+	}, [lines, createScales]);
 
-		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-		const padding = 50;
+	// Initialize and manage D3 zoom behavior
+	useEffect(() => {
+		if (!svgRef.current || !zoomContainerRef.current) return;
 
-		lines.forEach(line => {
-			line.stations.forEach(station => {
-				minX = Math.min(minX, station.x);
-				minY = Math.min(minY, station.y);
-				maxX = Math.max(maxX, station.x);
-				maxY = Math.max(maxY, station.y);
-			});
-		});
-
-		return {
-			minX: minX - padding,
-			minY: minY - padding,
-			maxX: maxX + padding,
-			maxY: maxY + padding,
-			padding
-		};
-	}, [lines]);
-
-	// Create scales based on dimensions and bounds
-	const createScales = useCallback(() => {
-		const { minX, minY, maxX, maxY } = getBounds();
-
-		const xScale = d3.scaleLinear()
-			.domain([minX, maxX])
-			.range([50, dimensions.width - 50]);
-
-		const yScale = d3.scaleLinear()
-			.domain([minY, maxY])
-			.range([50, dimensions.height - 50]);
-
-		return { xScale, yScale };
-	}, [getBounds, dimensions]);
-
-	// Initialize or update zoom behavior
-	// This is the CRITICAL function for fixing zoom persistence
-	const initializeZoom = useCallback(() => {
-		if (!svgRef.current || !containerRef.current) return null;
-
+		// Clean up existing zoom behavior
 		const svg = d3.select(svgRef.current);
-
-		// IMPORTANT: First remove any existing zoom behavior
 		svg.on(".zoom", null);
 
-		// Create a new zoom behavior
+		// Create new zoom behavior
 		const zoom = d3.zoom<SVGSVGElement, unknown>()
 			.scaleExtent([0.5, 5])
-			.on("zoom", handleZoom);
+			.on("zoom", (event) => {
+				if (!zoomContainerRef.current || !isMounted.current) return;
 
-		// Apply zoom to SVG
-		svg.call(zoom);
+				// Apply transform to container
+				d3.select(zoomContainerRef.current).attr("transform", event.transform.toString());
 
-		// Determine initial transform
-		let initialTransform: d3.ZoomTransform;
+				// Save transform for persistence
+				PersistentZoomState.save(event.transform);
+			});
 
-		if (globalZoomState.initialized && globalZoomState.transform) {
-			// Use stored transform if available
-			initialTransform = globalZoomState.transform;
-		} else {
-			// Create a new initial transform
-			initialTransform = d3.zoomIdentity
-				.translate(dimensions.width / 4, dimensions.height / 4)
-				.scale(0.9);
-
-			globalZoomState.initialized = true;
-			globalZoomState.transform = initialTransform;
-		}
-
-		// Apply the transform
-		svg.call(zoom.transform, initialTransform);
-
-		return zoom;
-	}, [dimensions, handleZoom]);
-
-	// Zoom control functions
-	const zoomIn = useCallback(() => {
-		if (!svgRef.current || !zoomBehaviorRef.current) return;
-
-		const svg = d3.select(svgRef.current);
-		const currentTransform = d3.zoomTransform(svg.node() as Element);
-		const newScale = Math.min(5, currentTransform.k * 1.2);
-
-		svg.transition().duration(300)
-			.call(zoomBehaviorRef.current.transform,
-				currentTransform.scale(newScale / currentTransform.k));
-
-		// Update global state
-		globalZoomState.transform = currentTransform.scale(newScale / currentTransform.k);
-	}, []);
-
-	const zoomOut = useCallback(() => {
-		if (!svgRef.current || !zoomBehaviorRef.current) return;
-
-		const svg = d3.select(svgRef.current);
-		const currentTransform = d3.zoomTransform(svg.node() as Element);
-		const newScale = Math.max(0.5, currentTransform.k / 1.2);
-
-		svg.transition().duration(300)
-			.call(zoomBehaviorRef.current.transform,
-				currentTransform.scale(newScale / currentTransform.k));
-
-		// Update global state
-		globalZoomState.transform = currentTransform.scale(newScale / currentTransform.k);
-	}, []);
-
-	const zoomReset = useCallback(() => {
-		if (!svgRef.current || !zoomBehaviorRef.current) return;
-
-		const initialTransform = d3.zoomIdentity
-			.translate(dimensions.width / 4, dimensions.height / 4)
-			.scale(0.9);
-
-		const svg = d3.select(svgRef.current);
-		svg.transition().duration(300)
-			.call(zoomBehaviorRef.current.transform, initialTransform);
-
-		// Update global state
-		globalZoomState.transform = initialTransform;
-	}, [dimensions]);
-
-	// Expose zoom methods to parent via ref
-	useImperativeHandle(ref, () => ({
-		zoomIn,
-		zoomOut,
-		zoomReset
-	}), [zoomIn, zoomOut, zoomReset]);
-
-	// Set up D3 zoom behavior on mount and when dimensions change
-	useEffect(() => {
-		if (!svgRef.current || !containerRef.current) return;
-
-		// Track that the component is mounted
-		isMountedRef.current = true;
-
-		// Initialize zoom behavior
-		const zoom = initializeZoom();
+		// Store zoom behavior in ref
 		zoomBehaviorRef.current = zoom;
 
-		// CRITICAL: Proper cleanup on unmount
+		// Apply zoom behavior to SVG
+		svg.call(zoom);
+
+		// Default transform
+		const { width, height } = dimensionsRef.current;
+		const defaultTransform = d3.zoomIdentity.scale(1.1).translate(width / 4, height / 8);
+
+		// Apply saved transform or default
+		if (PersistentZoomState.hasState() && PersistentZoomState.get()) {
+			svg.call(zoom.transform, PersistentZoomState.get()!);
+		} else {
+			svg.call(zoom.transform, defaultTransform);
+			PersistentZoomState.save(defaultTransform);
+		}
+
+		// Clean up on unmount
 		return () => {
 			if (svgRef.current) {
-				// Explicitly remove all zoom handlers to prevent memory leaks
+				// Remove zoom handlers
 				d3.select(svgRef.current).on(".zoom", null);
 			}
-
-			// Note that we're NOT clearing globalZoomState here
-			// as we want to preserve it for when we return to this page
-
-			isMountedRef.current = false;
 		};
-	}, [initializeZoom]);
+	}, []); // Empty dependency array - initialize zoom only once
 
-	// Store station coordinates for external components (like Player)
+	// Store station coordinates in global variable for external components
 	useEffect(() => {
-		if (lines.length === 0 || typeof window === 'undefined') return;
+		if (!scales || lines.length === 0 || typeof window === 'undefined') return;
 
-		const { xScale, yScale } = createScales();
+		const { xScale, yScale } = scales;
 		const coordinates: Record<string, { x: number, y: number }> = {};
 
 		lines.forEach(line => {
@@ -263,71 +304,73 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 				window._metroStationCoordinates = undefined;
 			}
 		};
-	}, [lines, createScales]);
+	}, [lines, scales]);
 
-	// Render loading state
-	if (isLoading) {
-		return (
-			<div className="flex h-full w-full items-center justify-center">
-				<div className="flex flex-col items-center">
-					<div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-primary"></div>
-					<p className="mt-4 text-muted-foreground">Loading metro map...</p>
-				</div>
-			</div>
-		);
-	}
-
-	// Render empty state
-	if (lines.length === 0) {
-		return (
-			<div className="flex h-full w-full items-center justify-center">
-				<div className="text-center">
-					<p className="text-lg font-semibold">No metro lines found</p>
-					<p className="mt-2 text-muted-foreground">No data available for the current view</p>
-				</div>
-			</div>
-		);
-	}
-
-	// Calculate scales for rendering
-	const { xScale, yScale } = createScales();
-
+	// Base SVG component - this is ALWAYS rendered, even during loading
+	// This prevents the zoom state from being lost during loading/reloading
 	return (
-		<div className="h-full w-full">
+		<div className="h-full w-full relative">
+			{/* The SVG container is always present */}
 			<svg
 				ref={svgRef}
-				className="h-full w-full touch-none bg-background"
+				className="h-full w-full bg-background touch-none select-none"
 				preserveAspectRatio="xMidYMid meet"
+				onClick={(e) => e.stopPropagation()}
 			>
-				<g ref={containerRef}>
-					{/* Render lines first (below stations) */}
-					{lines.map(line => (
-						<Line
-							key={line.id}
-							stations={line.stations}
-							color={line.color}
-							xScale={xScale}
-							yScale={yScale}
-						/>
-					))}
+				<g ref={zoomContainerRef} className="zoom-container">
+					{/* Only render content when we have data and scales */}
+					{!internalLoading && hasData && scales && (
+						<>
+							{/* Render lines first */}
+							{lines.map(line => (
+								<Line
+									key={line.id}
+									stations={line.stations}
+									color={line.color}
+									xScale={scales.xScale}
+									yScale={scales.yScale}
+								/>
+							))}
 
-					{/* Then render all stations */}
-					{lines.map(line =>
-						line.stations.map(station => (
-							<Station
-								key={station.id}
-								station={station}
-								x={xScale(station.x)}
-								y={yScale(station.y)}
-								color={line.color}
-								isSelected={selectedStation?.id === station.id}
-								isCurrent={currentStation?.id === station.id}
-								onClick={onStationSelect || (() => { })}
-							/>
-						))
+							{/* Then render stations */}
+							{lines.map(line =>
+								line.stations.map(station => (
+									<Station
+										key={station.id}
+										station={station}
+										x={scales.xScale(station.x)}
+										y={scales.yScale(station.y)}
+										color={line.color}
+										isSelected={selectedStation?.id === station.id}
+										isCurrent={currentStation?.id === station.id}
+										onClick={onStationSelect || (() => { })}
+									/>
+								))
+							)}
+						</>
 					)}
 				</g>
 			</svg>
+
+			{/* Loading overlay - sits on top of the SVG */}
+			{internalLoading && (
+				<div className="absolute inset-0 flex items-center justify-center bg-background/90 z-10">
+					<div className="flex flex-col items-center">
+						<div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-primary"></div>
+						<p className="mt-4 text-muted-foreground">Loading metro map...</p>
+					</div>
+				</div>
+			)}
+
+			{/* Empty state overlay - sits on top of the SVG */}
+			{!internalLoading && !hasData && (
+				<div className="absolute inset-0 flex items-center justify-center bg-background/90 z-10">
+					<div className="text-center">
+						<p className="text-lg font-semibold">No metro lines found</p>
+						<p className="mt-2 text-muted-foreground">No data available for the current view</p>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 });
