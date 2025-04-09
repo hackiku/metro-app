@@ -2,14 +2,11 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-// import { Player } from "./player/Player"
 import { PlayerCard } from "./player/PlayerCard"
-import { MetroMap, type MetroMapRef } from "./d3/MetroMap"
+import { MetroMap, type MetroMapRef } from "./map/MetroMap"
 import { fetchMetroLines, fetchStationDetails } from "./services/metroDataService"
 import type { MetroLine, MetroStation, StationDetail } from "./types/metro"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog"
-import { Badge } from "~/components/ui/badge"
-import { Button } from "~/components/ui/button"
+import { StationDetailsDialog } from "./map/components/StationDetailsDialog"
 
 // Extend Window interface to store station coordinates
 declare global {
@@ -56,6 +53,12 @@ export function Metro({ activeSkillCategory, schema = 'gasunie' }: MetroProps) {
 		}
 	};
 
+	// When current station changes, update selection
+	const handleSetCurrentStation = (station: MetroStation) => {
+		setCurrentStation(station);
+		setDetailsOpen(false);
+	};
+
 	// Fetch metro lines and stations
 	useEffect(() => {
 		async function loadMetroData() {
@@ -80,7 +83,7 @@ export function Metro({ activeSkillCategory, schema = 'gasunie' }: MetroProps) {
 	}, [activeSkillCategory, schema]);
 
 	return (
-		<div className="relative h-[calc(100dvh-4rem)] w-full bg-background overflow-hidden">
+		<div className="relative h-[calc(100dvh-4rem)] w-full bg-neutral-100 dark:bg-neutral-900 border-2 border-dashed overflow-hidden">
 			{/* Metro Map */}
 			<MetroMap
 				ref={metroMapRef}
@@ -91,100 +94,18 @@ export function Metro({ activeSkillCategory, schema = 'gasunie' }: MetroProps) {
 				currentStation={currentStation}
 			/>
 
-			{/* Player - only show when map is loaded */}
-			{/* {!isLoading && <Player currentStationId={currentStation?.id} />} */}
-
 			{/* Player Card */}
 			<PlayerCard />
 
 			{/* Station Details Dialog */}
-			<Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-				<DialogContent className="max-h-[90vh] overflow-y-auto md:max-w-2xl">
-					{detailsLoading ? (
-						<div className="flex h-64 items-center justify-center">
-							<div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-primary"></div>
-							<span className="ml-2">Loading details...</span>
-						</div>
-					) : selectedStation && stationDetails ? (
-						<>
-							<DialogHeader>
-								<DialogTitle className="flex items-center text-xl">
-									{selectedStation.name}
-									<Badge className="ml-2" variant="outline">Level {selectedStation.level}</Badge>
-								</DialogTitle>
-								<DialogDescription>
-									{stationDetails.description}
-								</DialogDescription>
-							</DialogHeader>
-
-							<div className="mt-4 space-y-6">
-								{/* Skills Section */}
-								<div>
-									<h3 className="mb-2 font-medium">Key Skills Required</h3>
-									{stationDetails.skills.length > 0 ? (
-										<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-											{stationDetails.skills.map((skill, index) => (
-												<div key={index} className="flex items-center p-2 border rounded-md">
-													<div className="mr-2">
-														<div className="h-3 w-3 rounded-full"
-															style={{
-																backgroundColor:
-																	skill.importance >= 4 ? 'var(--destructive)' :
-																		skill.importance >= 3 ? 'var(--warning)' :
-																			'var(--success)'
-															}}
-														/>
-													</div>
-													<div className="text-foreground">{skill.name}</div>
-												</div>
-											))}
-										</div>
-									) : (
-										<p className="text-sm text-muted-foreground">No specific skills information available</p>
-									)}
-								</div>
-
-								{/* Development Steps */}
-								<div>
-									<h3 className="mb-2 font-medium">Development Path</h3>
-									{stationDetails.developmentSteps.length > 0 ? (
-										<div className="space-y-3">
-											{stationDetails.developmentSteps.map((step, index) => (
-												<div key={index} className="p-3 border rounded-md bg-muted/40">
-													<div className="flex justify-between items-center mb-1">
-														<h4 className="font-medium">{step.name}</h4>
-														<Badge>{step.type}</Badge>
-													</div>
-													<p className="text-sm text-muted-foreground">{step.description}</p>
-													<p className="text-xs mt-2">Estimated duration: {step.duration} weeks</p>
-												</div>
-											))}
-										</div>
-									) : (
-										<p className="text-sm text-muted-foreground">No development path information available</p>
-									)}
-								</div>
-
-								{/* Next Steps Button */}
-								<div className="flex justify-end">
-									<Button
-										onClick={() => {
-											setCurrentStation(selectedStation);
-											setDetailsOpen(false);
-										}}
-									>
-										Set as Current Position
-									</Button>
-								</div>
-							</div>
-						</>
-					) : (
-						<div className="p-6 text-center">
-							<p className="text-muted-foreground">Station information not available</p>
-						</div>
-					)}
-				</DialogContent>
-			</Dialog>
+			<StationDetailsDialog
+				open={detailsOpen}
+				onOpenChange={setDetailsOpen}
+				station={selectedStation}
+				details={stationDetails}
+				isLoading={detailsLoading}
+				onSetCurrentStation={handleSetCurrentStation}
+			/>
 		</div>
 	);
 }
