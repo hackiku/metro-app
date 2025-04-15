@@ -98,7 +98,7 @@ export async function fetchTransitions(): Promise<Transition[]> {
 		// First check if the table exists and debug
 		const { data: tableInfo, error: tableError } = await careersClient
 			.from('role_transitions')
-			.select('count(*)');
+			.select('*', { count: 'exact', head: true })
 
 		if (tableError) {
 			console.error('Error checking role_transitions table:', tableError);

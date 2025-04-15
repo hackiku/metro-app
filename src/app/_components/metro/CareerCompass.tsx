@@ -135,7 +135,7 @@ export default function CareerCompass() {
 			) : (
 				<>
 					{/* Metro map visualization */}
-					<div className="absolute inset-0" style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}>
+					<div className="absolute inset-12 border border-neutral-900" style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}>
 						<MetroMap
 							careerPaths={careerPaths}
 							transitions={transitionConnections}

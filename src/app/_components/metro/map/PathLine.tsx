@@ -27,7 +27,7 @@ const PathLine = memo(function PathLine({
 		<path
 			d={pathData}
 			stroke={path.color}
-			strokeWidth={isSelected ? 14 : 10}
+			strokeWidth={isSelected ? 12 : 2}
 			fill="none"
 			strokeLinecap="round"
 			strokeLinejoin="round"
