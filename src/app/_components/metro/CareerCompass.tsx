@@ -2,10 +2,11 @@
 
 // src/app/_components/metro/CareerCompass.tsx
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { CareerPath, Role, Transition, UserProfile, SkillGap } from "./types";
 import { fetchCareerPaths, fetchDemoUserProfile, fetchTransitions } from "./services/dataService";
-import MetroMap from "./map/MetroMap";
+import { MetroMap } from "./map/MetroMap";
+import type { MetroMapRef } from "./map/MetroMap";
 import RoleDetails from "./ui/details/RoleDetails";
 import PlayerCard from "./ui/player/PlayerCard";
 import ZoomControls from "./ui/controls/ZoomControls";
@@ -21,7 +22,9 @@ export default function CareerCompass() {
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [zoom, setZoom] = useState(1);
+
+	// Reference to the map component for controlling zoom/pan
+	const mapRef = useRef<MetroMapRef>(null);
 
 	// Selected role data
 	const selectedRole = selectedRoleId
@@ -69,6 +72,23 @@ export default function CareerCompass() {
 	const handleSelectRole = (roleId: string) => {
 		setSelectedRoleId(roleId);
 		setDetailsOpen(true);
+
+		// Center map on selected role
+		if (mapRef.current) {
+			mapRef.current.centerOnRole(roleId);
+		}
+	};
+
+	// Set a role as current
+	const handleSetCurrentRole = (roleId: string) => {
+		// In a real app, you would update this in the backend
+		setUserProfile(prev => prev ? { ...prev, currentRoleId: roleId } : null);
+	};
+
+	// Set a role as target
+	const handleSetTargetRole = (roleId: string) => {
+		// In a real app, you would update this in the backend
+		setUserProfile(prev => prev ? { ...prev, targetRoleId: roleId } : null);
 	};
 
 	// Calculate skill gaps for selected role
@@ -100,9 +120,17 @@ export default function CareerCompass() {
 	};
 
 	// Zoom controls
-	const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.2, 3));
-	const handleZoomOut = () => setZoom(prev => Math.max(prev / 1.2, 0.5));
-	const handleZoomReset = () => setZoom(1);
+	const handleZoomIn = () => {
+		mapRef.current?.zoomIn();
+	};
+
+	const handleZoomOut = () => {
+		mapRef.current?.zoomOut();
+	};
+
+	const handleZoomReset = () => {
+		mapRef.current?.zoomReset();
+	};
 
 	// Get transition data in format needed by MetroMap
 	const transitionConnections = transitions.map(t => ({
@@ -134,15 +162,19 @@ export default function CareerCompass() {
 				</div>
 			) : (
 				<>
-					{/* Metro map visualization */}
-					<div className="absolute inset-12 border border-neutral-900" style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}>
+					{/* New Metro map visualization with grid */}
+					<div className="absolute inset-8">
 						<MetroMap
+							ref={mapRef}
 							careerPaths={careerPaths}
 							transitions={transitionConnections}
 							currentRoleId={userProfile?.currentRoleId}
 							targetRoleId={userProfile?.targetRoleId}
 							selectedRoleId={selectedRoleId}
 							onSelectRole={handleSelectRole}
+							onSetCurrentRole={handleSetCurrentRole}
+							onSetTargetRole={handleSetTargetRole}
+							debug={true} // Set to false in production
 						/>
 					</div>
 
@@ -164,7 +196,7 @@ export default function CareerCompass() {
 							onZoomIn={handleZoomIn}
 							onZoomOut={handleZoomOut}
 							onReset={handleZoomReset}
-							zoom={zoom}
+							zoom={100} // We'll handle zoom differently now
 						/>
 					</div>
 

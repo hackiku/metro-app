@@ -17,15 +17,15 @@ import {
 	PopoverTrigger,
 } from "~/components/ui/popover";
 import { MapPin, Target, Briefcase, ArrowRight } from "lucide-react";
-import type { Station } from "../../services/dataService";
+import type { Role } from "../../types";
 
 interface StationMenuProps {
-	station: Station;
+	station: Role;
 	isCurrentStation: boolean;
 	isTargetStation: boolean;
-	onSetCurrent: (station: Station) => void;
-	onSetTarget: (station: Station) => void;
-	onViewDetails: (station: Station) => void;
+	onSetCurrent: (station: Role) => void;
+	onSetTarget: (station: Role) => void;
+	onViewDetails: (station: Role) => void;
 }
 
 export function StationMenu({
@@ -104,3 +104,5 @@ export function StationMenu({
 		</Popover>
 	);
 }
+
+export default StationMenu;

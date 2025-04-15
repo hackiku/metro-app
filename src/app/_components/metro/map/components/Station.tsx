@@ -3,10 +3,10 @@
 
 import { memo, useRef } from "react";
 import { StationMenu } from "./StationMenu";
-import type { Station as StationData } from "../../services/dataService";
+import type { Role } from "../../types";
 
 interface StationProps {
-	station: StationData;
+	station: Role;
 	x: number;
 	y: number;
 	color: string;
@@ -14,9 +14,9 @@ interface StationProps {
 	isCurrent?: boolean;
 	isTarget?: boolean;
 	isInterchange?: boolean;
-	onClick: (station: StationData) => void;
-	onSetCurrent: (station: StationData) => void;
-	onSetTarget: (station: StationData) => void;
+	onClick: (station: Role) => void;
+	onSetCurrent: (station: Role) => void;
+	onSetTarget: (station: Role) => void;
 }
 
 export const Station = memo(function Station({
@@ -144,3 +144,5 @@ export const Station = memo(function Station({
 		</g>
 	);
 });
+
+export default Station;

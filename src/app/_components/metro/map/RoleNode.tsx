@@ -10,6 +10,7 @@ interface RoleNodeProps {
 	isSelected?: boolean;
 	isCurrent?: boolean;
 	isTarget?: boolean;
+	isInterchange?: boolean;
 	onClick: () => void;
 }
 
@@ -19,6 +20,7 @@ const RoleNode = memo(function RoleNode({
 	isSelected = false,
 	isCurrent = false,
 	isTarget = false,
+	isInterchange = false,
 	onClick
 }: RoleNodeProps) {
 	const baseRadius = 10;
@@ -36,14 +38,28 @@ const RoleNode = memo(function RoleNode({
 			transform={`translate(${role.x},${role.y})`}
 			onClick={onClick}
 		>
-			{/* Base circle */}
-			<circle
-				r={finalRadius}
-				fill="var(--background, white)"
-				stroke={strokeColor}
-				strokeWidth={strokeWidth}
-				className="transition-all duration-300"
-			/>
+			{/* Base shape - square for interchanges, circle for regular nodes */}
+			{isInterchange ? (
+				<rect
+					x={-finalRadius}
+					y={-finalRadius}
+					width={finalRadius * 2}
+					height={finalRadius * 2}
+					rx={3}
+					fill="var(--background, white)"
+					stroke={strokeColor}
+					strokeWidth={strokeWidth}
+					className="transition-all duration-300"
+				/>
+			) : (
+				<circle
+					r={finalRadius}
+					fill="var(--background, white)"
+					stroke={strokeColor}
+					strokeWidth={strokeWidth}
+					className="transition-all duration-300"
+				/>
+			)}
 
 			{/* Current role indicator */}
 			{isCurrent && (
