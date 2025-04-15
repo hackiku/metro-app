@@ -12,7 +12,7 @@ interface ZoomControlsProps {
 	className?: string
 }
 
-export default function ZoomControls({
+export function ZoomControls({
 	onZoomIn,
 	onZoomOut,
 	onReset,

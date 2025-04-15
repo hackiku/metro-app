@@ -13,3 +13,10 @@ export const gasunieClient = createClient(
 	env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 	{ db: { schema: 'gasunie' } }
 );
+
+export const careersClient = createClient(
+	env.NEXT_PUBLIC_SUPABASE_URL,
+	env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+	{ db: { schema: 'careers' } }
+);
+

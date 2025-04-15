@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import CareerCompass from "~/app/_components/metro/CareerCompass"
+import { Metro } from "~/app/_components/old_metro/Metro"
 
 export default function MetroPage() {
 	const [activeTab, setActiveTab] = useState("technical")
@@ -18,7 +18,7 @@ export default function MetroPage() {
 			{/* Main Metro Component - only render on client side */}
 			{isClient && (
 				<div className="absolute inset-0">
-					<CareerCompass />
+					<Metro activeSkillCategory={activeTab} schema="gasunie" />
 				</div>
 			)}
 		</div>

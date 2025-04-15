@@ -33,8 +33,10 @@ export function Navbar() {
 					/>
 				</div>
 
-				<Button variant="ghost" size="icon" className="text-muted-foreground">
-					<Bell className="h-5 w-5" />
+				<Button variant="ghost" size="icon" className="text-muted-foreground" asChild>
+					<a href="https://preview--career-compass-thierry.lovable.app/" target="_blank">
+						<Bell className="h-5 w-5" />					
+					</a>
 				</Button>
 
 				<ModeToggle />

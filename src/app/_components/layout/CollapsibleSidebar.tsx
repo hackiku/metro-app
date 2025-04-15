@@ -5,183 +5,161 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Play,
-  FolderTree,
-  Handshake,
-  Factory,
-  Home,
-  Layers,
-  Award,
-  Briefcase,
-  BarChart2,
-  Users,
-  Settings,
-  HelpCircle
+	Play,
+	Compass,
+	Map,
+	ChartColumnIncreasing,
+	FolderTree,
+	Handshake,
+	Factory,
+	Home,
+	Layers,
+	Award,
+	Briefcase,
+	BarChart2,
+	Users,
+	Settings,
+	HelpCircle
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
+import { LucideIcon } from "lucide-react";
+
+interface NavItemConfig {
+	href: string;
+	icon: LucideIcon;
+	text: string;
+}
+
+interface NavGroupConfig {
+	items: NavItemConfig[];
+	showDivider?: boolean;
+}
+
+// Navigation configuration
+const navigationConfig: NavGroupConfig[] = [
+	{
+		// Primary navigation
+		items: [
+			{ href: "/metro", icon: Play, text: "Metro" },
+			{ href: "/destinations", icon: Compass, text: "Destinations" },
+			{ href: "/comparison", icon: ChartColumnIncreasing, text: "Comparison" },
+			{ href: "/route", icon: Map, text: "Route Plan" },
+		],
+		showDivider: true
+	},
+	{
+		// Main navigation items
+		items: [
+			{ href: "/", icon: Home, text: "Dashboard" },
+			{ href: "/development", icon: BarChart2, text: "Development" },
+			{ href: "/job-family", icon: Layers, text: "Job Families" },
+			{ href: "/competences", icon: Briefcase, text: "Competences" }
+		],
+		showDivider: true
+	},
+	{
+		// Footer navigation
+		items: [
+			{ href: "/settings", icon: Settings, text: "Settings" },
+			{ href: "/help", icon: HelpCircle, text: "Help & Support" }
+		]
+	}
+];
 
 interface CollapsibleSidebarProps {
-  isCollapsed: boolean;
+	isCollapsed: boolean;
 }
 
 export function CollapsibleSidebar({ isCollapsed }: CollapsibleSidebarProps) {
-  const pathname = usePathname();
-  
-  return (
-    <div 
-      className={cn(
-        "flex h-full flex-col px-2 py-4 transition-all duration-300",
-        isCollapsed ? "items-center" : "px-3"
-      )}
-    >
-      <div className={cn("mb-8", isCollapsed ? "h-6 w-6" : "px-2")}>
-        {/* Logo can go here if needed */}
-      </div>
+	const pathname = usePathname();
 
-      <TooltipProvider delayDuration={0}>
-        <nav className="space-y-1">
-          <NavItem 
-            href="/metro" 
-            icon={<Play className="h-5 w-5" />} 
-            text="Metro" 
-            isCollapsed={isCollapsed}
-            isActive={pathname === "/metro"}
-          />
-          <NavItem 
-            href="/hr" 
-						icon={<Handshake className="h-5 w-5" />} 
-            text="HR Metrics" 
-            isCollapsed={isCollapsed}
-            isActive={pathname === "/hr"}
-          />
-          {/* <NavItem 
-            href="/skill-tree" 
-						icon={<FolderTree className="h-5 w-5" />} 
-            text="Skill Tree" 
-            isCollapsed={isCollapsed}
-            isActive={pathname === "/skill-tree"}
-          /> */}
-          <NavItem 
-            href="/organization" 
-						icon={<Factory className="h-5 w-5" />} 
-            text="Organization" 
-            isCollapsed={isCollapsed}
-            isActive={pathname === "/skill-tree"}
-          />
-          <NavItem 
-            href="/" 
-            icon={<Home className="h-5 w-5" />} 
-            text="Dashboard" 
-            isCollapsed={isCollapsed}
-            isActive={pathname === "/"}
-          />
-          <NavItem 
-            href="/development" 
-            icon={<BarChart2 className="h-5 w-5" />} 
-            text="Development" 
-            isCollapsed={isCollapsed}
-            isActive={pathname === "/development"}
-          />
-          <NavItem 
-            href="/job-family" 
-            icon={<Layers className="h-5 w-5" />} 
-            text="Job Families" 
-            isCollapsed={isCollapsed}
-            isActive={pathname === "/job-family"}
-          />
-          {/* <NavItem 
-            href="/career-path" 
-            icon={<Award className="h-5 w-5" />} 
-            text="Career Paths" 
-            isCollapsed={isCollapsed}
-            isActive={pathname === "/career-path"}
-          /> */}
-          <NavItem 
-            href="/competences" 
-            icon={<Briefcase className="h-5 w-5" />} 
-            text="Competences" 
-            isCollapsed={isCollapsed}
-            isActive={pathname === "/competences"}
-          />
-          {/* <NavItem 
-            href="/team" 
-            icon={<Users className="h-5 w-5" />} 
-            text="Team" 
-            isCollapsed={isCollapsed}
-            isActive={pathname === "/team"}
-          /> */}
-        </nav>
+	return (
+		<div
+			className={cn(
+				"flex h-full flex-col px-2 py-4 transition-all duration-300",
+				isCollapsed ? "items-center" : "px-3"
+			)}
+		>
+			<div className={cn("mb-8", isCollapsed ? "h-6 w-6" : "px-2")}>
+				{/* Logo can go here if needed */}
+			</div>
 
-        <div className="mt-auto space-y-1">
-          <NavItem 
-            href="/settings" 
-            icon={<Settings className="h-5 w-5" />} 
-            text="Settings" 
-            isCollapsed={isCollapsed}
-            isActive={pathname === "/settings"}
-          />
-          <NavItem 
-            href="/help" 
-            icon={<HelpCircle className="h-5 w-5" />} 
-            text="Help & Support" 
-            isCollapsed={isCollapsed}
-            isActive={pathname === "/help"}
-          />
-        </div>
-      </TooltipProvider>
-    </div>
-  );
+			<TooltipProvider delayDuration={0}>
+				<div className="flex flex-col h-full">
+					{navigationConfig.map((group, groupIndex) => (
+						<div key={groupIndex} className={groupIndex === navigationConfig.length - 1 ? "mt-auto" : ""}>
+							<nav className="space-y-1">
+								{group.items.map((item) => (
+									<NavItem
+										key={item.href}
+										href={item.href}
+										icon={<item.icon className="h-5 w-5" />}
+										text={item.text}
+										isCollapsed={isCollapsed}
+										isActive={pathname === item.href}
+									/>
+								))}
+							</nav>
+							{group.showDivider && (
+								<hr className={cn("my-3 border-t border-border", isCollapsed ? "w-6 mx-auto" : "")} />
+							)}
+						</div>
+					))}
+				</div>
+			</TooltipProvider>
+		</div>
+	);
 }
 
-function NavItem({ 
-  href, 
-  icon, 
-  text, 
-  isCollapsed,
-  isActive
-}: { 
-  href: string; 
-  icon: React.ReactNode; 
-  text: string; 
-  isCollapsed: boolean;
-  isActive: boolean;
+function NavItem({
+	href,
+	icon,
+	text,
+	isCollapsed,
+	isActive
+}: {
+	href: string;
+	icon: React.ReactNode;
+	text: string;
+	isCollapsed: boolean;
+	isActive: boolean;
 }) {
-  if (isCollapsed) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Link
-            href={href}
-            className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-md transition-colors",
-              isActive 
-                ? "bg-accent text-accent-foreground" 
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            {icon}
-          </Link>
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          {text}
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
+	if (isCollapsed) {
+		return (
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Link
+						href={href}
+						className={cn(
+							"flex h-10 w-10 items-center justify-center rounded-md transition-colors",
+							isActive
+								? "bg-accent text-accent-foreground"
+								: "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+						)}
+					>
+						{icon}
+					</Link>
+				</TooltipTrigger>
+				<TooltipContent side="right">
+					{text}
+				</TooltipContent>
+			</Tooltip>
+		);
+	}
 
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "flex items-center space-x-3 rounded-md px-3 py-2 text-sm transition-colors",
-        isActive 
-          ? "bg-accent text-accent-foreground" 
-          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-      )}
-    >
-      {icon}
-      <span>{text}</span>
-    </Link>
-  );
+	return (
+		<Link
+			href={href}
+			className={cn(
+				"flex items-center space-x-3 rounded-md px-3 py-2 text-sm transition-colors",
+				isActive
+					? "bg-accent text-accent-foreground"
+					: "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+			)}
+		>
+			{icon}
+			<span>{text}</span>
+		</Link>
+	);
 }
