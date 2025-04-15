@@ -2,7 +2,7 @@
 
 // src/app/_components/metro/map/PathLine.tsx
 import { memo } from "react";
-import { CareerPath } from "../types";
+import type { CareerPath } from "../types";
 import { generatePathLine } from "../services/layoutService";
 
 interface PathLineProps {
