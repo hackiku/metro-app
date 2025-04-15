@@ -7,6 +7,7 @@ import { calculateLayout } from "../services/layoutService";
 import PathLine from "./PathLine";
 import RoleNode from "./RoleNode";
 import TransitionConnection from "./TransitionConnection";
+import HelperGrid from "./HelperGrid";
 
 interface MetroMapProps {
 	careerPaths: CareerPath[];
@@ -16,6 +17,7 @@ interface MetroMapProps {
 	selectedRoleId?: string;
 	onSelectRole?: (roleId: string) => void;
 	className?: string;
+	debug?: boolean; // Add debug flag to show/hide grid
 }
 
 export default function MetroMap({
@@ -25,10 +27,17 @@ export default function MetroMap({
 	targetRoleId,
 	selectedRoleId,
 	onSelectRole,
-	className = ""
+	className = "",
+	debug = true // Enable by default for development
 }: MetroMapProps) {
 	const [layoutPaths, setLayoutPaths] = useState<CareerPath[]>([]);
 	const [viewBox, setViewBox] = useState("0 0 1000 600");
+	const [viewportBounds, setViewportBounds] = useState({
+		minX: 0,
+		minY: 0,
+		maxX: 1000,
+		maxY: 600
+	});
 	const svgRef = useRef<SVGSVGElement>(null);
 
 	// Calculate layout when career paths change
@@ -40,12 +49,15 @@ export default function MetroMap({
 			// Determine viewBox based on role positions
 			const allRoles = processedPaths.flatMap(path => path.roles);
 			if (allRoles.length > 0) {
-				const minX = Math.min(...allRoles.map(role => role.x || 0)) - 50;
-				const minY = Math.min(...allRoles.map(role => role.y || 0)) - 50;
-				const maxX = Math.max(...allRoles.map(role => role.x || 0)) + 50;
-				const maxY = Math.max(...allRoles.map(role => role.y || 0)) + 50;
+				// Calculate bounds with padding
+				const padding = 60; // Increased padding for grid labels
+				const minX = Math.min(...allRoles.map(role => role.x || 0)) - padding;
+				const minY = Math.min(...allRoles.map(role => role.y || 0)) - padding;
+				const maxX = Math.max(...allRoles.map(role => role.x || 0)) + padding;
+				const maxY = Math.max(...allRoles.map(role => role.y || 0)) + padding;
 
 				setViewBox(`${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
+				setViewportBounds({ minX, minY, maxX, maxY });
 			}
 		}
 	}, [careerPaths]);
@@ -64,13 +76,25 @@ export default function MetroMap({
 	};
 
 	return (
-		<div className={`w-full h-full overflow-hidden ${className}`}>
+		<div className={`relative w-full h-full overflow-hidden border border-muted ${className}`}>
 			<svg
 				ref={svgRef}
 				className="w-full h-full"
 				viewBox={viewBox}
 				preserveAspectRatio="xMidYMid meet"
 			>
+				{/* Helper Grid for development */}
+				{debug && (
+					<HelperGrid
+						minX={viewportBounds.minX}
+						minY={viewportBounds.minY}
+						maxX={viewportBounds.maxX}
+						maxY={viewportBounds.maxY}
+						gridSize={50}
+						showLabels={true}
+					/>
+				)}
+
 				{/* Render path lines first (background layer) */}
 				{layoutPaths.map(path => (
 					<PathLine
@@ -92,25 +116,66 @@ export default function MetroMap({
 							fromRole={fromRoleInfo.role}
 							toRole={toRoleInfo.role}
 							isRecommended={transition.isRecommended}
+							isHighlighted={selectedRoleId === transition.fromRoleId || selectedRoleId === transition.toRoleId}
 						/>
 					);
 				})}
 
 				{/* Render role nodes (foreground layer) */}
 				{layoutPaths.map(path =>
-					path.roles.map(role => (
-						<RoleNode
-							key={role.id}
-							role={role}
-							pathColor={path.color}
-							isSelected={role.id === selectedRoleId}
-							isCurrent={role.id === currentRoleId}
-							isTarget={role.id === targetRoleId}
-							onClick={() => handleRoleClick(role.id)}
-						/>
-					))
+					path.roles.map(role => {
+						// Check if this role is an interchange (appears in multiple paths)
+						const isInterchange = layoutPaths.some(
+							p => p.id !== path.id && p.roles.some(r => r.id === role.id)
+						);
+
+						return (
+							<RoleNode
+								key={`${path.id}-${role.id}`}
+								role={role}
+								pathColor={path.color}
+								isSelected={role.id === selectedRoleId}
+								isCurrent={role.id === currentRoleId}
+								isTarget={role.id === targetRoleId}
+								isInterchange={isInterchange}
+								onClick={() => handleRoleClick(role.id)}
+							/>
+						);
+					})
+				)}
+
+				{/* Debugging coordinates display */}
+				{debug && selectedRoleId && (
+					<g className="coordinates-display">
+						{(() => {
+							const selectedRole = layoutPaths.flatMap(p => p.roles).find(r => r.id === selectedRoleId);
+							if (!selectedRole) return null;
+
+							return (
+								<text
+									x={selectedRole.x}
+									y={selectedRole.y + 30}
+									textAnchor="middle"
+									fill="var(--muted-foreground)"
+									fontSize="10"
+									className="pointer-events-none"
+								>
+									({Math.round(selectedRole.x)}, {Math.round(selectedRole.y)})
+								</text>
+							);
+						})()}
+					</g>
 				)}
 			</svg>
+
+			{/* Debug controls overlay */}
+			{debug && (
+				<div className="absolute bottom-4 left-4 bg-muted/80 rounded p-2 text-xs text-muted-foreground">
+					<div>Paths: {layoutPaths.length}</div>
+					<div>Roles: {layoutPaths.reduce((sum, path) => sum + path.roles.length, 0)}</div>
+					<div>Transitions: {transitions.length}</div>
+				</div>
+			)}
 		</div>
 	);
 }

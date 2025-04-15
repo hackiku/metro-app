@@ -2,7 +2,7 @@
 
 // src/app/_components/metro/map/RoleNode.tsx
 import { memo } from "react";
-import { Role } from "../types";
+import type { Role } from "../types";
 
 interface RoleNodeProps {
 	role: Role;

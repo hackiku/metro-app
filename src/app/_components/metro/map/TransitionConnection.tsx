@@ -1,6 +1,6 @@
+// src/app/_components/metro/map/TransitionConnection.tsx
 "use client"
 
-// src/app/_components/metro/map/TransitionConnection.tsx
 import { memo } from "react";
 import type { Role } from "../types";
 
@@ -21,32 +21,19 @@ const TransitionConnection = memo(function TransitionConnection({
 		return null;
 	}
 
-	// Calculate control points for curve
-	// For direct horizontal or vertical lines, no curve needed
-	const isHorizontal = Math.abs(fromRole.y - toRole.y) < 10;
-	const isVertical = Math.abs(fromRole.x - toRole.x) < 10;
+	// Calculate midpoint for the bezier curve
+	const midX = (fromRole.x + toRole.x) / 2;
 
-	// Path data
-	let pathData;
+	// Generate path data for a curved connection
+	const pathData = `
+    M ${fromRole.x},${fromRole.y} 
+    C ${midX},${fromRole.y} ${midX},${toRole.y} ${toRole.x},${toRole.y}
+  `;
 
-	if (isHorizontal || isVertical) {
-		// Simple straight line
-		pathData = `M ${fromRole.x},${fromRole.y} L ${toRole.x},${toRole.y}`;
-	} else {
-		// Create a curved path with Bezier curve
-		const midX = (fromRole.x + toRole.x) / 2;
-
-		// Create an S-curve between roles
-		pathData = `
-      M ${fromRole.x},${fromRole.y} 
-      C ${midX},${fromRole.y} ${midX},${toRole.y} ${toRole.x},${toRole.y}
-    `;
-	}
-
-	// Determine styles based on props
-	const strokeWidth = isHighlighted ? 4 : 3;
-	const opacity = isHighlighted ? 1 : 0.7;
-	const strokeDasharray = isRecommended ? '0' : '5,5';
+	// Styling based on properties
+	const strokeWidth = isHighlighted ? 3 : 2;
+	const opacity = isHighlighted ? 0.8 : 0.5;
+	const strokeDasharray = isRecommended ? 'none' : '5,5';
 	const strokeColor = isRecommended ? "#10b981" : "#9ca3af"; // Green for recommended, gray otherwise
 
 	return (
@@ -55,10 +42,11 @@ const TransitionConnection = memo(function TransitionConnection({
 			stroke={strokeColor}
 			strokeWidth={strokeWidth}
 			strokeLinecap="round"
+			strokeLinejoin="round"
 			strokeDasharray={strokeDasharray}
 			fill="none"
 			opacity={opacity}
-			className="transition-all duration-300 ease-in-out"
+			className="transition-all duration-300"
 		/>
 	);
 });
