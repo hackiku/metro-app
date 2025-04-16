@@ -1,6 +1,5 @@
 "use client"
 
-// src/app/_components/metro/CareerCompass.tsx
 import { useState, useRef } from "react";
 import type { MetroMapRef } from "./map/MetroMap";
 import { MetroMap } from "./map/MetroMap";
@@ -26,15 +25,21 @@ export default function CareerCompass() {
 	const selectedRole = viewState.selectedRoleId ? getRoleById(viewState.selectedRoleId) : null;
 	const selectedPath = selectedRole ? careerPaths.find(p => p.id === selectedRole.careerPathId) : null;
 
-	// Handle role selection
+	// Handle role selection - just select the role but don't open details yet
 	const handleSelectRole = (roleId: string) => {
 		selectRole(roleId);
-		setDetailsOpen(true);
+		// Don't open details immediately - let the user choose from menu
 
 		// Center map on selected role
 		if (mapRef.current) {
 			mapRef.current.centerOnRole(roleId);
 		}
+	};
+
+	// Handle view details request from menu
+	const handleViewDetails = (roleId: string) => {
+		selectRole(roleId);
+		setDetailsOpen(true);
 	};
 
 	// Format transitions for the map component
@@ -79,6 +84,7 @@ export default function CareerCompass() {
 							onSelectRole={handleSelectRole}
 							onSetCurrentRole={setCurrentRole}
 							onSetTargetRole={setTargetRole}
+							onViewDetails={handleViewDetails} // Pass the new handler
 							debug={true} // Set to false in production
 						/>
 					</div>

@@ -1,7 +1,7 @@
 // src/app/_components/metro/map/components/StationMenu.tsx
 "use client"
 
-import { useRef, useState, useEffect } from "react";
+import { useRef } from "react";
 import {
 	Command,
 	CommandEmpty,
@@ -16,8 +16,8 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "~/components/ui/popover";
-import { MapPin, Target, Briefcase, ArrowRight } from "lucide-react";
-import type { Role } from "~/types";
+import { MapPin, Target, Briefcase, XCircle } from "lucide-react";
+import type { Role } from "~/types/career";
 
 interface StationMenuProps {
 	station: Role;
@@ -26,6 +26,8 @@ interface StationMenuProps {
 	onSetCurrent: (station: Role) => void;
 	onSetTarget: (station: Role) => void;
 	onViewDetails: (station: Role) => void;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
 }
 
 export function StationMenu({
@@ -34,28 +36,13 @@ export function StationMenu({
 	isTargetStation,
 	onSetCurrent,
 	onSetTarget,
-	onViewDetails
+	onViewDetails,
+	open,
+	onOpenChange
 }: StationMenuProps) {
-	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLDivElement>(null);
 
-	// Setup keyboard shortcut for context menu
-	useEffect(() => {
-		const handleContextMenu = (e: MouseEvent) => {
-			// Check if the click target is part of this station
-			const stationElement = triggerRef.current?.closest('.station-node');
-			if (stationElement && stationElement.contains(e.target as Node)) {
-				e.preventDefault();
-				setOpen(true);
-			}
-		};
-
-		document.addEventListener('contextmenu', handleContextMenu);
-		return () => {
-			document.removeEventListener('contextmenu', handleContextMenu);
-		};
-	}, []);
-
+	// Define all possible actions including remove options
 	const actions = [
 		{
 			id: "view-details",
@@ -63,7 +50,7 @@ export function StationMenu({
 			icon: <Briefcase className="h-4 w-4 mr-2" />,
 			action: () => {
 				onViewDetails(station);
-				setOpen(false);
+				onOpenChange(false);
 			},
 			disabled: false
 		},
@@ -73,9 +60,21 @@ export function StationMenu({
 			icon: <MapPin className="h-4 w-4 mr-2" />,
 			action: () => {
 				onSetCurrent(station);
-				setOpen(false);
+				onOpenChange(false);
 			},
 			disabled: isCurrentStation
+		},
+		{
+			id: "clear-current",
+			name: "Remove Current Position",
+			icon: <XCircle className="h-4 w-4 mr-2 text-red-500" />,
+			action: () => {
+				// We can pass a dummy role ID to clear it
+				// This requires modification in the context handler
+				onSetCurrent({ ...station, id: "" });
+				onOpenChange(false);
+			},
+			disabled: !isCurrentStation
 		},
 		{
 			id: "set-target",
@@ -83,17 +82,28 @@ export function StationMenu({
 			icon: <Target className="h-4 w-4 mr-2" />,
 			action: () => {
 				onSetTarget(station);
-				setOpen(false);
+				onOpenChange(false);
 			},
 			disabled: isTargetStation
+		},
+		{
+			id: "clear-target",
+			name: "Remove Target Position",
+			icon: <XCircle className="h-4 w-4 mr-2 text-red-500" />,
+			action: () => {
+				// We can pass a dummy role ID to clear it
+				onSetTarget({ ...station, id: "" });
+				onOpenChange(false);
+			},
+			disabled: !isTargetStation
 		}
 	];
 
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
+		<Popover open={open} onOpenChange={onOpenChange}>
 			<PopoverAnchor ref={triggerRef} />
 			<PopoverTrigger className="hidden">
-				{/* Hidden trigger, we control opening programmatically */}
+				{/* Hidden trigger, controlled by parent */}
 			</PopoverTrigger>
 			<PopoverContent
 				className="w-56 p-0"

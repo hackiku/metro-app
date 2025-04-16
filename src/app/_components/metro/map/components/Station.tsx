@@ -1,9 +1,9 @@
 // src/app/_components/metro/map/components/Station.tsx
 "use client"
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { StationMenu } from "./StationMenu";
-import type { Role } from "~/types";
+import type { Role } from "~/types/career";
 
 interface StationProps {
 	station: Role;
@@ -34,6 +34,9 @@ export const Station = memo(function Station({
 	onSetTarget,
 	onViewDetails
 }: StationProps) {
+	// Local state to control menu visibility
+	const [menuOpen, setMenuOpen] = useState(false);
+
 	const baseRadius = isInterchange ? 12 : 10;
 	const finalRadius = (isSelected || isCurrent || isTarget) ? baseRadius + 2 : baseRadius;
 	const strokeWidth = isSelected ? 4 : (isCurrent ? 3 : 2);
@@ -66,12 +69,11 @@ export const Station = memo(function Station({
 		/>
 	);
 
-	// Handle station click
+	// Handle station click - just open the menu
 	const handleStationClick = (e: React.MouseEvent) => {
 		e.stopPropagation();
 		onClick(station);
-		// Show details when station is clicked
-		onViewDetails(station);
+		setMenuOpen(true); // Open the menu, don't show details yet
 	};
 
 	return (
@@ -139,7 +141,7 @@ export const Station = memo(function Station({
 				</text>
 			</g>
 
-			{/* Station menu - accessible through context menu or right-click */}
+			{/* Station menu - opens on normal click */}
 			<StationMenu
 				station={station}
 				isCurrentStation={isCurrent}
@@ -147,6 +149,8 @@ export const Station = memo(function Station({
 				onSetCurrent={onSetCurrent}
 				onSetTarget={onSetTarget}
 				onViewDetails={onViewDetails}
+				open={menuOpen}
+				onOpenChange={setMenuOpen}
 			/>
 		</g>
 	);
