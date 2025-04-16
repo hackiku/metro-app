@@ -1,9 +1,9 @@
 // src/app/_components/metro/map/components/Station.tsx
 "use client"
 
-import { memo, useRef } from "react";
+import { memo } from "react";
 import { StationMenu } from "./StationMenu";
-import type { Role } from "../../types";
+import type { Role } from "~/types";
 
 interface StationProps {
 	station: Role;
@@ -17,6 +17,7 @@ interface StationProps {
 	onClick: (station: Role) => void;
 	onSetCurrent: (station: Role) => void;
 	onSetTarget: (station: Role) => void;
+	onViewDetails: (station: Role) => void;
 }
 
 export const Station = memo(function Station({
@@ -30,7 +31,8 @@ export const Station = memo(function Station({
 	isInterchange = false,
 	onClick,
 	onSetCurrent,
-	onSetTarget
+	onSetTarget,
+	onViewDetails
 }: StationProps) {
 	const baseRadius = isInterchange ? 12 : 10;
 	const finalRadius = (isSelected || isCurrent || isTarget) ? baseRadius + 2 : baseRadius;
@@ -64,14 +66,19 @@ export const Station = memo(function Station({
 		/>
 	);
 
+	// Handle station click
+	const handleStationClick = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		onClick(station);
+		// Show details when station is clicked
+		onViewDetails(station);
+	};
+
 	return (
 		<g
 			className="station-node cursor-pointer group"
 			transform={`translate(${x},${y})`}
-			onClick={(e) => {
-				e.stopPropagation();
-				onClick(station);
-			}}
+			onClick={handleStationClick}
 		>
 			{/* Station shape with hover effect */}
 			<g className="transition-transform duration-200 ease-out hover:scale-110">
@@ -132,14 +139,14 @@ export const Station = memo(function Station({
 				</text>
 			</g>
 
-			{/* Station menu - accessible on click */}
+			{/* Station menu - accessible through context menu or right-click */}
 			<StationMenu
 				station={station}
 				isCurrentStation={isCurrent}
 				isTargetStation={isTarget}
 				onSetCurrent={onSetCurrent}
 				onSetTarget={onSetTarget}
-				onViewDetails={onClick}
+				onViewDetails={onViewDetails}
 			/>
 		</g>
 	);

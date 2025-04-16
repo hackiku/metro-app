@@ -2,15 +2,18 @@
 
 // src/app/_components/metro/map/MetroMap.tsx
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
-import type { CareerPath, Role } from "../types";
+import type { CareerPath, Role } from "~/types/career";
 import { calculateGridPositions, calculateViewBounds } from "../core/gridSystem";
 import { useMapInteraction } from "../core/useMapInteraction";
 import PathLine from "./PathLine";
 import { HelperGrid } from "./HelperGrid";
 
-// Import new components
+// Import components
 import { Station } from "./components/Station";
 import { ConnectionPath } from "./components/ConnectionPath";
+
+// Import Metro context to share position data
+import { useMetroVisualization } from "~/contexts/MetroVisualizationContext";
 
 export interface MetroMapRef {
 	zoomIn: () => void;
@@ -44,6 +47,9 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 	className = "",
 	debug = false
 }, ref) {
+	// Access the visualization context
+	const { mapConfig, updateMapConfig } = useMetroVisualization();
+
 	// State
 	const [layoutPaths, setLayoutPaths] = useState<CareerPath[]>([]);
 	const [viewBox, setViewBox] = useState("0 0 1000 600");
@@ -76,8 +82,8 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 	// Calculate layout when career paths change
 	useEffect(() => {
 		if (careerPaths.length > 0) {
-			// Use our grid system to position the roles
-			const processedPaths = calculateGridPositions(careerPaths);
+			// Use our grid system to position the roles with context config
+			const processedPaths = calculateGridPositions(careerPaths, mapConfig);
 			setLayoutPaths(processedPaths);
 
 			// Calculate view bounds
@@ -88,7 +94,7 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 				setViewBounds(bounds);
 			}
 		}
-	}, [careerPaths]);
+	}, [careerPaths, mapConfig]);
 
 	// Create a role lookup map for transitions
 	const roleMap = new Map<string, { role: Role; path: CareerPath }>();
@@ -98,9 +104,25 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 		});
 	});
 
+	// Store role positions in context for other components to use
+	useEffect(() => {
+		// Build a map of role positions
+		const positions = new Map<string, { x: number, y: number }>();
+		layoutPaths.forEach(path => {
+			path.roles.forEach(role => {
+				if (role.x !== undefined && role.y !== undefined) {
+					positions.set(role.id, { x: role.x, y: role.y });
+				}
+			});
+		});
+
+		// Update role positions in the context
+		// This is a placeholder for where you would update a context value
+	}, [layoutPaths]);
+
 	// Simple handleRoleClick that doesn't affect zoom/pan
 	const handleRoleClick = (role: Role) => {
-		// Do nothing - let the menu handle actions
+		// The action will be handled by the Station component
 	};
 
 	// Handle "View Details" action from the station menu
@@ -194,6 +216,7 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 						<PathLine
 							key={path.id}
 							path={path}
+							isSelected={selectedRoleId && path.roles.some(r => r.id === selectedRoleId)}
 						/>
 					))}
 
@@ -204,7 +227,7 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 
 						if (!fromRoleInfo || !toRoleInfo) return null;
 
-						// Use our new ConnectionPath component
+						// Use our ConnectionPath component
 						return (
 							<ConnectionPath
 								key={`${transition.fromRoleId}-${transition.toRoleId}`}
@@ -227,7 +250,7 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 								p => p.id !== path.id && p.roles.some(r => r.id === role.id)
 							);
 
-							// Use our new Station component with separate handlers for different actions
+							// Use our Station component with separate handlers for different actions
 							return (
 								<Station
 									key={`${path.id}-${role.id}`}

@@ -1,41 +1,26 @@
 // src/app/_components/metro/core/gridSystem.ts
-import { CareerPath, Role } from '../types';
-
-export interface GridConfig {
-	// Base padding from edges
-	padding: number;
-
-	// Spacing between levels (horizontally)
-	levelSpacing: number;
-
-	// Spacing between paths (vertically)
-	pathSpacing: number;
-
-	// Node sizing
-	nodeRadius: number;
-
-	// Adjust interchange nodes (nodes that appear in multiple paths)
-	adjustInterchanges: boolean;
-}
-
-// Default configuration
-export const DEFAULT_GRID_CONFIG: GridConfig = {
-	padding: 50,
-	levelSpacing: 150,
-	pathSpacing: 100,
-	nodeRadius: 12,
-	adjustInterchanges: true
-};
+import type { CareerPath, Role } from '~/types/career';
+import type { MetroMapConfig } from '~/types/map';
 
 /**
  * Calculate initial positions for all roles on a grid
  */
 export function calculateGridPositions(
 	careerPaths: CareerPath[],
-	config: Partial<GridConfig> = {}
+	config: Partial<MetroMapConfig> = {}
 ): CareerPath[] {
 	// Merge defaults with provided config
-	const fullConfig: GridConfig = { ...DEFAULT_GRID_CONFIG, ...config };
+	const fullConfig: MetroMapConfig = {
+		padding: 50,
+		levelSpacing: 150,
+		pathSpacing: 100,
+		nodeRadius: 12,
+		adjustInterchanges: true,
+		alignLevels: true,
+		jitterAmount: 0,
+		metroStylePaths: false,
+		...config
+	};
 
 	// Create a deep copy to avoid modifying the original data
 	const processedPaths = JSON.parse(JSON.stringify(careerPaths)) as CareerPath[];
@@ -45,11 +30,42 @@ export function calculateGridPositions(
 		const baseY = fullConfig.padding + (pathIndex * fullConfig.pathSpacing);
 
 		path.roles.forEach(role => {
+			// Add small jitter if configured
+			const jitter = fullConfig.jitterAmount > 0
+				? (Math.random() * fullConfig.jitterAmount - fullConfig.jitterAmount / 2)
+				: 0;
+
 			// Position based on level (x) and path (y)
-			role.x = fullConfig.padding + (role.level * fullConfig.levelSpacing);
+			role.x = fullConfig.padding + (role.level * fullConfig.levelSpacing) + jitter;
 			role.y = baseY;
 		});
 	});
+
+	// If level alignment is enabled, ensure roles at the same level align horizontally
+	if (fullConfig.alignLevels) {
+		// Group roles by level
+		const rolesByLevel = new Map<number, Role[]>();
+
+		processedPaths.forEach(path => {
+			path.roles.forEach(role => {
+				if (!rolesByLevel.has(role.level)) {
+					rolesByLevel.set(role.level, []);
+				}
+				rolesByLevel.get(role.level)?.push(role);
+			});
+		});
+
+		// Ensure all roles at the same level have the same x position
+		rolesByLevel.forEach(roles => {
+			// Calculate average x position
+			const avgX = roles.reduce((sum, role) => sum + (role.x || 0), 0) / roles.length;
+
+			// Assign the same x position to all roles at this level
+			roles.forEach(role => {
+				role.x = avgX;
+			});
+		});
+	}
 
 	// Second pass: adjust positions for roles that appear in multiple paths
 	if (fullConfig.adjustInterchanges) {

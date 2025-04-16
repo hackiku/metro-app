@@ -1,5 +1,5 @@
 // src/app/_components/metro/core/pathRenderer.ts
-import { Role } from '../types';
+import type { Role } from '~/types/career';
 import { generateCurvedPath } from './helpers';
 
 /**

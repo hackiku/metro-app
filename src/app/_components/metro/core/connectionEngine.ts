@@ -1,5 +1,5 @@
 // src/app/_components/metro/core/connectionEngine.ts
-import { CareerPath, Role, Transition } from '../types';
+import type { CareerPath, Role, Transition } from '~/types/career';
 import { findRoleById } from './helpers';
 
 export interface Connection {

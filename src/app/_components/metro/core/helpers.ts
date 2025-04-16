@@ -1,6 +1,6 @@
 // src/app/_components/metro/core/helpers.ts
 
-import { CareerPath, Role } from '../types';
+import type { CareerPath, Role } from '~/types/career';
 
 /**
  * Find a role by ID across all career paths

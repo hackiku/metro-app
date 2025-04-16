@@ -1,7 +1,7 @@
 // src/app/_components/metro/map/components/StationMenu.tsx
 "use client"
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
 	Command,
 	CommandEmpty,
@@ -17,7 +17,7 @@ import {
 	PopoverTrigger,
 } from "~/components/ui/popover";
 import { MapPin, Target, Briefcase, ArrowRight } from "lucide-react";
-import type { Role } from "../../types";
+import type { Role } from "~/types";
 
 interface StationMenuProps {
 	station: Role;
@@ -38,6 +38,23 @@ export function StationMenu({
 }: StationMenuProps) {
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLDivElement>(null);
+
+	// Setup keyboard shortcut for context menu
+	useEffect(() => {
+		const handleContextMenu = (e: MouseEvent) => {
+			// Check if the click target is part of this station
+			const stationElement = triggerRef.current?.closest('.station-node');
+			if (stationElement && stationElement.contains(e.target as Node)) {
+				e.preventDefault();
+				setOpen(true);
+			}
+		};
+
+		document.addEventListener('contextmenu', handleContextMenu);
+		return () => {
+			document.removeEventListener('contextmenu', handleContextMenu);
+		};
+	}, []);
 
 	const actions = [
 		{
@@ -75,6 +92,9 @@ export function StationMenu({
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverAnchor ref={triggerRef} />
+			<PopoverTrigger className="hidden">
+				{/* Hidden trigger, we control opening programmatically */}
+			</PopoverTrigger>
 			<PopoverContent
 				className="w-56 p-0"
 				align="center"
