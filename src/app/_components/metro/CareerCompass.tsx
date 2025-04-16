@@ -163,7 +163,7 @@ export default function CareerCompass() {
 			) : (
 				<>
 					{/* New Metro map visualization with grid */}
-					<div className="absolute inset-8">
+					<div className="absolute inset-0">
 						<MetroMap
 							ref={mapRef}
 							careerPaths={careerPaths}
@@ -191,14 +191,12 @@ export default function CareerCompass() {
 					)}
 
 					{/* Zoom controls */}
-					<div className="absolute bottom-6 right-6 z-10">
-						<ZoomControls
-							onZoomIn={handleZoomIn}
-							onZoomOut={handleZoomOut}
-							onReset={handleZoomReset}
-							zoom={100} // We'll handle zoom differently now
-						/>
-					</div>
+							{/* Simplified Zoom controls - just the reset button */}
+							<div className="absolute bottom-6 right-6 z-10">
+								<ZoomControls
+									onReset={() => mapRef.current?.zoomReset()}
+								/>
+							</div>
 
 					{/* Role details modal */}
 					{selectedRole && (

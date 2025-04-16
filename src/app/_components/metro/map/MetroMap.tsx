@@ -4,14 +4,13 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import type { CareerPath, Role } from "../types";
 import { calculateGridPositions, calculateViewBounds } from "../core/gridSystem";
-import { generatePathLine } from "../core/pathRenderer";
-import { findRoleById } from "../core/helpers";
+import { useMapInteraction } from "../core/useMapInteraction";
+import PathLine from "./PathLine";
 import { HelperGrid } from "./HelperGrid";
 
-// Import our new components instead of the old ones
+// Import new components
 import { Station } from "./components/Station";
 import { ConnectionPath } from "./components/ConnectionPath";
-import PathLine from "./PathLine"; // Keep the old PathLine for now
 
 export interface MetroMapRef {
 	zoomIn: () => void;
@@ -54,14 +53,25 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 		maxX: 1000,
 		maxY: 600
 	});
-	const [zoom, setZoom] = useState(1);
-	const [pan, setPan] = useState({ x: 0, y: 0 });
 
 	// Refs
 	const svgRef = useRef<SVGSVGElement>(null);
 	const containerRef = useRef<SVGGElement>(null);
-	const isDragging = useRef(false);
-	const dragStart = useRef({ x: 0, y: 0 });
+
+	// Use our map interaction hook
+	const {
+		zoom,
+		transformValue,
+		zoomIn,
+		zoomOut,
+		zoomReset,
+		centerOnPoint,
+		handleMouseDown,
+		handleMouseMove,
+		handleMouseUp,
+		handleMouseLeave,
+		handleWheel
+	} = useMapInteraction({ initialZoom: 1 });
 
 	// Calculate layout when career paths change
 	useEffect(() => {
@@ -88,8 +98,13 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 		});
 	});
 
-	// Handle role click
+	// Simple handleRoleClick that doesn't affect zoom/pan
 	const handleRoleClick = (role: Role) => {
+		// Do nothing - let the menu handle actions
+	};
+
+	// Handle "View Details" action from the station menu
+	const handleViewDetails = (role: Role) => {
 		if (onSelectRole) {
 			onSelectRole(role.id);
 		}
@@ -109,20 +124,7 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 		}
 	};
 
-	// Zoom functions
-	const zoomIn = () => {
-		setZoom(prev => Math.min(prev * 1.2, 5));
-	};
-
-	const zoomOut = () => {
-		setZoom(prev => Math.max(prev / 1.2, 0.5));
-	};
-
-	const zoomReset = () => {
-		setZoom(1);
-		setPan({ x: 0, y: 0 });
-	};
-
+	// Center on a specific role
 	const centerOnRole = (roleId: string) => {
 		// Find the role
 		const roleInfo = roleMap.get(roleId);
@@ -130,22 +132,13 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 
 		const { role } = roleInfo;
 
-		// Calculate center of viewBox
+		// Get viewBox values
 		const viewBoxValues = viewBox.split(' ').map(Number);
 		const viewBoxWidth = viewBoxValues[2];
 		const viewBoxHeight = viewBoxValues[3];
 
-		// Calculate new pan to center the role
-		const centerX = viewBoxValues[0] + viewBoxWidth / 2;
-		const centerY = viewBoxValues[1] + viewBoxHeight / 2;
-
-		setPan({
-			x: centerX - role.x,
-			y: centerY - role.y
-		});
-
-		// Zoom in slightly
-		setZoom(1.5);
+		// Use the centerOnPoint function from our hook
+		centerOnPoint(role.x, role.y, viewBoxWidth, viewBoxHeight);
 	};
 
 	// Expose methods via ref
@@ -156,69 +149,6 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 		centerOnRole
 	}));
 
-	// Mouse drag handlers for panning
-	const handleMouseDown = (e: React.MouseEvent) => {
-		if (e.button !== 0) return; // Only left mouse button
-
-		isDragging.current = true;
-		dragStart.current = { x: e.clientX, y: e.clientY };
-
-		// Change cursor
-		if (svgRef.current) {
-			svgRef.current.style.cursor = 'grabbing';
-		}
-	};
-
-	const handleMouseMove = (e: React.MouseEvent) => {
-		if (!isDragging.current) return;
-
-		// Calculate distance moved
-		const dx = e.clientX - dragStart.current.x;
-		const dy = e.clientY - dragStart.current.y;
-
-		// Update drag start position
-		dragStart.current = { x: e.clientX, y: e.clientY };
-
-		// Update pan based on zoom level and view box dimensions
-		const viewBoxValues = viewBox.split(' ').map(Number);
-		const viewBoxWidth = viewBoxValues[2];
-		const viewBoxHeight = viewBoxValues[3];
-
-		// Calculate pan factor based on SVG dimensions
-		const svgWidth = svgRef.current?.clientWidth || 1000;
-		const svgHeight = svgRef.current?.clientHeight || 600;
-
-		const factorX = viewBoxWidth / svgWidth;
-		const factorY = viewBoxHeight / svgHeight;
-
-		// Update pan state
-		setPan(prev => ({
-			x: prev.x + (dx * factorX) / zoom,
-			y: prev.y + (dy * factorY) / zoom
-		}));
-	};
-
-	const handleMouseUp = () => {
-		isDragging.current = false;
-
-		// Reset cursor
-		if (svgRef.current) {
-			svgRef.current.style.cursor = 'grab';
-		}
-	};
-
-	const handleMouseLeave = () => {
-		isDragging.current = false;
-
-		// Reset cursor
-		if (svgRef.current) {
-			svgRef.current.style.cursor = 'grab';
-		}
-	};
-
-	// Calculate transform for zoom and pan
-	const transformValue = `scale(${zoom}) translate(${pan.x}, ${pan.y})`;
-
 	return (
 		<div className={`w-full h-full overflow-hidden ${className}`}>
 			<svg
@@ -227,9 +157,21 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 				viewBox={viewBox}
 				preserveAspectRatio="xMidYMid meet"
 				onMouseDown={handleMouseDown}
-				onMouseMove={handleMouseMove}
+				onMouseMove={(e) => {
+					if (svgRef.current) {
+						const svgWidth = svgRef.current.clientWidth;
+						const svgHeight = svgRef.current.clientHeight;
+
+						const viewBoxValues = viewBox.split(' ').map(Number);
+						const viewBoxWidth = viewBoxValues[2];
+						const viewBoxHeight = viewBoxValues[3];
+
+						handleMouseMove(e, viewBoxWidth, viewBoxHeight, svgWidth, svgHeight);
+					}
+				}}
 				onMouseUp={handleMouseUp}
 				onMouseLeave={handleMouseLeave}
+				onWheel={handleWheel}
 			>
 				<g
 					ref={containerRef}
@@ -285,7 +227,7 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 								p => p.id !== path.id && p.roles.some(r => r.id === role.id)
 							);
 
-							// Use our new Station component
+							// Use our new Station component with separate handlers for different actions
 							return (
 								<Station
 									key={`${path.id}-${role.id}`}
@@ -300,6 +242,7 @@ export const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(function MetroMap
 									onClick={handleRoleClick}
 									onSetCurrent={handleSetCurrentRole}
 									onSetTarget={handleSetTargetRole}
+									onViewDetails={handleViewDetails}
 								/>
 							);
 						})
