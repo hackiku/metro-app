@@ -1,10 +1,10 @@
 // src/app/_components/metro/hooks/useMetroMap.ts
-import { useRef, useState, useEffect, useCallback } from 'react';
-import { createMetroRenderer, type RendererInstance } from '../d3/metroRenderer';
-import { setupInteraction, type ZoomController } from '../d3/interactionHandlers';
-import { transformCareerDataToD3 } from '../utils/dbToD3';
+import { useRef, useState, useCallback, useMemo } from 'react';
+import * as d3 from 'd3';
+import { useLayout } from './useLayout';
+import { useZoom } from './useZoom';
 import type { CareerPath } from '~/types/career';
-import type { Point } from '~/types/metro';
+import type { MetroNode } from '~/types/metro';
 
 interface UseMetroMapProps {
   careerPaths: CareerPath[];
@@ -13,11 +13,7 @@ interface UseMetroMapProps {
   targetRoleId?: string | null;
   selectedRoleId?: string | null;
   onSelectRole?: (roleId: string) => void;
-  onSetCurrentRole?: (roleId: string) => void;
-  onSetTargetRole?: (roleId: string) => void;
-  onViewDetails?: (roleId: string) => void;
   debug?: boolean;
-  onTransformChange?: (transform: string) => void;
 }
 
 export function useMetroMap({
@@ -27,157 +23,118 @@ export function useMetroMap({
   targetRoleId,
   selectedRoleId,
   onSelectRole,
-  onSetCurrentRole,
-  onSetTargetRole,
-  onViewDetails,
-  debug = false,
-  onTransformChange
+  debug = false
 }: UseMetroMapProps) {
-  // References to maintain across renders
-  const containerRef = useRef<HTMLElement | null>(null);
-  const rendererRef = useRef<RendererInstance | null>(null);
-  const zoomControllerRef = useRef<ZoomController | null>(null);
-  const rendererCreatorRef = useRef<any>(null);
+  // References
+  const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
-  // State
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [d3Data, setD3Data] = useState<any>(null);
+  // State for dimensions
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   
-  // Process career data into D3 format
-  useEffect(() => {
-    const transformedData = transformCareerDataToD3(careerPaths, transitions);
-    setD3Data(transformedData);
-  }, [careerPaths, transitions]);
+  // Get layout data using our layout hook
+  const { lines, connections } = useLayout(careerPaths, transitions);
   
-  // Update when selected role changes
-  useEffect(() => {
-    if (rendererRef.current && selectedRoleId !== undefined) {
-      rendererRef.current.selectNode(selectedRoleId);
-    }
-  }, [selectedRoleId]);
+  // Create a flat list of all nodes
+  const allNodes = useMemo(() => 
+    lines.flatMap(line => line.nodes), 
+    [lines]
+  );
   
-  // Update special roles (current/target)
-  const updateSpecialRoles = useCallback((current: string | null, target: string | null) => {
-    if (rendererCreatorRef.current && rendererCreatorRef.current.setSpecialRoles) {
-      rendererCreatorRef.current.setSpecialRoles(current, target);
-    }
-  }, []);
+  // Set up zoom behavior
+  const { transform, zoomIn, zoomOut, zoomReset, centerOn, zoomLevel } = useZoom(svgRef, {
+    minZoom: 0.5,
+    maxZoom: 8
+  });
   
   // Handle node selection
-  const handleNodeSelected = useCallback((nodeId: string | null) => {
-    if (onSelectRole && nodeId) {
+  const handleNodeClick = useCallback((nodeId: string) => {
+    if (onSelectRole) {
       onSelectRole(nodeId);
     }
   }, [onSelectRole]);
   
-  // Get current node positions from the renderer
-  const getPositions = useCallback(() => {
-    if (!d3Data) return new Map<string, Point>();
-    
-    // Collect positions from all lines
-    const positions = new Map<string, Point>();
-    d3Data.lines.forEach((line: any) => {
-      line.nodes.forEach((node: any) => {
-        positions.set(node.id, { x: node.x, y: node.y });
-      });
-    });
-    
-    return positions;
-  }, [d3Data]);
-  
-  // Attach the renderer to a DOM element
-  const attachToContainer = useCallback((element: HTMLElement) => {
-    if (!element) return;
-    containerRef.current = element;
-    
-    // Clear any existing content
-    element.innerHTML = '';
-    
-    // Create renderer
-    const renderer = createMetroRenderer({
-      debugGrid: debug
-    });
-    
-    // Store the renderer creator for access to its methods
-    rendererCreatorRef.current = renderer;
-    
-    // Initialize renderer
-    const rendererInstance = renderer.initialize(element);
-    rendererRef.current = rendererInstance;
-    
-    // Set node selection callback
-    renderer.setNodeSelectedCallback(handleNodeSelected);
-    
-    // Set initial special roles
-    if (currentRoleId || targetRoleId) {
-      renderer.setSpecialRoles(currentRoleId || null, targetRoleId || null);
+  // Calculate scales based on node positions
+  const [xScale, yScale] = useMemo(() => {
+    if (allNodes.length === 0) {
+      return [
+        d3.scaleLinear().domain([0, 100]).range([0, dimensions.width]),
+        d3.scaleLinear().domain([0, 100]).range([0, dimensions.height])
+      ];
     }
     
-    // Setup zoom/pan interaction
-    const zoomController = setupInteraction(
-      rendererInstance.svg,
-      rendererInstance.mapGroup,
-      { initialZoom: 1 },
-      (transform) => {
-        // Update zoom level state when it changes
-        setZoomLevel(transform.k);
-        
-        // Pass transform string to callback if provided
-        if (onTransformChange) {
-          onTransformChange(transform.toString());
-        }
-      }
-    );
-    zoomControllerRef.current = zoomController;
+    // Find min/max values
+    const xExtent = d3.extent(allNodes, d => d.x) as [number, number];
+    const yExtent = d3.extent(allNodes, d => d.y) as [number, number];
     
-    // Initial render if data is available
-    if (d3Data) {
-      rendererInstance.updateData(d3Data);
-    }
+    // Add some padding
+    const xPadding = (xExtent[1] - xExtent[0]) * 0.1;
+    const yPadding = (yExtent[1] - yExtent[0]) * 0.1;
     
-    // Cleanup function
-    return () => {
-      element.innerHTML = '';
-    };
-  }, [d3Data, debug, handleNodeSelected, onTransformChange, currentRoleId, targetRoleId]);
+    // Create scales
+    const xScale = d3.scaleLinear()
+      .domain([xExtent[0] - xPadding, xExtent[1] + xPadding])
+      .range([0, dimensions.width]);
+      
+    const yScale = d3.scaleLinear()
+      .domain([yExtent[0] - yPadding, yExtent[1] + yPadding])
+      .range([0, dimensions.height]);
+      
+    return [xScale, yScale];
+  }, [allNodes, dimensions]);
   
-  // Update renderer when data changes
-  useEffect(() => {
-    if (rendererRef.current && d3Data) {
-      rendererRef.current.updateData(d3Data);
-    }
-  }, [d3Data]);
-  
-  // Center on a role
+  // Function to center on a role
   const centerOnRole = useCallback((roleId: string) => {
-    if (!rendererRef.current) return;
+    const node = allNodes.find(n => n.id === roleId);
+    if (!node || !svgRef.current) return;
     
-    rendererRef.current.centerOnNode(roleId);
-  }, []);
+    // Convert node coordinates through the scale
+    const x = xScale(node.x);
+    const y = yScale(node.y);
+    
+    // Use zoom controller to center
+    centerOn(x, y);
+  }, [allNodes, xScale, yScale, centerOn]);
   
-  // Zoom controls
-  const zoomIn = useCallback(() => {
-    zoomControllerRef.current?.zoomIn();
-  }, []);
+  // Find path color for a role
+  const findPathColorForRole = useCallback((roleId: string): string => {
+    for (const line of lines) {
+      if (line.nodes.some(node => node.id === roleId)) {
+        return line.color;
+      }
+    }
+    return "#888"; // Default color
+  }, [lines]);
   
-  const zoomOut = useCallback(() => {
-    zoomControllerRef.current?.zoomOut();
-  }, []);
-  
-  const zoomReset = useCallback(() => {
-    zoomControllerRef.current?.zoomReset();
-  }, []);
+  // Find role object from ID
+  const findRoleById = useCallback((roleId: string) => {
+    for (const path of careerPaths) {
+      const role = path.roles.find(r => r.id === roleId);
+      if (role) {
+        return role;
+      }
+    }
+    return null;
+  }, [careerPaths]);
   
   return {
-    attachToContainer,
+    svgRef,
+    containerRef,
+    dimensions,
+    setDimensions,
+    lines,
+    connections,
+    allNodes,
+    transform,
+    zoomLevel,
     zoomIn,
     zoomOut,
     zoomReset,
     centerOnRole,
-    zoomLevel,
-    getPositions,
-    updateSpecialRoles
+    handleNodeClick,
+    xScale,
+    yScale,
+    findPathColorForRole,
+    findRoleById
   };
 }
-
-export default useMetroMap;

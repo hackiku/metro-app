@@ -1,14 +1,13 @@
 // src/app/_components/metro/map/MetroMap.tsx
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import * as d3 from 'd3';
-import { useLayout } from '../hooks/useLayout';
-import { useZoom } from '../hooks/useZoom';
+import { useMetroMap } from '../hooks/useMetroMap';
 import MetroLine from './MetroLine';
 import MetroStation from './MetroStation';
 import MetroConnection from './MetroConnection';
-import StationOverlay from './components/StationOverlay';
+import StationOverlay from './StationOverlay';
+import HelperGrid from './HelperGrid';
 import type { CareerPath } from '~/types/career';
-import type { MetroNode } from '~/types/metro';
 
 interface MetroMapProps {
 	careerPaths: CareerPath[];
@@ -44,26 +43,36 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 	className = "",
 	debug = false
 }, ref) => {
-	// References
+	// Container for measuring dimensions
 	const containerRef = useRef<HTMLDivElement>(null);
-	const svgRef = useRef<SVGSVGElement>(null);
 
-	// State
+	// Track dimensions for responsive sizing
 	const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 
-	// Get layout data (optimized positions)
-	const { lines, connections } = useLayout(careerPaths, transitions);
-
-	// Create all nodes list for connections
-	const allNodes = lines.flatMap(line => line.nodes);
-
-	// Setup zoom
-	const { transform, zoomIn, zoomOut, zoomReset, centerOn, zoomLevel } = useZoom(svgRef, {
-		minZoom: 0.5,
-		maxZoom: 8
+	// Use our custom hook for metro map functionality
+	const {
+		svgRef,
+		lines,
+		connections,
+		allNodes,
+		transform,
+		zoomLevel,
+		zoomIn,
+		zoomOut,
+		zoomReset,
+		centerOnRole,
+		handleNodeClick,
+		getNodePositions
+	} = useMetroMap({
+		careerPaths,
+		transitions,
+		currentRoleId,
+		targetRoleId,
+		selectedRoleId,
+		onSelectRole
 	});
 
-	// Create scales
+	// Create scales for mapping data coordinates to screen space
 	const [xScale, yScale] = useMemo(() => {
 		// Find min/max values from all nodes
 		const xExtent = d3.extent(allNodes, d => d.x) as [number, number];
@@ -99,14 +108,6 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 		return () => resizeObserver.disconnect();
 	}, []);
 
-	// Function to center on a role
-	const centerOnRole = (roleId: string) => {
-		const node = allNodes.find(n => n.id === roleId);
-		if (!node) return;
-
-		centerOn(xScale(node.x), yScale(node.y));
-	};
-
 	// Expose controls via ref
 	React.useImperativeHandle(ref, () => ({
 		zoomIn,
@@ -141,8 +142,20 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 				className="metro-map"
 			>
 				<g transform={transform.toString()}>
+					{/* Debug grid */}
+					{debug && (
+						<HelperGrid
+							minX={xScale.domain()[0]}
+							minY={yScale.domain()[0]}
+							maxX={xScale.domain()[1]}
+							maxY={yScale.domain()[1]}
+							gridSize={50}
+							showLabels={true}
+						/>
+					)}
+
 					{/* Draw connections first (bottom layer) */}
-					{connections.map(connection => (
+					{/* {connections.map(connection => (
 						<MetroConnection
 							key={`${connection.fromId}-${connection.toId}`}
 							connection={connection}
@@ -154,7 +167,7 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 									false
 							}
 						/>
-					))}
+					))} */}
 
 					{/* Draw lines next */}
 					{lines.map(line => (
@@ -182,7 +195,7 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 								isSelected={node.id === selectedRoleId}
 								isCurrent={node.id === currentRoleId}
 								isTarget={node.id === targetRoleId}
-								onClick={onSelectRole}
+								onClick={handleNodeClick}
 							/>
 						))
 					)}

@@ -1,14 +1,14 @@
-// src/app/_components/metro/map/components/StationOverlay.tsx
+// src/app/_components/metro/map/StationOverlay.tsx
 "use client"
 
 import { useState, useEffect, useRef } from "react";
-import { StationMenu } from "./StationMenu";
+import StationMenu from "./StationMenu";
 import type { Role } from "~/types/career";
 import type { Point } from "~/types/metro";
 
 interface StationOverlayProps {
 	selectedNodeId: string | null;
-	nodePositions: Map<string, Point>;
+	nodePositions: Map<string, Point | { x: number, y: number, name?: string }>;
 	careerPaths: any[];
 	currentRoleId?: string | null;
 	targetRoleId?: string | null;
@@ -37,6 +37,7 @@ export default function StationOverlay({
 
 	// Find role and path information when selection changes
 	useEffect(() => {
+		// Close menu when nothing is selected
 		if (!selectedNodeId) {
 			setMenuOpen(false);
 			setSelectedRole(null);
@@ -44,35 +45,43 @@ export default function StationOverlay({
 		}
 
 		// Find the selected role from careerPaths
+		let foundRole = null;
+		let foundPathColor = "#888";
+
 		for (const path of careerPaths) {
 			const role = path.roles.find((r: any) => r.id === selectedNodeId);
 			if (role) {
-				setSelectedRole(role);
-				setPathColor(path.color);
-
-				// Get position from D3 node positions
-				const position = nodePositions.get(selectedNodeId);
-				if (position && svgRef.current) {
-					// Convert from SVG coordinates to screen coordinates
-					const svgRect = svgRef.current.getBoundingClientRect();
-					const ctm = svgRef.current.getScreenCTM();
-
-					if (ctm) {
-						const svgPoint = svgRef.current.createSVGPoint();
-						svgPoint.x = position.x;
-						svgPoint.y = position.y;
-
-						const screenPoint = svgPoint.matrixTransform(ctm);
-						setMenuPosition({
-							x: screenPoint.x - svgRect.left,
-							y: screenPoint.y - svgRect.top
-						});
-
-						// Open menu when selection changes
-						setMenuOpen(true);
-					}
-				}
+				foundRole = role;
+				foundPathColor = path.color;
 				break;
+			}
+		}
+
+		if (foundRole) {
+			setSelectedRole(foundRole);
+			setPathColor(foundPathColor);
+
+			// Get position from node positions
+			const position = nodePositions.get(selectedNodeId);
+			if (position && svgRef.current) {
+				// Convert from SVG coordinates to screen coordinates
+				const svgRect = svgRef.current.getBoundingClientRect();
+				const ctm = svgRef.current.getScreenCTM();
+
+				if (ctm) {
+					const svgPoint = svgRef.current.createSVGPoint();
+					svgPoint.x = position.x;
+					svgPoint.y = position.y;
+
+					const screenPoint = svgPoint.matrixTransform(ctm);
+					setMenuPosition({
+						x: screenPoint.x - svgRect.left,
+						y: screenPoint.y - svgRect.top
+					});
+
+					// Open menu when selection changes
+					setMenuOpen(true);
+				}
 			}
 		}
 	}, [selectedNodeId, careerPaths, nodePositions, svgRef]);
@@ -95,8 +104,8 @@ export default function StationOverlay({
 		setMenuOpen(false);
 	};
 
-	// Don't render anything if no role is selected
-	if (!selectedRole) return null;
+	// Don't render anything if no role is selected or menu is closed
+	if (!selectedRole || !menuOpen) return null;
 
 	return (
 		<div
@@ -108,7 +117,6 @@ export default function StationOverlay({
 				zIndex: 50
 			}}
 		>
-			{/* This div is positioned relatively to make the menu positioning work */}
 			<div className="relative">
 				<StationMenu
 					station={selectedRole}
