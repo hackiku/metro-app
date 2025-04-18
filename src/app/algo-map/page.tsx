@@ -3,7 +3,7 @@
 // src/app/algo-map/page.tsx
 import React, { useState, useEffect } from "react";
 import { Providers } from "~/contexts/Providers";
-import AlgoMap from "~/app/_components/metro/map/AlgoMap";
+// import AlgoMap from "~/app/_components/metro/map/AlgoMap";
 
 export default function MetroAlgoPage() {
 	const [isClient, setIsClient] = useState(false);
@@ -18,7 +18,7 @@ export default function MetroAlgoPage() {
 			{isClient && (
 				<Providers>
 					<div className="absolute inset-0">
-						<AlgoMap debug={true} />
+						{/* <AlgoMap debug={true} /> */}
 					</div>
 				</Providers>
 			)}

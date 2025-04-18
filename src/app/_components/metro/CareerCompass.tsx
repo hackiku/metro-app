@@ -1,11 +1,9 @@
+// src/app/_components/metro/CareerCompass.tsx
 "use client"
 
-// src/app/_components/metro/CareerCompass.tsx
-
 import { useState, useRef } from "react";
-import type { MetroMapRef } from "./map/MetroMap";
-import { MetroMap } from "./arch/map/MetroMap";
-import AlgoMap from "./map/AlgoMap";
+import { MetroMap, type MetroMapRef } from "./map/MetroMap";
+// import { MetroMap as OldMetroMap } from "./arch/map/MetroMap"; // Old implementation
 import RoleDetails from "./ui/details/RoleDetails";
 import PlayerCard from "./ui/player/PlayerCard";
 import ZoomControls from "./ui/controls/ZoomControls";
@@ -24,6 +22,9 @@ export default function CareerCompass() {
 	// UI state for details modal
 	const [detailsOpen, setDetailsOpen] = useState(false);
 
+	// Reference to the new D3-based map
+	const d3MapRef = useRef<MetroMapRef>(null);
+
 	// Get selected role and path from current state
 	const selectedRole = viewState.selectedRoleId ? getRoleById(viewState.selectedRoleId) : null;
 	const selectedPath = selectedRole ? careerPaths.find(p => p.id === selectedRole.careerPathId) : null;
@@ -34,8 +35,8 @@ export default function CareerCompass() {
 		// Don't open details immediately - let the user choose from menu
 
 		// Center map on selected role
-		if (mapRef.current) {
-			mapRef.current.centerOnRole(roleId);
+		if (d3MapRef.current) {
+			d3MapRef.current.centerOnRole(roleId);
 		}
 	};
 
@@ -75,10 +76,10 @@ export default function CareerCompass() {
 				</div>
 			) : (
 				<>
-					{/* Metro map visualization */}
+					{/* D3-based Metro map visualization */}
 					<div className="absolute inset-0">
 						<MetroMap
-							ref={mapRef}
+							ref={d3MapRef}
 							careerPaths={careerPaths}
 							transitions={transitionConnections}
 							currentRoleId={user?.currentRoleId}
@@ -87,7 +88,7 @@ export default function CareerCompass() {
 							onSelectRole={handleSelectRole}
 							onSetCurrentRole={setCurrentRole}
 							onSetTargetRole={setTargetRole}
-							onViewDetails={handleViewDetails} // Pass the new handler
+							onViewDetails={handleViewDetails}
 							debug={true} // Set to false in production
 						/>
 					</div>
@@ -105,7 +106,9 @@ export default function CareerCompass() {
 					{/* Zoom controls */}
 					<div className="absolute bottom-6 right-6 z-10">
 						<ZoomControls
-							onReset={() => mapRef.current?.zoomReset()}
+							onZoomIn={() => d3MapRef.current?.zoomIn()}
+							onZoomOut={() => d3MapRef.current?.zoomOut()}
+							onReset={() => d3MapRef.current?.zoomReset()}
 						/>
 					</div>
 
