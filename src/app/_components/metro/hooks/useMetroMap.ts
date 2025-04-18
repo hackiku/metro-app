@@ -3,7 +3,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { createMetroRenderer, type RendererInstance } from '../d3/metroRenderer';
 import { setupInteraction, type ZoomController } from '../d3/interactionHandlers';
 import { transformCareerDataToD3 } from '../utils/dbToD3';
-import type { CareerPath, Role } from '~/types/career';
+import type { CareerPath } from '~/types/career';
 import type { MetroData } from '~/types/metro';
 
 interface UseMetroMapProps {
@@ -53,6 +53,13 @@ export function useMetroMap({
     }
   }, [selectedRoleId]);
   
+  // Handle node selection
+  const handleNodeSelected = useCallback((nodeId: string | null) => {
+    if (onSelectRole && nodeId) {
+      onSelectRole(nodeId);
+    }
+  }, [onSelectRole]);
+  
   // Attach the renderer to a DOM element
   const attachToContainer = useCallback((element: HTMLElement) => {
     if (!element) return;
@@ -70,6 +77,9 @@ export function useMetroMap({
     const rendererInstance = renderer.initialize(element);
     rendererRef.current = rendererInstance;
     
+    // Set node selection callback
+    renderer.setNodeSelectedCallback(handleNodeSelected);
+    
     // Setup zoom/pan interaction
     const zoomController = setupInteraction(
       rendererInstance.svg,
@@ -82,14 +92,6 @@ export function useMetroMap({
     );
     zoomControllerRef.current = zoomController;
     
-    // Add event listeners for node interactions
-    element.addEventListener('nodeSelected', ((event: CustomEvent) => {
-      const { nodeId } = event.detail;
-      if (nodeId && onSelectRole) {
-        onSelectRole(nodeId);
-      }
-    }) as EventListener);
-    
     // Initial render if data is available
     if (d3Data) {
       rendererInstance.updateData(d3Data);
@@ -97,10 +99,9 @@ export function useMetroMap({
     
     // Cleanup function
     return () => {
-      element.removeEventListener('nodeSelected', (() => {}) as EventListener);
       element.innerHTML = '';
     };
-  }, [d3Data, debug, onSelectRole]);
+  }, [d3Data, debug, handleNodeSelected]);
   
   // Update renderer when data changes
   useEffect(() => {
