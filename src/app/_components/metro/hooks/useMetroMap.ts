@@ -4,7 +4,7 @@ import { createMetroRenderer, type RendererInstance } from '../d3/metroRenderer'
 import { setupInteraction, type ZoomController } from '../d3/interactionHandlers';
 import { transformCareerDataToD3 } from '../utils/dbToD3';
 import type { CareerPath } from '~/types/career';
-import type { MetroData } from '~/types/metro';
+import type { Point } from '~/types/metro';
 
 interface UseMetroMapProps {
   careerPaths: CareerPath[];
@@ -17,6 +17,7 @@ interface UseMetroMapProps {
   onSetTargetRole?: (roleId: string) => void;
   onViewDetails?: (roleId: string) => void;
   debug?: boolean;
+  onTransformChange?: (transform: string) => void;
 }
 
 export function useMetroMap({
@@ -29,16 +30,18 @@ export function useMetroMap({
   onSetCurrentRole,
   onSetTargetRole,
   onViewDetails,
-  debug = false
+  debug = false,
+  onTransformChange
 }: UseMetroMapProps) {
   // References to maintain across renders
   const containerRef = useRef<HTMLElement | null>(null);
   const rendererRef = useRef<RendererInstance | null>(null);
   const zoomControllerRef = useRef<ZoomController | null>(null);
+  const rendererCreatorRef = useRef<any>(null);
   
   // State
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [d3Data, setD3Data] = useState<MetroData | null>(null);
+  const [d3Data, setD3Data] = useState<any>(null);
   
   // Process career data into D3 format
   useEffect(() => {
@@ -53,12 +56,34 @@ export function useMetroMap({
     }
   }, [selectedRoleId]);
   
+  // Update special roles (current/target)
+  const updateSpecialRoles = useCallback((current: string | null, target: string | null) => {
+    if (rendererCreatorRef.current && rendererCreatorRef.current.setSpecialRoles) {
+      rendererCreatorRef.current.setSpecialRoles(current, target);
+    }
+  }, []);
+  
   // Handle node selection
   const handleNodeSelected = useCallback((nodeId: string | null) => {
     if (onSelectRole && nodeId) {
       onSelectRole(nodeId);
     }
   }, [onSelectRole]);
+  
+  // Get current node positions from the renderer
+  const getPositions = useCallback(() => {
+    if (!d3Data) return new Map<string, Point>();
+    
+    // Collect positions from all lines
+    const positions = new Map<string, Point>();
+    d3Data.lines.forEach((line: any) => {
+      line.nodes.forEach((node: any) => {
+        positions.set(node.id, { x: node.x, y: node.y });
+      });
+    });
+    
+    return positions;
+  }, [d3Data]);
   
   // Attach the renderer to a DOM element
   const attachToContainer = useCallback((element: HTMLElement) => {
@@ -73,12 +98,20 @@ export function useMetroMap({
       debugGrid: debug
     });
     
+    // Store the renderer creator for access to its methods
+    rendererCreatorRef.current = renderer;
+    
     // Initialize renderer
     const rendererInstance = renderer.initialize(element);
     rendererRef.current = rendererInstance;
     
     // Set node selection callback
     renderer.setNodeSelectedCallback(handleNodeSelected);
+    
+    // Set initial special roles
+    if (currentRoleId || targetRoleId) {
+      renderer.setSpecialRoles(currentRoleId || null, targetRoleId || null);
+    }
     
     // Setup zoom/pan interaction
     const zoomController = setupInteraction(
@@ -88,6 +121,11 @@ export function useMetroMap({
       (transform) => {
         // Update zoom level state when it changes
         setZoomLevel(transform.k);
+        
+        // Pass transform string to callback if provided
+        if (onTransformChange) {
+          onTransformChange(transform.toString());
+        }
       }
     );
     zoomControllerRef.current = zoomController;
@@ -101,7 +139,7 @@ export function useMetroMap({
     return () => {
       element.innerHTML = '';
     };
-  }, [d3Data, debug, handleNodeSelected]);
+  }, [d3Data, debug, handleNodeSelected, onTransformChange, currentRoleId, targetRoleId]);
   
   // Update renderer when data changes
   useEffect(() => {
@@ -136,7 +174,9 @@ export function useMetroMap({
     zoomOut,
     zoomReset,
     centerOnRole,
-    zoomLevel
+    zoomLevel,
+    getPositions,
+    updateSpecialRoles
   };
 }
 

@@ -1,10 +1,11 @@
 // src/app/_components/metro/map/MetroMap.tsx
 "use client"
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useMetroMap } from '../hooks/useMetroMap';
-import { useCareer } from '~/contexts/CareerContext';
-import type { CareerPath, Role } from '~/types/career';
+import StationOverlay from './components/StationOverlay';
+import type { CareerPath } from '~/types/career';
+import type { Point } from '~/types/metro';
 
 interface MetroMapProps {
 	careerPaths: CareerPath[];
@@ -41,6 +42,10 @@ export const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(function Me
 	debug = false
 }, ref) {
 	const containerRef = useRef<HTMLDivElement>(null);
+	const svgRef = useRef<SVGSVGElement>(null);
+
+	// Track node positions for menu positioning
+	const [nodePositions, setNodePositions] = useState<Map<string, Point>>(new Map());
 
 	// Use our custom hook to handle D3 integration
 	const {
@@ -49,7 +54,9 @@ export const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(function Me
 		zoomOut,
 		zoomReset,
 		centerOnRole,
-		zoomLevel
+		zoomLevel,
+		getPositions,
+		updateSpecialRoles
 	} = useMetroMap({
 		careerPaths,
 		transitions,
@@ -59,8 +66,39 @@ export const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(function Me
 		onSelectRole,
 		onSetCurrentRole,
 		onSetTargetRole,
-		onViewDetails
+		onViewDetails,
+		debug
 	});
+
+	// Update special roles when they change
+	useEffect(() => {
+		updateSpecialRoles(currentRoleId, targetRoleId);
+	}, [currentRoleId, targetRoleId, updateSpecialRoles]);
+
+	// Update node positions when data changes
+	useEffect(() => {
+		// Get positions from the renderer after it's updated
+		const positions = getPositions();
+		if (positions && positions.size > 0) {
+			setNodePositions(positions);
+		}
+	}, [careerPaths, getPositions]);
+
+	// Set SVG ref in the callback for positioning
+	const handleContainerRef = (el: HTMLDivElement | null) => {
+		if (el) {
+			containerRef.current = el;
+			attachToContainer(el);
+
+			// Find the SVG element created by D3
+			setTimeout(() => {
+				const svg = el.querySelector('svg');
+				if (svg) {
+					svgRef.current = svg as SVGSVGElement;
+				}
+			}, 100);
+		}
+	};
 
 	// Expose zoom controls through ref
 	React.useImperativeHandle(ref, () => ({
@@ -70,20 +108,26 @@ export const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(function Me
 		centerOnRole
 	}));
 
-	// Attach D3 renderer when container is available
-	useEffect(() => {
-		if (containerRef.current) {
-			attachToContainer(containerRef.current);
-		}
-	}, [containerRef, attachToContainer]);
-
 	return (
 		<div className={`w-full h-full overflow-hidden ${className}`}>
 			{/* This div will hold the D3-rendered SVG */}
 			<div
-				ref={containerRef}
+				ref={handleContainerRef}
 				className="w-full h-full"
 				data-testid="metro-map-container"
+			/>
+
+			{/* Station menu overlay */}
+			<StationOverlay
+				selectedNodeId={selectedRoleId}
+				nodePositions={nodePositions}
+				careerPaths={careerPaths}
+				currentRoleId={currentRoleId}
+				targetRoleId={targetRoleId}
+				onSetCurrent={onSetCurrentRole || (() => { })}
+				onSetTarget={onSetTargetRole || (() => { })}
+				onViewDetails={onViewDetails || (() => { })}
+				svgRef={svgRef}
 			/>
 
 			{/* Debug information overlay */}

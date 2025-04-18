@@ -1,7 +1,16 @@
 // src/app/_components/metro/d3/metroRenderer.ts
 import * as d3 from 'd3';
 import { generateLinePath } from './pathGenerator';
-import type { MetroLine, MetroNode, MetroConnection, RendererConfig } from '~/types/metro';
+import type { MetroLine, MetroNode, MetroConnection } from '~/types/metro';
+
+export interface RendererConfig {
+	margin: { top: number; right: number; bottom: number; left: number };
+	lineWidth: number;
+	nodeRadius: number;
+	interchangeNodeRadius: number;
+	padding: number;
+	debugGrid: boolean;
+}
 
 export interface RendererInstance {
 	svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
@@ -57,6 +66,10 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 		connections: MetroConnection[];
 	} = { lines: [], connections: [] };
 
+	// Special node properties
+	let currentRoleId: string | null = null;
+	let targetRoleId: string | null = null;
+
 	// Initialize renderer with container element
 	function initialize(container: HTMLElement): RendererInstance {
 		// Store container reference
@@ -95,6 +108,17 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 	// Set node selection callback
 	function setNodeSelectedCallback(callback: (nodeId: string | null) => void) {
 		onNodeSelected = callback;
+	}
+
+	// Set current and target role IDs
+	function setSpecialRoles(current: string | null, target: string | null) {
+		currentRoleId = current;
+		targetRoleId = target;
+
+		// Redraw nodes to reflect changes
+		if (currentData.lines.length > 0) {
+			drawNodes(currentData.lines);
+		}
 	}
 
 	// Apply transform for zoom/pan
@@ -284,8 +308,15 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 
 	// Draw station nodes
 	function drawNodes(lines: MetroLine[]) {
-		// Create a flat list of nodes with their line colors
-		const nodesWithLineInfo: (MetroNode & { lineColor: string, isInterchange: boolean })[] = [];
+		// Create a flat list of nodes with their line colors and additional information
+		const nodesWithLineInfo: (MetroNode & {
+			lineColor: string;
+			isInterchange: boolean;
+			name?: string;
+			isCurrent?: boolean;
+			isTarget?: boolean;
+		})[] = [];
+
 		const nodeMap = new Map<string, string[]>();
 
 		// First pass: collect all nodes and which lines they belong to
@@ -307,7 +338,9 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 					nodesWithLineInfo.push({
 						...node,
 						lineColor: line.color,
-						isInterchange: lineIds.length > 1
+						isInterchange: lineIds.length > 1,
+						isCurrent: node.id === currentRoleId,
+						isTarget: node.id === targetRoleId
 					});
 				}
 			});
@@ -330,57 +363,141 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 		// Merge existing and new nodes for updates
 		const allNodeGroups = newNodeGroups.merge(nodeGroups)
 			.attr('transform', d => `translate(${xScale(d.x)},${yScale(d.y)})`)
-			.classed('selected', d => d.id === selectedNodeId);
+			.classed('selected', d => d.id === selectedNodeId)
+			.classed('current', d => d.id === currentRoleId)
+			.classed('target', d => d.id === targetRoleId);
 
-		// Remove existing shapes
-		allNodeGroups.selectAll('circle,rect').remove();
+		// Remove existing shapes and labels
+		allNodeGroups.selectAll('circle,rect,text').remove();
 
 		// Add shapes based on whether it's an interchange
 		// Regular stations (circles)
 		allNodeGroups.filter(d => !d.isInterchange)
 			.append('circle')
-			.attr('r', rendererConfig.nodeRadius)
+			.attr('r', d => {
+				const baseRadius = rendererConfig.nodeRadius;
+				return (d.id === selectedNodeId || d.id === currentRoleId || d.id === targetRoleId)
+					? baseRadius + 2
+					: baseRadius;
+			})
 			.attr('fill', 'var(--background, white)')
-			.attr('stroke', d => d.lineColor)
-			.attr('stroke-width', 2)
+			.attr('stroke', d => {
+				if (d.id === currentRoleId) return '#4f46e5'; // Indigo for current
+				if (d.id === targetRoleId) return '#f59e0b'; // Amber for target
+				return d.lineColor;
+			})
+			.attr('stroke-width', d => {
+				if (d.id === selectedNodeId) return 4;
+				if (d.id === currentRoleId || d.id === targetRoleId) return 3;
+				return 2;
+			})
 			.attr('class', 'transition-all duration-200');
 
 		// Interchange stations (squares)
 		allNodeGroups.filter(d => d.isInterchange)
 			.append('rect')
-			.attr('x', -rendererConfig.interchangeNodeRadius)
-			.attr('y', -rendererConfig.interchangeNodeRadius)
-			.attr('width', rendererConfig.interchangeNodeRadius * 2)
-			.attr('height', rendererConfig.interchangeNodeRadius * 2)
+			.attr('x', d => {
+				const baseRadius = rendererConfig.interchangeNodeRadius;
+				const finalRadius = (d.id === selectedNodeId || d.id === currentRoleId || d.id === targetRoleId)
+					? baseRadius + 2
+					: baseRadius;
+				return -finalRadius;
+			})
+			.attr('y', d => {
+				const baseRadius = rendererConfig.interchangeNodeRadius;
+				const finalRadius = (d.id === selectedNodeId || d.id === currentRoleId || d.id === targetRoleId)
+					? baseRadius + 2
+					: baseRadius;
+				return -finalRadius;
+			})
+			.attr('width', d => {
+				const baseRadius = rendererConfig.interchangeNodeRadius;
+				const finalRadius = (d.id === selectedNodeId || d.id === currentRoleId || d.id === targetRoleId)
+					? baseRadius + 2
+					: baseRadius;
+				return finalRadius * 2;
+			})
+			.attr('height', d => {
+				const baseRadius = rendererConfig.interchangeNodeRadius;
+				const finalRadius = (d.id === selectedNodeId || d.id === currentRoleId || d.id === targetRoleId)
+					? baseRadius + 2
+					: baseRadius;
+				return finalRadius * 2;
+			})
 			.attr('rx', 4)
 			.attr('fill', 'var(--background, white)')
-			.attr('stroke', d => d.lineColor)
-			.attr('stroke-width', 2)
+			.attr('stroke', d => {
+				if (d.id === currentRoleId) return '#4f46e5'; // Indigo for current
+				if (d.id === targetRoleId) return '#f59e0b'; // Amber for target
+				return d.lineColor;
+			})
+			.attr('stroke-width', d => {
+				if (d.id === selectedNodeId) return 4;
+				if (d.id === currentRoleId || d.id === targetRoleId) return 3;
+				return 2;
+			})
 			.attr('class', 'transition-all duration-200');
 
-		// Add or update level labels below nodes
-		allNodeGroups.selectAll('text.level-label')
-			.data(d => [d])
-			.join('text')
-			.attr('class', 'level-label')
-			.attr('y', d => d.isInterchange ?
-				rendererConfig.interchangeNodeRadius + 20 :
-				rendererConfig.nodeRadius + 20)
+		// Add indicator badges for current and target
+		allNodeGroups.filter(d => d.id === currentRoleId)
+			.append('text')
+			.attr('y', -rendererConfig.nodeRadius - 15)
+			.attr('text-anchor', 'middle')
+			.attr('class', 'text-xs font-bold')
+			.attr('fill', '#4f46e5') // Indigo
+			.text('CURRENT');
+
+		allNodeGroups.filter(d => d.id === targetRoleId && d.id !== currentRoleId)
+			.append('text')
+			.attr('y', -rendererConfig.nodeRadius - 15)
+			.attr('text-anchor', 'middle')
+			.attr('class', 'text-xs font-bold')
+			.attr('fill', '#f59e0b') // Amber
+			.text('TARGET');
+
+		// Add level labels below nodes
+		allNodeGroups.append('text')
+			.attr('class', 'role-level')
+			.attr('y', d => {
+				const baseRadius = d.isInterchange ?
+					rendererConfig.interchangeNodeRadius :
+					rendererConfig.nodeRadius;
+				return baseRadius + 14;
+			})
 			.attr('text-anchor', 'middle')
 			.attr('fill', 'var(--muted-foreground)')
 			.attr('font-size', '12px')
+			.attr('paint-order', 'stroke')
+			.attr('stroke', 'var(--background, white)')
+			.attr('stroke-width', '2px')
+			.attr('stroke-linecap', 'round')
+			.attr('stroke-linejoin', 'round')
 			.text(d => `Level ${d.level}`);
 
-		// Add click handler
+		// Add click handler for nodes
 		allNodeGroups.on('click', (event, d) => {
 			event.stopPropagation();
+			// Toggle selection if already selected
 			const newSelectedId = d.id === selectedNodeId ? null : d.id;
 			selectNode(newSelectedId);
 
-			// Use callback instead of dispatchEvent
+			// Call the selection callback
 			if (onNodeSelected) {
 				onNodeSelected(newSelectedId);
 			}
+		});
+
+		// Add hover effect
+		allNodeGroups.on('mouseenter', function () {
+			d3.select(this).select('circle, rect')
+				.transition()
+				.duration(200)
+				.attr('transform', 'scale(1.1)');
+		}).on('mouseleave', function () {
+			d3.select(this).select('circle, rect')
+				.transition()
+				.duration(200)
+				.attr('transform', 'scale(1)');
 		});
 	}
 
@@ -483,6 +600,7 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 	// Return the initialization function with the callback setter
 	return {
 		initialize,
-		setNodeSelectedCallback
+		setNodeSelectedCallback,
+		setSpecialRoles
 	};
 }
