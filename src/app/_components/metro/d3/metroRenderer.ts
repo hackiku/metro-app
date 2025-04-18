@@ -1,16 +1,8 @@
 // src/app/_components/metro/d3/metroRenderer.ts
 import * as d3 from 'd3';
-import { generateLinePath } from './pathGenerator';
-import type { MetroLine, MetroNode, MetroConnection } from '~/types/metro';
-
-export interface RendererConfig {
-	margin: { top: number; right: number; bottom: number; left: number };
-	lineWidth: number;
-	nodeRadius: number;
-	interchangeNodeRadius: number;
-	padding: number;
-	debugGrid: boolean;
-}
+import { generateLinePath, generateConnectionPath } from './pathGenerator';
+import { calculateLayout } from './layoutEngine';
+import type { MetroLine, MetroNode, MetroConnection, RendererConfig } from '~/types/metro';
 
 export interface RendererInstance {
 	svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
@@ -42,6 +34,7 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 	let linesGroup: d3.Selection<SVGGElement, unknown, null, undefined>;
 	let connectionsGroup: d3.Selection<SVGGElement, unknown, null, undefined>;
 	let nodesGroup: d3.Selection<SVGGElement, unknown, null, undefined>;
+	let labelsGroup: d3.Selection<SVGGElement, unknown, null, undefined>;
 	let debugGroup: d3.Selection<SVGGElement, unknown, null, undefined>;
 
 	// Store the container element
@@ -92,6 +85,7 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 		connectionsGroup = mapGroup.append('g').attr('class', 'connections');
 		linesGroup = mapGroup.append('g').attr('class', 'lines');
 		nodesGroup = mapGroup.append('g').attr('class', 'nodes');
+		labelsGroup = mapGroup.append('g').attr('class', 'labels');
 
 		// Return instance with public methods
 		return {
@@ -192,20 +186,32 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 	function updateData(data: { lines: MetroLine[], connections: MetroConnection[] }) {
 		if (!svg) return;
 
-		// Store data for redraws
-		currentData = data;
+		// Store original data
+		const originalData = { ...data };
+
+		// Calculate optimal layout using layout engine
+		const optimizedLines = calculateLayout(data.lines, data.connections);
+
+		// Update data with optimized layout
+		currentData = {
+			lines: optimizedLines,
+			connections: data.connections
+		};
 
 		// Calculate scales based on data
-		updateScales(data.lines);
+		updateScales(optimizedLines);
 
 		// Draw lines
-		drawLines(data.lines);
+		drawLines(optimizedLines);
 
 		// Draw connections
 		drawConnections(data.connections);
 
 		// Draw nodes (stations)
-		drawNodes(data.lines);
+		drawNodes(optimizedLines);
+
+		// Draw labels
+		drawLabels(optimizedLines);
 
 		// Draw debug grid if enabled
 		if (rendererConfig.debugGrid) {
@@ -249,7 +255,11 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 			.append('path')
 			.attr('class', 'metro-line')
 			.merge(lineSelection) // Update with existing
-			.attr('d', line => generateLinePath(line.nodes, { xScale, yScale }))
+			.attr('d', line => generateLinePath(line.nodes, { xScale, yScale }, {
+				orthogonal: true,
+				roundedCorners: true,
+				cornerRadius: 12
+			}))
 			.attr('stroke', line => line.color)
 			.attr('stroke-width', rendererConfig.lineWidth)
 			.attr('fill', 'none')
@@ -290,14 +300,7 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 				if (!sourceNode || !targetNode) return '';
 
 				// Generate curved path between nodes
-				const x1 = xScale(sourceNode.x);
-				const y1 = yScale(sourceNode.y);
-				const x2 = xScale(targetNode.x);
-				const y2 = yScale(targetNode.y);
-
-				// Use a simple curved connection
-				const midX = (x1 + x2) / 2;
-				return `M ${x1},${y1} C ${midX},${y1} ${midX},${y2} ${x2},${y2}`;
+				return generateConnectionPath(sourceNode, targetNode, { xScale, yScale });
 			})
 			.attr('stroke', conn => conn.isRecommended ? '#22c55e' : '#9ca3af')
 			.attr('stroke-width', 3)
@@ -455,25 +458,6 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 			.attr('fill', '#f59e0b') // Amber
 			.text('TARGET');
 
-		// Add level labels below nodes
-		allNodeGroups.append('text')
-			.attr('class', 'role-level')
-			.attr('y', d => {
-				const baseRadius = d.isInterchange ?
-					rendererConfig.interchangeNodeRadius :
-					rendererConfig.nodeRadius;
-				return baseRadius + 14;
-			})
-			.attr('text-anchor', 'middle')
-			.attr('fill', 'var(--muted-foreground)')
-			.attr('font-size', '12px')
-			.attr('paint-order', 'stroke')
-			.attr('stroke', 'var(--background, white)')
-			.attr('stroke-width', '2px')
-			.attr('stroke-linecap', 'round')
-			.attr('stroke-linejoin', 'round')
-			.text(d => `Level ${d.level}`);
-
 		// Add click handler for nodes
 		allNodeGroups.on('click', (event, d) => {
 			event.stopPropagation();
@@ -499,6 +483,52 @@ export function createMetroRenderer(config: Partial<RendererConfig> = {}) {
 				.duration(200)
 				.attr('transform', 'scale(1)');
 		});
+	}
+
+	// Draw station labels
+	function drawLabels(lines: MetroLine[]) {
+		// Create label data with unique nodes
+		const uniqueNodes = new Map<string, MetroNode & { lineColor: string }>();
+
+		lines.forEach(line => {
+			line.nodes.forEach(node => {
+				if (!uniqueNodes.has(node.id)) {
+					uniqueNodes.set(node.id, { ...node, lineColor: line.color });
+				}
+			});
+		});
+
+		// Join data to labels
+		const labelSelection = labelsGroup.selectAll<SVGGElement, any>('g.node-label')
+			.data(Array.from(uniqueNodes.values()), d => d.id);
+
+		// Remove old labels
+		labelSelection.exit().remove();
+
+		// Create new label groups
+		const newLabelGroups = labelSelection.enter()
+			.append('g')
+			.attr('class', 'node-label')
+			.attr('data-id', d => d.id);
+
+		// Merge and update all labels
+		const allLabelGroups = newLabelGroups.merge(labelSelection)
+			.attr('transform', d => `translate(${xScale(d.x)},${yScale(d.y)})`);
+
+		// Remove old text elements
+		allLabelGroups.selectAll('text').remove();
+
+		// Add role name labels
+		allLabelGroups.append('text')
+			.attr('y', -rendererConfig.nodeRadius - 5)
+			.attr('text-anchor', 'middle')
+			.attr('class', 'text-[11px] sm:text-sm font-medium fill-foreground select-none')
+			.attr('paint-order', 'stroke')
+			.attr('stroke', 'var(--background, white)')
+			.attr('stroke-width', '2.5px')
+			.attr('stroke-linecap', 'round')
+			.attr('stroke-linejoin', 'round')
+			.text(d => d.name || `Role ${d.level}`);
 	}
 
 	// Draw debug grid

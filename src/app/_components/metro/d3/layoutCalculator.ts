@@ -1,4 +1,4 @@
-// src/app/_components/metro/d3/layoutEngine.ts
+// src/app/_components/metro/d3/layoutCalculator.ts
 
 import * as d3 from 'd3';
 import type { MetroLine, MetroNode, MetroConnection, LayoutConfig } from '~/types/metro';
@@ -98,13 +98,16 @@ function adjustInterchangePositions(
 	// If there are no interchange nodes, return original
 	if (interchangeNodes.size === 0) return lines;
 
+	// Create a deep copy of lines to modify
+	const adjustedLines = JSON.parse(JSON.stringify(lines));
+
 	// For each interchange node, find all its occurrences and adjust positions
 	interchangeNodes.forEach(nodeId => {
 		// Find all occurrences of this node
 		const occurrences: { lineIndex: number, nodeIndex: number, node: MetroNode }[] = [];
 
-		lines.forEach((line, lineIndex) => {
-			line.nodes.forEach((node, nodeIndex) => {
+		adjustedLines.forEach((line: MetroLine, lineIndex: number) => {
+			line.nodes.forEach((node: MetroNode, nodeIndex: number) => {
 				if (node.id === nodeId) {
 					occurrences.push({ lineIndex, nodeIndex, node });
 				}
@@ -116,52 +119,46 @@ function adjustInterchangePositions(
 
 		// Update all occurrences to the average y-position
 		occurrences.forEach(({ lineIndex, nodeIndex }) => {
-			lines[lineIndex].nodes[nodeIndex].y = avgY;
-			lines[lineIndex].nodes[nodeIndex].isInterchange = true;
+			adjustedLines[lineIndex].nodes[nodeIndex].y = avgY;
+			adjustedLines[lineIndex].nodes[nodeIndex].isInterchange = true;
 		});
 	});
 
-	return lines;
+	return adjustedLines;
 }
 
-// Optimize for minimal edge crossings (simplified version)
+// Optimize for minimal edge crossings
 function optimizeEdgeCrossings(
 	lines: MetroLine[],
 	connections: MetroConnection[],
 	config: LayoutConfig
 ): MetroLine[] {
-	// For simplicity, we'll just make a small adjustment to lines 
-	// with interchanges to avoid total overlap
+	// Create a deep copy of lines to modify
+	const optimizedLines = JSON.parse(JSON.stringify(lines));
 
 	// Find lines with interchanges
 	const linesWithInterchanges = new Set<number>();
 
-	lines.forEach((line, index) => {
-		if (line.nodes.some(node => node.isInterchange)) {
+	optimizedLines.forEach((line: MetroLine, index: number) => {
+		if (line.nodes.some((node: MetroNode) => node.isInterchange)) {
 			linesWithInterchanges.add(index);
 		}
 	});
 
 	// Apply a small vertical jitter to lines with interchanges
-	return lines.map((line, index) => {
+	optimizedLines.forEach((line: MetroLine, index: number) => {
 		if (linesWithInterchanges.has(index)) {
 			// Apply a small vertical offset proportional to the index
 			const jitterOffset = (index % 3) * config.junctionOffset;
 
-			return {
-				...line,
-				nodes: line.nodes.map(node => {
-					// Only jitter non-interchange nodes
-					if (!node.isInterchange) {
-						return {
-							...node,
-							y: node.y + jitterOffset
-						};
-					}
-					return node;
-				})
-			};
+			line.nodes.forEach((node: MetroNode) => {
+				// Only jitter non-interchange nodes
+				if (!node.isInterchange) {
+					node.y += jitterOffset;
+				}
+			});
 		}
-		return line;
 	});
+
+	return optimizedLines;
 }

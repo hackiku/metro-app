@@ -1,11 +1,14 @@
 // src/app/_components/metro/map/MetroMap.tsx
-"use client"
-
-import React, { useRef, useEffect, useState } from 'react';
-import { useMetroMap } from '../hooks/useMetroMap';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
+import * as d3 from 'd3';
+import { useLayout } from '../hooks/useLayout';
+import { useZoom } from '../hooks/useZoom';
+import MetroLine from './MetroLine';
+import MetroStation from './MetroStation';
+import MetroConnection from './MetroConnection';
 import StationOverlay from './components/StationOverlay';
 import type { CareerPath } from '~/types/career';
-import type { Point } from '~/types/metro';
+import type { MetroNode } from '~/types/metro';
 
 interface MetroMapProps {
 	careerPaths: CareerPath[];
@@ -28,7 +31,7 @@ export interface MetroMapRef {
 	centerOnRole: (roleId: string) => void;
 }
 
-export const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(function MetroMap({
+const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 	careerPaths,
 	transitions,
 	currentRoleId,
@@ -40,67 +43,71 @@ export const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(function Me
 	onViewDetails,
 	className = "",
 	debug = false
-}, ref) {
+}, ref) => {
+	// References
 	const containerRef = useRef<HTMLDivElement>(null);
 	const svgRef = useRef<SVGSVGElement>(null);
 
-	// Track node positions for menu positioning
-	const [nodePositions, setNodePositions] = useState<Map<string, Point>>(new Map());
+	// State
+	const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 
-	// Use our custom hook to handle D3 integration
-	const {
-		attachToContainer,
-		zoomIn,
-		zoomOut,
-		zoomReset,
-		centerOnRole,
-		zoomLevel,
-		getPositions,
-		updateSpecialRoles
-	} = useMetroMap({
-		careerPaths,
-		transitions,
-		currentRoleId,
-		targetRoleId,
-		selectedRoleId,
-		onSelectRole,
-		onSetCurrentRole,
-		onSetTargetRole,
-		onViewDetails,
-		debug
+	// Get layout data (optimized positions)
+	const { lines, connections } = useLayout(careerPaths, transitions);
+
+	// Create all nodes list for connections
+	const allNodes = lines.flatMap(line => line.nodes);
+
+	// Setup zoom
+	const { transform, zoomIn, zoomOut, zoomReset, centerOn, zoomLevel } = useZoom(svgRef, {
+		minZoom: 0.5,
+		maxZoom: 8
 	});
 
-	// Update special roles when they change
+	// Create scales
+	const [xScale, yScale] = useMemo(() => {
+		// Find min/max values from all nodes
+		const xExtent = d3.extent(allNodes, d => d.x) as [number, number];
+		const yExtent = d3.extent(allNodes, d => d.y) as [number, number];
+
+		// Add some padding
+		const xPadding = (xExtent[1] - xExtent[0]) * 0.1;
+		const yPadding = (yExtent[1] - yExtent[0]) * 0.1;
+
+		// Create scales
+		const xScale = d3.scaleLinear()
+			.domain([xExtent[0] - xPadding, xExtent[1] + xPadding])
+			.range([0, dimensions.width]);
+
+		const yScale = d3.scaleLinear()
+			.domain([yExtent[0] - yPadding, yExtent[1] + yPadding])
+			.range([0, dimensions.height]);
+
+		return [xScale, yScale];
+	}, [allNodes, dimensions]);
+
+	// Update dimensions when container resizes
 	useEffect(() => {
-		updateSpecialRoles(currentRoleId, targetRoleId);
-	}, [currentRoleId, targetRoleId, updateSpecialRoles]);
+		if (!containerRef.current) return;
 
-	// Update node positions when data changes
-	useEffect(() => {
-		// Get positions from the renderer after it's updated
-		const positions = getPositions();
-		if (positions && positions.size > 0) {
-			setNodePositions(positions);
-		}
-	}, [careerPaths, getPositions]);
+		const resizeObserver = new ResizeObserver(entries => {
+			const { width, height } = entries[0].contentRect;
+			setDimensions({ width, height });
+		});
 
-	// Set SVG ref in the callback for positioning
-	const handleContainerRef = (el: HTMLDivElement | null) => {
-		if (el) {
-			containerRef.current = el;
-			attachToContainer(el);
+		resizeObserver.observe(containerRef.current);
 
-			// Find the SVG element created by D3
-			setTimeout(() => {
-				const svg = el.querySelector('svg');
-				if (svg) {
-					svgRef.current = svg as SVGSVGElement;
-				}
-			}, 100);
-		}
+		return () => resizeObserver.disconnect();
+	}, []);
+
+	// Function to center on a role
+	const centerOnRole = (roleId: string) => {
+		const node = allNodes.find(n => n.id === roleId);
+		if (!node) return;
+
+		centerOn(xScale(node.x), yScale(node.y));
 	};
 
-	// Expose zoom controls through ref
+	// Expose controls via ref
 	React.useImperativeHandle(ref, () => ({
 		zoomIn,
 		zoomOut,
@@ -108,14 +115,79 @@ export const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(function Me
 		centerOnRole
 	}));
 
+	// Get node positions for overlay
+	const nodePositions = useMemo(() => {
+		const positions = new Map();
+		allNodes.forEach(node => {
+			positions.set(node.id, {
+				x: xScale(node.x),
+				y: yScale(node.y),
+				name: node.name
+			});
+		});
+		return positions;
+	}, [allNodes, xScale, yScale]);
+
 	return (
-		<div className={`w-full h-full overflow-hidden ${className}`}>
-			{/* This div will hold the D3-rendered SVG */}
-			<div
-				ref={handleContainerRef}
-				className="w-full h-full"
-				data-testid="metro-map-container"
-			/>
+		<div
+			ref={containerRef}
+			className={`w-full h-full overflow-hidden ${className}`}
+		>
+			<svg
+				ref={svgRef}
+				width="100%"
+				height="100%"
+				viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+				className="metro-map"
+			>
+				<g transform={transform.toString()}>
+					{/* Draw connections first (bottom layer) */}
+					{connections.map(connection => (
+						<MetroConnection
+							key={`${connection.fromId}-${connection.toId}`}
+							connection={connection}
+							nodes={allNodes}
+							scales={{ xScale, yScale }}
+							isHighlighted={
+								selectedRoleId ?
+									(connection.fromId === selectedRoleId || connection.toId === selectedRoleId) :
+									false
+							}
+						/>
+					))}
+
+					{/* Draw lines next */}
+					{lines.map(line => (
+						<MetroLine
+							key={line.id}
+							line={line}
+							scales={{ xScale, yScale }}
+							isSelected={
+								selectedRoleId ?
+									line.nodes.some(n => n.id === selectedRoleId) :
+									false
+							}
+						/>
+					))}
+
+					{/* Draw stations on top */}
+					{lines.map(line =>
+						line.nodes.map(node => (
+							<MetroStation
+								key={node.id}
+								node={node}
+								scales={{ xScale, yScale }}
+								lineColor={line.color}
+								isInterchange={node.isInterchange}
+								isSelected={node.id === selectedRoleId}
+								isCurrent={node.id === currentRoleId}
+								isTarget={node.id === targetRoleId}
+								onClick={onSelectRole}
+							/>
+						))
+					)}
+				</g>
+			</svg>
 
 			{/* Station menu overlay */}
 			<StationOverlay

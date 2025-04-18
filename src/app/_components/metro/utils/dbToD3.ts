@@ -14,18 +14,19 @@ export function transformCareerDataToD3(
   transitions: { fromRoleId: string; toRoleId: string; isRecommended: boolean }[]
 ): MetroData {
   // Step 1: Convert career paths to metro lines
-  const lines: MetroLine[] = careerPaths.map(path => ({
-    id: path.id,
-    name: path.name,
-    color: path.color,
-    nodes: path.roles.map(role => ({
-      id: role.id,
-      name: role.name,
-      level: role.level,
-      x: role.level * 150, // Initial x positioning based on level
-      y: 0 // Will be calculated by layout engine
-    }))
-  }));
+	const lines: MetroLine[] = careerPaths.map(path => ({
+		id: path.id,
+		name: path.name,
+		color: path.color,
+		nodes: path.roles.map(role => ({
+			id: role.id,
+			name: role.name,  // Make sure name is included
+			level: role.level,
+			x: role.level * 150, // Initial x positioning based on level
+			y: 0 // Will be calculated by layout engine
+		}))
+	}));
+
   
   // Step 2: Calculate initial y positions for lines
   positionLinesVertically(lines);

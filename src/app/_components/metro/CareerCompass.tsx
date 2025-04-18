@@ -2,7 +2,8 @@
 "use client"
 
 import { useState, useRef } from "react";
-import { MetroMap, type MetroMapRef } from "./map/MetroMap";
+import MetroMap from "./map/MetroMap";
+import type { MetroMapRef } from "./map/MetroMap";
 // import { MetroMap as OldMetroMap } from "./arch/map/MetroMap"; // Old implementation
 import RoleDetails from "./ui/details/RoleDetails";
 import PlayerCard from "./ui/player/PlayerCard";
