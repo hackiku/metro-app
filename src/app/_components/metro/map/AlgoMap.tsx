@@ -1,12 +1,12 @@
 "use client"
 
-// src/app/_components/metro/AlgoMap.tsx
+// src/app/_components/metro/map/AlgoMap.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import { useCareer } from '~/contexts/CareerContext';
 import { useUser } from '~/contexts/UserContext';
-import { MetroGeometry } from './geometry/MetroGeometry';
-import type { MetroNode, MetroPath, MetroConnection } from './geometry/types';
-import ZoomControls from './ui/controls/ZoomControls';
+import { MetroGeometry } from '../geometry/MetroGeometry';
+import type { MetroNode, MetroPath, MetroConnection } from '../geometry/types';
+import ZoomControls from '../ui/controls/ZoomControls';
 
 interface AlgoMapProps {
 	debug?: boolean;

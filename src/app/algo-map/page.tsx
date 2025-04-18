@@ -3,7 +3,7 @@
 // src/app/algo-map/page.tsx
 import React, { useState, useEffect } from "react";
 import { Providers } from "~/contexts/Providers";
-import AlgoMap from "~/app/_components/metro/AlgoMap";
+import AlgoMap from "~/app/_components/metro/map/AlgoMap";
 
 export default function MetroAlgoPage() {
 	const [isClient, setIsClient] = useState(false);
