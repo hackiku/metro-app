@@ -1,132 +1,79 @@
 // src/app/_components/metro/CareerCompass.tsx
-"use client"
+"use client";
 
-import { useState, useRef } from "react";
-import MetroMap from "./map/MetroMap";
-import type { MetroMapRef } from "./map/MetroMap";
-import RoleDetails from "./ui/details/RoleDetails";
-import PlayerCard from "./ui/player/PlayerCard";
-import ZoomControls from "./ui/controls/ZoomControls";
+import React from 'react';
+// Import the NEW context hook
+import { useCareerCompass } from '~/contexts/CareerCompassProvider';
+// Import the NEW display component
+import DataDisplay from './DataDisplay'; // Assuming it's in the same folder
 
-// Import contexts
-import { useCareer } from "~/contexts/CareerContext";
-import { useUser } from "~/contexts/UserContext";
-import { useMetroVisualization } from "~/contexts/MetroVisualizationContext";
-
+/**
+ * CareerCompass: Main wrapper component.
+ * Consumes context and passes data down to specific UI sections (like DataDisplay or later, the MetroMap).
+ */
 export default function CareerCompass() {
-	// Get data and state from contexts
-	const { careerPaths, transitions, loading, error, getRoleById, getTransitionsForRole } = useCareer();
-	const { user, calculateSkillGaps, setCurrentRole, setTargetRole } = useUser();
-	const { viewState, selectRole, mapRef } = useMetroVisualization();
+	// Destructure only the data needed by child components from the context
+	const {
+		organization,
+		careerPaths,
+		positions,
+		positionDetails,
+		loading,
+		error,
+	} = useCareerCompass();
 
-	// UI state for details modal
-	const [detailsOpen, setDetailsOpen] = useState(false);
+	// --- Loading State ---
+	if (loading) {
+		return (
+			<div className="flex items-center justify-center h-full w-full bg-background">
+				<div className="flex flex-col items-center">
+					{/* Use foreground color for spinner */}
+					<div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-foreground"></div>
+					<p className="mt-4 text-muted-foreground">Loading Career Data...</p>
+				</div>
+			</div>
+		);
+	}
 
-	// Reference to the new D3-based map
-	const d3MapRef = useRef<MetroMapRef>(null);
+	// --- Error State ---
+	if (error) {
+		return (
+			<div className="flex items-center justify-center h-full w-full p-4 bg-background">
+				{/* Use destructive colors */}
+				<div className="text-center text-destructive bg-destructive/10 p-6 rounded-lg border border-destructive/20 max-w-md">
+					<h2 className="text-lg font-semibold mb-2">Error Loading Data</h2>
+					<pre className="text-sm text-left whitespace-pre-wrap">{error}</pre>
+					{/* Optionally add a retry button - might need refreshData from context */}
+					<button
+						onClick={() => window.location.reload()} // Simple reload for now
+						className="mt-4 px-4 py-2 bg-destructive text-destructive-foreground rounded hover:bg-destructive/80 text-sm"
+					>
+						Retry
+					</button>
+				</div>
+			</div>
+		);
+	}
 
-	// Get selected role and path from current state
-	const selectedRole = viewState.selectedRoleId ? getRoleById(viewState.selectedRoleId) : null;
-	const selectedPath = selectedRole ? careerPaths.find(p => p.id === selectedRole.careerPathId) : null;
-
-	// Handle role selection - just select the role but don't open details yet
-	const handleSelectRole = (roleId: string) => {
-		selectRole(roleId);
-		// Don't open details immediately - let the user choose from menu
-
-		// Center map on selected role
-		if (d3MapRef.current) {
-			d3MapRef.current.centerOnRole(roleId);
-		}
-	};
-
-	// Handle view details request from menu
-	const handleViewDetails = (roleId: string) => {
-		selectRole(roleId);
-		setDetailsOpen(true);
-	};
-
-	// Format transitions for the map component
-	const transitionConnections = transitions.map(t => ({
-		fromRoleId: t.fromRoleId,
-		toRoleId: t.toRoleId,
-		isRecommended: t.isRecommended
-	}));
-
+	// --- Success State ---
+	// Render the DataDisplay component, passing down the fetched data
 	return (
-		<div className="relative h-full w-full bg-background">
-			{loading ? (
-				<div className="absolute inset-0 flex items-center justify-center">
-					<div className="flex flex-col items-center">
-						<div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-primary"></div>
-						<p className="mt-4 text-muted-foreground">Loading career map...</p>
-					</div>
-				</div>
-			) : error ? (
-				<div className="absolute inset-0 flex items-center justify-center">
-					<div className="text-center">
-						<p className="text-lg font-semibold text-destructive">{error}</p>
-						<button
-							className="mt-4 rounded-md bg-primary px-4 py-2 text-primary-foreground"
-							onClick={() => window.location.reload()}
-						>
-							Retry
-						</button>
-					</div>
-				</div>
-			) : (
-				<>
-					{/* D3-based Metro map visualization */}
-					<div className="absolute inset-0">
-						<MetroMap
-							ref={d3MapRef}
-							careerPaths={careerPaths}
-							transitions={transitionConnections}
-							currentRoleId={user?.currentRoleId}
-							targetRoleId={user?.targetRoleId}
-							selectedRoleId={viewState.selectedRoleId}
-							onSelectRole={handleSelectRole}
-							onSetCurrentRole={setCurrentRole}
-							onSetTargetRole={setTargetRole}
-							onViewDetails={handleViewDetails}
-							debug={true} // Set to false in production
-						/>
-					</div>
-
-					{/* Player info card */}
-					{user && (
-						<div className="absolute top-4 left-4 z-10">
-							<PlayerCard
-								user={user}
-								currentRole={getRoleById(user.currentRoleId)}
-							/>
-						</div>
-					)}
-
-					{/* Zoom controls */}
-					<div className="absolute bottom-6 right-6 z-10">
-						<ZoomControls
-							onZoomIn={() => d3MapRef.current?.zoomIn()}
-							onZoomOut={() => d3MapRef.current?.zoomOut()}
-							onReset={() => d3MapRef.current?.zoomReset()}
-						/>
-					</div>
-
-					{/* Role details modal */}
-					{selectedRole && (
-						<RoleDetails
-							role={selectedRole}
-							pathColor={selectedPath?.color || '#888'}
-							skillGaps={calculateSkillGaps(selectedRole.id)}
-							transitions={getTransitionsForRole(selectedRole.id)}
-							open={detailsOpen}
-							onOpenChange={setDetailsOpen}
-							isCurrentRole={selectedRole.id === user?.currentRoleId}
-							isTargetRole={selectedRole.id === user?.targetRoleId}
-						/>
-					)}
-				</>
-			)}
+		// Ensure the container takes up space if needed, otherwise DataDisplay handles scroll
+		<div className="h-full w-full">
+			<DataDisplay
+				organization={organization}
+				careerPaths={careerPaths}
+				positions={positions}
+				positionDetails={positionDetails}
+			// Pass other data down later when added back to context
+			/>
+			{/*
+              Future additions:
+              <PlayerCard user={...} />
+              <ZoomControls onZoomIn={...} />
+              <RoleDetails role={...} />
+              <MetroMap layout={...} />
+            */}
 		</div>
 	);
 }
