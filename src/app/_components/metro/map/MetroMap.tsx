@@ -1,22 +1,23 @@
 // src/app/_components/metro/map/MetroMap.tsx
 "use client";
 
-import React, { useRef, useState, useEffect, useMemo, useImperativeHandle } from 'react'; // Added useImperativeHandle
+import React, { useRef, useState, useEffect, useMemo, useImperativeHandle } from 'react';
 import * as d3 from 'd3';
-// *** REMOVE the old hook import ***
-// import { useMetroMap } from '../hooks/useMetroMap';
-import type { LayoutData, LayoutNode } from '../engine/layoutEngine';
+import type { LayoutData, LayoutNode } from '../engine/types';
 import PolarGridBackground from './PolarGridBackground';
+import MetroLine from './MetroLine';
+import MetroStation from './MetroStation';
 
 interface MetroMapProps {
-	layout: LayoutData | null; // Can be null initially
+	layout: LayoutData | null;
 	selectedNodeId?: string | null;
 	onNodeSelect?: (nodeId: string) => void;
+	currentNodeId?: string | null;
+	targetNodeId?: string | null;
 	className?: string;
-	// Add current/target later
 }
 
-// --- Define Ref type ---
+// Define Ref type for imperative controls
 export interface MetroMapRef {
 	zoomIn: () => void;
 	zoomOut: () => void;
@@ -24,32 +25,37 @@ export interface MetroMapRef {
 	centerOnNode: (nodeId: string) => void;
 }
 
-// Use React.forwardRef
+// Use React.forwardRef for imperative handle
 const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 	layout,
 	selectedNodeId,
 	onNodeSelect,
+	currentNodeId,
+	targetNodeId,
 	className = ""
-}, ref) => { // Add ref parameter
+}, ref) => {
+	// Refs for SVG elements
 	const svgRef = useRef<SVGSVGElement>(null);
 	const gRef = useRef<SVGGElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
+
+	// State for dimensions and zoom
 	const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-	// Store the zoom behavior instance
 	const zoomBehavior = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
-	// Keep track of zoom state internally for potential use
 	const [currentZoomState, setCurrentZoomState] = useState<d3.ZoomTransform>(d3.zoomIdentity);
 
 	// --- Update dimensions on resize ---
 	useEffect(() => {
 		const currentContainer = containerRef.current;
 		if (!currentContainer) return;
+
+		// Get initial dimensions
 		let { width, height } = currentContainer.getBoundingClientRect();
-		// Ensure initial dimensions are not 0
 		width = width > 0 ? width : 800;
 		height = height > 0 ? height : 600;
 		setDimensions({ width, height });
 
+		// Set up ResizeObserver for responsive sizing
 		const resizeObserver = new ResizeObserver(entries => {
 			if (!entries || entries.length === 0) return;
 			const { width: newWidth, height: newHeight } = entries[0].contentRect;
@@ -57,11 +63,19 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 				setDimensions({ width: newWidth, height: newHeight });
 			}
 		});
+
 		resizeObserver.observe(currentContainer);
-		return () => { if (currentContainer) { resizeObserver.unobserve(currentContainer); } resizeObserver.disconnect(); };
+
+		// Cleanup on unmount
+		return () => {
+			if (currentContainer) {
+				resizeObserver.unobserve(currentContainer);
+			}
+			resizeObserver.disconnect();
+		};
 	}, []);
 
-	// --- Calculate max radius for grid ---
+	// --- Calculate max radius for polar grid ---
 	const maxRadiusForGrid = useMemo(() => {
 		if (!layout?.bounds) return 300;
 		const { minX, maxX, minY, maxY } = layout.bounds;
@@ -77,7 +91,7 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 
 		// Create the zoom behavior
 		const newZoomBehavior = d3.zoom<SVGSVGElement, unknown>()
-			.scaleExtent([0.1, 8])
+			.scaleExtent([0.1, 8]) // Min/max zoom scale
 			.on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
 				if (!event.transform) return;
 				setCurrentZoomState(event.transform); // Update internal state
@@ -91,7 +105,9 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 		// Calculate initial transform only once or when layout/dimensions significantly change
 		let initialTransform = d3.zoomIdentity;
 		const { minX, maxX, minY, maxY } = layout.bounds;
-		const boundsWidth = maxX - minX; const boundsHeight = maxY - minY;
+		const boundsWidth = maxX - minX;
+		const boundsHeight = maxY - minY;
+
 		if (boundsWidth > 0 && boundsHeight > 0) {
 			const padding = 50;
 			const effectiveWidth = dimensions.width - padding * 2;
@@ -110,7 +126,11 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 		svg.call(newZoomBehavior.transform, initialTransform);
 		setCurrentZoomState(initialTransform); // Set initial state
 
-		return () => { svg.on(".zoom", null); zoomBehavior.current = null; }; // Cleanup
+		// Cleanup
+		return () => {
+			svg.on(".zoom", null);
+			zoomBehavior.current = null;
+		};
 
 	}, [layout, dimensions.width, dimensions.height]); // Depend on layout and dimensions
 
@@ -131,7 +151,9 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 				// Recalculate initial transform to reset view
 				let initialTransform = d3.zoomIdentity;
 				const { minX, maxX, minY, maxY } = layout.bounds;
-				const boundsWidth = maxX - minX; const boundsHeight = maxY - minY;
+				const boundsWidth = maxX - minX;
+				const boundsHeight = maxY - minY;
+
 				if (boundsWidth > 0 && boundsHeight > 0) {
 					const padding = 50;
 					const effectiveWidth = dimensions.width - padding * 2;
@@ -145,6 +167,7 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 				} else {
 					initialTransform = d3.zoomIdentity.translate(dimensions.width / 2, dimensions.height / 2).scale(1);
 				}
+
 				d3.select(svgRef.current)
 					.transition()
 					.duration(500) // Smooth transition
@@ -172,18 +195,43 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 		}
 	}), [layout, dimensions, currentZoomState]); // Add dependencies for functions using them
 
-	// --- Rendering Logic ---
-	const nodeRadius = 7;
-	const interchangeRadius = 9;
-	const selectedStrokeWidth = 3;
-	const normalStrokeWidth = 1.5;
+	// --- Organize nodes by path ---
+	const nodesByPath = useMemo(() => {
+		if (!layout) return new Map<string, LayoutNode[]>();
 
+		const result = new Map<string, LayoutNode[]>();
+
+		// Group nodes by career path
+		layout.paths.forEach(path => {
+			const pathNodes: LayoutNode[] = [];
+
+			// Collect nodes for this path
+			path.nodes.forEach(nodeId => {
+				const node = layout.nodesById[nodeId];
+				if (node) {
+					pathNodes.push(node);
+				}
+			});
+
+			result.set(path.id, pathNodes);
+		});
+
+		return result;
+	}, [layout]);
+
+	// --- Handle node selection ---
 	const handleNodeClick = (nodeId: string) => {
 		if (onNodeSelect) {
 			onNodeSelect(nodeId);
 		}
 	};
 
+	// --- Rendering parameters ---
+	const nodeRadius = 7;
+	const interchangeRadius = 9;
+	const lineWidth = 5;
+
+	// --- Render ---
 	return (
 		<div ref={containerRef} className={`w-full h-full overflow-hidden ${className}`}>
 			<svg
@@ -197,13 +245,14 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 				onMouseLeave={(e) => { e.currentTarget.style.cursor = 'grab'; }}
 			>
 				<rect width="100%" height="100%" fill="none" pointerEvents="all" />
-				{/* Use internal zoom state for transform */}
+
+				{/* Main content group with zoom transform */}
 				<g ref={gRef} transform={currentZoomState.toString()}>
 					{/* Render Polar Grid */}
 					{layout && (
 						<PolarGridBackground
 							maxRadius={maxRadiusForGrid * 1.05}
-							radiusSteps={Math.max(3, Math.round(maxRadiusForGrid / (layout.configUsed?.radiusStep || 80)))}
+							radiusSteps={Math.max(3, Math.round(maxRadiusForGrid / (layout.configUsed.radiusStep || 80)))}
 							angleSteps={12}
 							opacity={0.15}
 							radiusColor="var(--foreground)"
@@ -211,52 +260,43 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 						/>
 					)}
 
-					{/* Render nodes */}
-					{layout?.nodes?.map((node) => {
-						const isSelected = node.id === selectedNodeId;
-						const currentRadius = node.isInterchange ? interchangeRadius : nodeRadius;
-						const currentStrokeWidth = isSelected ? selectedStrokeWidth : normalStrokeWidth;
+					{/* Render metro lines first (below stations) */}
+					{layout?.paths.map(path => {
+						const pathNodes = nodesByPath.get(path.id) || [];
+						const isPathSelected = selectedNodeId ?
+							pathNodes.some(node => node.id === selectedNodeId) :
+							false;
 
 						return (
-							<g
-								key={node.id}
-								transform={`translate(${node.x}, ${node.y})`}
-								onClick={() => handleNodeClick(node.id)}
-								style={{ cursor: 'pointer' }}
-								className={isSelected ? 'node-selected' : 'node-normal'}
-							>
-								<circle
-									r={isSelected ? currentRadius + 1 : currentRadius}
-									fill={node.color || 'grey'}
-									strokeWidth={currentStrokeWidth}
-									stroke={isSelected ? "var(--primary)" : "var(--background)"}
-									className={node.isInterchange ? 'interchange-node stroke-foreground/50' : 'stroke-foreground/30'}
-									style={{ transition: 'r 0.15s ease-out, stroke 0.15s ease-out' }}
-								>
-									<title>{`${node.name} (L${node.level})${node.isInterchange ? ' [Interchange]' : ''}\nID: ${node.id}`}</title>
-								</circle>
-								<text
-									y={-currentRadius - 5}
-									textAnchor="middle"
-									fontSize="9px"
-									fill={isSelected ? "var(--primary)" : "var(--foreground)"}
-									className="select-none pointer-events-none font-medium"
-									paintOrder="stroke"
-									stroke="var(--background)"
-									strokeWidth="2.5px"
-									strokeLinejoin="round"
-									style={{ transition: 'fill 0.15s ease-out' }}
-								>
-									{node.name}
-								</text>
-							</g>
+							<MetroLine
+								key={`line-${path.id}`}
+								path={path}
+								nodes={pathNodes}
+								isSelected={isPathSelected}
+								lineWidth={lineWidth}
+								opacity={0.7}
+							/>
 						);
 					})}
+
+					{/* Render stations on top of lines */}
+					{layout?.nodes.map(node => (
+						<MetroStation
+							key={`station-${node.id}`}
+							node={node}
+							isSelected={node.id === selectedNodeId}
+							isCurrent={node.id === currentNodeId}
+							isTarget={node.id === targetNodeId}
+							onClick={handleNodeClick}
+							baseRadius={nodeRadius}
+							interchangeRadius={interchangeRadius}
+						/>
+					))}
 				</g>
 			</svg>
 		</div>
 	);
-}); // End of forwardRef
+});
 
 // Add display name for DevTools
 MetroMap.displayName = 'MetroMap';
