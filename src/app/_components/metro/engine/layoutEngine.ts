@@ -66,7 +66,7 @@ export function generateLayout(
 	// Calculate path relationships
 	const pathRelationships = calculatePathRelationships(careerPaths, positionDetails);
 
-	// Assign angles to paths
+	// Assign angles to paths based on relationships
 	const pathAngles = assignPathAngles(
 		pathRelationships,
 		careerPaths,
@@ -74,64 +74,140 @@ export function generateLayout(
 		layoutConfig.angleSpread
 	);
 
-	// --- Node Placement ---
+	// Group details by path for sequence processing
+	const detailsByPath = new Map<string, PositionDetail[]>();
+
 	positionDetails.forEach(detail => {
-		const position = positionMap.get(detail.position_id);
-		if (!position) return; // Skip if position doesn't exist
+		if (!detailsByPath.has(detail.career_path_id)) {
+			detailsByPath.set(detail.career_path_id, []);
+		}
+		detailsByPath.get(detail.career_path_id)?.push(detail);
+	});
 
-		const path = careerPaths.find(p => p.id === detail.career_path_id);
-		if (!path) return; // Skip if path doesn't exist
+	// Sort details within each path by sequence or level
+	detailsByPath.forEach((details, pathId) => {
+		// First attempt to sort by sequence_in_path if available
+		const hasSequence = details.some(d => d.sequence_in_path !== null && d.sequence_in_path !== undefined);
 
-		const centrality = centralityScores.get(detail.position_id) || 1;
-		const isInterchange = centrality > 1;
+		if (hasSequence) {
+			details.sort((a, b) => {
+				const aSeq = a.sequence_in_path ?? a.level;
+				const bSeq = b.sequence_in_path ?? b.level;
+				return (aSeq || 0) - (bSeq || 0);
+			});
+		} else {
+			// Fall back to level-based sorting
+			details.sort((a, b) => a.level - b.level);
+		}
+	});
 
-		// Get path angle
-		const pathAngle = pathAngles.get(detail.career_path_id) || 0;
+	// --- Node Placement ---
+	// Process paths one at a time to ensure cohesive path layout
+	careerPaths.forEach(path => {
+		const pathDetails = detailsByPath.get(path.id) || [];
+		const pathAngle = pathAngles.get(path.id) || 0;
 
-		// Calculate level distance from mid-level (determines radius)
-		const levelDistance = Math.abs(detail.level - midLevel);
+		// Skip empty paths
+		if (pathDetails.length === 0) return;
 
-		// Apply centrality effect (interchange nodes pull more toward center)
-		const effectiveCentrality = isInterchange
-			? Math.pow(centrality, layoutConfig.centralityFactor)
-			: 1;
+		// Set up curve parameters for this path
+		const totalNodes = pathDetails.length;
+		const startRadius = layoutConfig.centerRadius < 0
+			? Math.abs(layoutConfig.centerRadius) // Handle negative centerRadius specially
+			: layoutConfig.centerRadius + layoutConfig.radiusStep * Math.abs(pathDetails[0].level - midLevel);
 
-		// Calculate radius: smaller for mid-level positions and interchanges
-		const radius = layoutConfig.centerRadius +
-			(levelDistance * layoutConfig.radiusStep) / effectiveCentrality;
+		// Calculate total angular spread for this path based on node count
+		const pathCurve = Math.min(0.3, 0.1 * Math.log(totalNodes + 1));
 
-		// Apply slight angular offset based on level to create a curved path effect
-		const levelOffsetDirection = detail.level < midLevel ? -1 : 1;
-		const levelOffset = (detail.level - midLevel) * 0.1 * levelOffsetDirection;
+		// Process details for this path
+		pathDetails.forEach((detail, index) => {
+			const position = positionMap.get(detail.position_id);
+			if (!position) return; // Skip if position doesn't exist
 
-		// Apply small jitter to prevent perfect overlaps
-		const jitterAmount = layoutConfig.jitter;
-		const jitterX = jitterAmount * (Math.random() - 0.5) * layoutConfig.radiusStep;
-		const jitterY = jitterAmount * (Math.random() - 0.5) * layoutConfig.radiusStep;
+			// Calculate node-specific properties
+			const centrality = centralityScores.get(detail.position_id) || 1;
+			const isInterchange = centrality > 1;
 
-		// Calculate final angle
-		const adjustedAngle = pathAngle + levelOffset;
+			// Calculate level distance from mid-level
+			const levelDistance = Math.abs(detail.level - midLevel);
 
-		// Calculate coordinates
-		const x = radius * Math.cos(adjustedAngle) + jitterX;
-		const y = radius * Math.sin(adjustedAngle) + jitterY;
+			// Apply centrality effect (interchange nodes pull more toward center)
+			const effectiveCentrality = isInterchange
+				? Math.pow(centrality, layoutConfig.centralityFactor)
+				: 1;
 
-		// Create node
-		const newNode: LayoutNode = {
-			id: detail.id,
-			positionId: detail.position_id,
-			careerPathId: detail.career_path_id,
-			level: detail.level,
-			name: position.name,
-			x: x,
-			y: y,
-			color: path.color || '#cccccc',
-			isInterchange: isInterchange,
-		};
+			// Calculate sequence-based progression factor (0 to 1)
+			const progressFactor = totalNodes > 1 ? index / (totalNodes - 1) : 0.5;
 
-		// Add to result arrays
-		nodes.push(newNode);
-		nodesById[newNode.id] = newNode;
+			// Determine radius based on multiple factors:
+			// 1. Base radius determined by level distance from mid-level
+			// 2. Sequence-based progressive distribution
+			// 3. Centrality pulling interchanges inward
+
+			// Starting with a base radius from the center
+			let baseRadius = Math.abs(layoutConfig.centerRadius);
+
+			// Add level-based radius component
+			const levelRadiusComponent = levelDistance * layoutConfig.radiusStep;
+
+			// Handle positive vs negative center radius
+			if (layoutConfig.centerRadius >= 0) {
+				// Normal mode: mid-level is central
+				baseRadius += levelRadiusComponent;
+			} else {
+				// Inverse mode: expand outward from center for all levels
+				baseRadius += layoutConfig.radiusStep * (detail.level - minLevel);
+			}
+
+			// Apply sequence-based distribution to spread nodes along the path
+			// This ensures nodes at same level but different sequences get spaced apart
+			const sequenceOffset = (detail.sequence_in_path !== null && detail.sequence_in_path !== undefined)
+				? (detail.sequence_in_path - detail.level) * 0.3 * layoutConfig.radiusStep
+				: 0;
+
+			// Combine all radius factors
+			const radius = (baseRadius + sequenceOffset) / effectiveCentrality;
+
+			// Calculate angular offset based on position in sequence
+			// Create a smooth arc effect for the path
+			const midPosition = (totalNodes - 1) / 2;
+			const angleOffset = pathCurve * (index - midPosition);
+
+			// Apply additional level-based angular offset for more natural curves
+			const levelOffsetDirection = detail.level < midLevel ? -1 : 1;
+			const levelOffset = (detail.level - midLevel) * 0.05 * levelOffsetDirection;
+
+			// Calculate final angle
+			const adjustedAngle = pathAngle + angleOffset + levelOffset;
+
+			// Apply minimal jitter for node separation
+			const jitterAmount = layoutConfig.jitter;
+			const jitterX = jitterAmount * (Math.random() - 0.5) * layoutConfig.radiusStep;
+			const jitterY = jitterAmount * (Math.random() - 0.5) * layoutConfig.radiusStep;
+
+			// Calculate coordinates
+			const x = radius * Math.cos(adjustedAngle) + jitterX;
+			const y = radius * Math.sin(adjustedAngle) + jitterY;
+
+			// Create node
+			const newNode: LayoutNode = {
+				id: detail.id,
+				positionId: detail.position_id,
+				careerPathId: detail.career_path_id,
+				level: detail.level,
+				name: position.name,
+				x: x,
+				y: y,
+				color: path.color || '#cccccc',
+				isInterchange: isInterchange,
+				// Include sequence info if available
+				...(detail.sequence_in_path !== undefined && { sequence_in_path: detail.sequence_in_path })
+			};
+
+			// Add to result arrays
+			nodes.push(newNode);
+			nodesById[newNode.id] = newNode;
+		});
 	});
 
 	// --- Post-processing ---
@@ -157,11 +233,22 @@ export function generateLayout(
 		levelRange: [minLevel, maxLevel]
 	});
 
-	// Return complete layout data
+	// Ensure paths have all required properties before returning
+	const validatedPaths = paths.map(path => {
+		// Make sure each path has a list of node IDs
+		if (!Array.isArray(path.nodes)) {
+			path.nodes = nodes
+				.filter(node => node.careerPathId === path.id)
+				.map(node => node.id);
+		}
+		return path;
+	});
+
+	// Return complete layout data with validated paths
 	return {
 		nodes,
 		nodesById,
-		paths,
+		paths: validatedPaths,
 		pathsById,
 		bounds,
 		configUsed: layoutConfig

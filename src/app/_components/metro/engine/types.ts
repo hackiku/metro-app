@@ -15,6 +15,7 @@ export interface LayoutNode {
 	color: string;             // Color from the career path
 	isInterchange: boolean;    // Whether this position appears in multiple paths
 	relatedPaths?: string[];   // IDs of all paths this position appears in
+	sequence_in_path?: number; // Optional sequence number within the path
 }
 
 /**
@@ -56,7 +57,7 @@ export interface LayoutData {
  */
 export interface LayoutConfig {
 	radiusStep?: number;          // Distance between levels
-	centerRadius?: number;        // Base radius for central nodes
+	centerRadius?: number;        // Base radius for central nodes (negative for inverse mode)
 	startAngle?: number;          // Start angle in degrees (0 = right, 90 = bottom)
 	angleSpread?: number;         // Total angle to spread paths over (in degrees)
 	padding?: number;             // Padding around content bounds
@@ -67,12 +68,12 @@ export interface LayoutConfig {
 
 // Default configuration
 export const DEFAULT_CONFIG: Required<LayoutConfig> = {
-	radiusStep: 85,          // Distance between levels
-	centerRadius: 120,       // Base radius for central nodes
+	radiusStep: 120,         // Distance between levels (increased)
+	centerRadius: -100,      // Negative for inverse mode: expand outward for all
 	startAngle: 0,           // Start at 0 degrees (3 o'clock position)
 	angleSpread: 360,        // Use full circle
-	padding: 60,             // Padding around bounds
+	padding: 80,             // Increased padding
 	midLevelOverride: null,  // Auto-calculate mid-level
-	centralityFactor: 1.4,   // Strong centrality pull
-	jitter: 0.05             // Small jitter
+	centralityFactor: 1.6,   // Strong centrality pull
+	jitter: 0.01             // Minimal jitter for cleaner appearance
 };

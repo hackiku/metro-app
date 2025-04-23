@@ -29,13 +29,30 @@ export default function MetroLine({
 	opacity = 0.8
 }: MetroLineProps) {
 	// Generate SVG path data for this line
+	// Generate SVG path data for this line
 	const pathData = useMemo(() => {
 		if (!nodes.length) return '';
 
-		// Sort nodes by level for a smoother path
-		const sortedNodes = [...nodes].sort((a, b) => a.level - b.level);
+		// Sort nodes by level and then by sequence_in_path if available
+		const sortedNodes = [...nodes].sort((a, b) => {
+			// First sort by level
+			const levelDiff = a.level - b.level;
+			if (levelDiff !== 0) return levelDiff;
 
-		// Simple path connecting nodes in level order
+			// If levels are the same, try to sort by sequence_in_path if it exists in the node data
+			const aSeq = (a as any).sequence_in_path;
+			const bSeq = (b as any).sequence_in_path;
+
+			if (aSeq !== undefined && bSeq !== undefined) {
+				return aSeq - bSeq;
+			}
+
+			// Default to x/y position for stable sorting
+			const xDiff = a.x - b.x;
+			return xDiff !== 0 ? xDiff : a.y - b.y;
+		});
+
+		// Simple path connecting nodes in sorted order
 		let data = `M ${sortedNodes[0].x} ${sortedNodes[0].y}`;
 
 		for (let i = 1; i < sortedNodes.length; i++) {

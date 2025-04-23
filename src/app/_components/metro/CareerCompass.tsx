@@ -8,7 +8,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/co
 import { Button } from '~/components/ui/button';
 import { Database } from 'lucide-react';
 // --- Use the RENAMED engine function and map component ---
-import { generateLayout, type LayoutData } from './engine/layoutEngine'; // Updated import name
+import { generateLayout } from './engine/layoutEngine'; // Updated import name
+// import type {  } from './engine/layoutEngine'; // Updated import name
+import type { LayoutData, LayoutConfig } from './engine/types'; // Properly import types
 import MetroMap from './map/MetroMap'; // Updated import name
 
 export default function CareerCompass() {
@@ -33,12 +35,22 @@ export default function CareerCompass() {
 			console.log("Skipping layout calculation - data not ready");
 			return null;
 		}
+
 		console.log("Calculating layout (v3 - Centrality)...");
-		return generateLayout( // Use renamed function
+
+		// Configuration for the layout engine
+		const layoutConfig: Partial<LayoutConfig> = {
+			radiusStep: 150,        // Increased for better spacing
+			centerRadius: 50,      // Negative value for inverse mode
+			centralityFactor: 1.6,   // Stronger centrality effect
+			jitter: 0.01             // Minimal jitter for cleaner appearance
+		};
+
+		return generateLayout(
 			careerPaths,
 			positionDetails,
 			positions,
-			{ radiusStep: 85, centerRadius: 70, centralityFactor: 1.2 } // Example config
+			layoutConfig
 		);
 	}, [loading, error, careerPaths, positionDetails, positions]);
 
@@ -66,11 +78,30 @@ export default function CareerCompass() {
 				)}
 			</div>
 
-			{/* Data Display Trigger & Sheet (remains the same) */}
+			{/* Data Display Trigger & Sheet */}
 			<div className="absolute top-4 right-4 z-10">
 				<Sheet open={isDataSheetOpen} onOpenChange={setIsDataSheetOpen}>
-					<SheetTrigger asChild>/* ... */</SheetTrigger>
-					<SheetContent className="w-full ..." side="right">/* ... */</SheetContent>
+					<SheetTrigger asChild>
+						<Button
+							variant="outline"
+							size="icon"
+							className="bg-background/80 backdrop-blur hover:bg-background/90"
+						>
+							<Database className="h-4 w-4" />
+							<span className="sr-only">Show Data</span>
+						</Button>
+					</SheetTrigger>
+					<SheetContent className="w-full max-w-lg sm:max-w-xl md:max-w-2xl" side="right">
+						<SheetHeader>
+							<SheetTitle>Career Framework Data</SheetTitle>
+						</SheetHeader>
+						<DataDisplay
+							organization={organization}
+							careerPaths={careerPaths}
+							positions={positions}
+							positionDetails={positionDetails}
+						/>
+					</SheetContent>
 				</Sheet>
 			</div>
 		</div>
