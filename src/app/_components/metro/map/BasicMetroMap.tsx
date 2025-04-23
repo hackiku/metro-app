@@ -3,7 +3,9 @@
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import * as d3 from 'd3';
-import type { BasicLayoutData, BasicNode } from '../engine/layoutEngine'; // Import from basic engine
+import type { BasicLayoutData, BasicNode } from '../engine/layoutEngine';
+// --- Import the new Grid component ---
+import PolarGridBackground from './PolarGridBackground';
 
 interface BasicMetroMapProps {
 	layout: BasicLayoutData;
@@ -12,24 +14,22 @@ interface BasicMetroMapProps {
 
 export default function BasicMetroMap({ layout, className = "" }: BasicMetroMapProps) {
 	const svgRef = useRef<SVGSVGElement>(null);
-	const gRef = useRef<SVGGElement>(null); // Ref for the zoomable group
+	const gRef = useRef<SVGGElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 	const [currentZoom, setCurrentZoom] = useState<d3.ZoomTransform>(d3.zoomIdentity);
 
-	// Update dimensions on resize
+	// Update dimensions on resize (useEffect remains the same)
 	useEffect(() => {
 		if (!containerRef.current) return;
 		const resizeObserver = new ResizeObserver(entries => {
 			if (!entries || entries.length === 0) return;
 			const { width, height } = entries[0].contentRect;
-			// Avoid setting 0 dimensions initially
 			if (width > 0 && height > 0) {
 				setDimensions({ width, height });
 			}
 		});
 		resizeObserver.observe(containerRef.current);
-		// Initial size check
 		const initialRect = containerRef.current.getBoundingClientRect();
 		if (initialRect.width > 0 && initialRect.height > 0) {
 			setDimensions({ width: initialRect.width, height: initialRect.height });
@@ -37,73 +37,103 @@ export default function BasicMetroMap({ layout, className = "" }: BasicMetroMapP
 		return () => resizeObserver.disconnect();
 	}, []);
 
-	// Set up D3 Zoom
+	// Calculate max radius from bounds for grid
+	const maxRadiusForGrid = useMemo(() => {
+		const { minX, maxX, minY, maxY } = layout.bounds;
+		// Find the largest distance from the origin (0,0) in any direction
+		return Math.max(Math.abs(minX), Math.abs(maxX), Math.abs(minY), Math.abs(maxY));
+	}, [layout.bounds]);
+
+	// Set up D3 Zoom (useEffect remains largely the same)
 	useEffect(() => {
-		if (!svgRef.current || !gRef.current) return;
+		if (!svgRef.current || !gRef.current || dimensions.width === 0) return;
 
 		const svg = d3.select(svgRef.current);
 		const g = d3.select(gRef.current);
 
+		// Determine initial scale to roughly fit the content
+		const padding = 50; // Add some padding
+		const scaleX = dimensions.width / ((layout.bounds.maxX - layout.bounds.minX) + padding * 2);
+		const scaleY = dimensions.height / ((layout.bounds.maxY - layout.bounds.minY) + padding * 2);
+		const initialScale = Math.min(scaleX, scaleY, 1); // Don't zoom in initially more than 1x
+
+		// Calculate initial translation to center the content
+		const initialTranslateX = dimensions.width / 2 - ((layout.bounds.minX + layout.bounds.maxX) / 2) * initialScale;
+		const initialTranslateY = dimensions.height / 2 - ((layout.bounds.minY + layout.bounds.maxY) / 2) * initialScale;
+
+		const initialTransform = d3.zoomIdentity.translate(initialTranslateX, initialTranslateY).scale(initialScale);
+
 		const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
-			.scaleExtent([0.3, 5]) // Min/max zoom levels
-			.translateExtent([[layout.bounds.minX * 1.5, layout.bounds.minY * 1.5], [layout.bounds.maxX * 1.5, layout.bounds.maxY * 1.5]]) // Pan extent based on layout
+			.scaleExtent([0.1, 8]) // Adjust scale extent if needed
+			// Remove translateExtent for now, it can be tricky to get right initially
+			// .translateExtent([[layout.bounds.minX*2, layout.bounds.minY*2], [layout.bounds.maxX*2, layout.bounds.maxY*2]])
 			.on("zoom", (event) => {
+				setCurrentZoom(event.transform); // Store transform state
 				g.attr("transform", event.transform.toString());
-				setCurrentZoom(event.transform); // Store zoom state if needed elsewhere
 			});
 
-		svg.call(zoomBehavior);
+		svg.call(zoomBehavior)
+			.call(zoomBehavior.transform, initialTransform); // Apply initial transform
 
-		// Optional: Initialize zoom to fit bounds (can be complex, start simple)
-		// Example: zoomBehavior.translateTo(svg, 0, 0); // Center at origin
+		// Store the initial transform
+		setCurrentZoom(initialTransform);
 
-		// Cleanup function
+
 		return () => {
-			svg.on(".zoom", null); // Remove zoom listener
+			svg.on(".zoom", null);
 		};
 
-	}, [layout.bounds]); // Re-run if layout bounds change
+	}, [layout.bounds, dimensions.width, dimensions.height]); // Rerun on bounds or dimension change
 
 	// --- Basic Rendering ---
-	// No complex scales needed yet, as layout engine gives direct coords
 	const nodeRadius = 6;
 
 	return (
 		<div
 			ref={containerRef}
-			className={`w-full h-full overflow-hidden bg-muted/10 ${className}`} // Use muted for background
+			className={`w-full h-full overflow-hidden bg-muted/10 ${className}`}
 		>
 			<svg
 				ref={svgRef}
-				width={dimensions.width} // Use state for dimensions
+				width={dimensions.width}
 				height={dimensions.height}
-				// ViewBox is not strictly necessary if we zoom/pan the <g>
-				// viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
 				style={{ cursor: 'grab' }}
 				onMouseDown={() => { if (svgRef.current) svgRef.current.style.cursor = 'grabbing'; }}
 				onMouseUp={() => { if (svgRef.current) svgRef.current.style.cursor = 'grab'; }}
 			>
-				{/* Add a background rect for capturing zoom events */}
+				{/* Background rect for zoom */}
 				<rect width="100%" height="100%" fill="transparent" />
-				<g ref={gRef}>
+				{/* Apply the currentZoom transform to the group */}
+				<g ref={gRef} transform={currentZoom.toString()}>
+					{/* --- Render Polar Grid FIRST --- */}
+					<PolarGridBackground
+						maxRadius={maxRadiusForGrid * 1.1} // Draw grid slightly larger than content
+						radiusSteps={5} // Adjust number of circles
+						angleSteps={12} // Adjust number of radial lines (e.g., 12 = 30deg steps)
+					/>
+
 					{/* Render basic nodes */}
 					{layout.nodes.map((node) => (
 						<g key={node.id} transform={`translate(${node.x}, ${node.y})`}>
 							<circle
 								r={nodeRadius}
 								fill={node.color}
-								stroke="var(--background)" // Use background for stroke contrast
+								stroke="var(--background)"
 								strokeWidth={1.5}
 							>
-								<title>{`${node.name} (Pos: ${node.positionId}, Path: ${node.careerPathId})`}</title> {/* Basic tooltip */}
+								<title>{`${node.name} (Pos: ${node.positionId}, Path: ${node.careerPathId})`}</title>
 							</circle>
-							{/* Simple text label */}
 							<text
-								y={-nodeRadius - 4} // Position above circle
+								y={-nodeRadius - 4}
 								textAnchor="middle"
 								fontSize="10px"
 								fill="var(--foreground)"
-								className="select-none pointer-events-none" // Make text non-interactive
+								className="select-none pointer-events-none"
+								// Optional: Add a background stroke for readability
+								paintOrder="stroke"
+								stroke="var(--background)"
+								strokeWidth="2px"
+								strokeLinejoin="round"
 							>
 								{node.name}
 							</text>

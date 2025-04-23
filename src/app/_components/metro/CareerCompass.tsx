@@ -90,7 +90,7 @@ export default function CareerCompass() {
 							<span className="sr-only">View Raw Data</span>
 						</Button>
 					</SheetTrigger>
-					<SheetContent className="w-full sm:w-[540px] md:w-[720px] lg:w-[900px] xl:w-[1080px] flex flex-col" side="right"> {/* Adjust width/side */}
+					<SheetContent className="w-[80vw] flex flex-col" side="right"> {/* Adjust width/side */}
 						<SheetHeader>
 							<SheetTitle>Raw Career Framework Data</SheetTitle>
 						</SheetHeader>
