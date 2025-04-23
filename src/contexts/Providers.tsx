@@ -2,13 +2,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-// Remove old imports if they exist
-// import { CareerProvider } from "./CareerContext";
-// import { UserProvider } from "./UserContext";
-// import { MetroVisualizationProvider } from "./MetroVisualizationContext";
-
 // Import the NEW Provider
 import { CareerCompassProvider } from "./CareerCompassProvider";
+import { SessionProvider } from "./SessionContext";
 
 interface ProvidersProps {
 	children: ReactNode;
@@ -20,11 +16,10 @@ interface ProvidersProps {
  */
 export function Providers({ children }: ProvidersProps) {
 	return (
-		<CareerCompassProvider>
-			{/* Add UserProvider back later when auth/user data is needed */}
-			{/* <UserProvider> */}
-			{children}
-			{/* </UserProvider> */}
-		</CareerCompassProvider>
+		<SessionProvider>
+			<CareerCompassProvider>
+				{children}
+			</CareerCompassProvider>
+		</SessionProvider>
 	);
 }

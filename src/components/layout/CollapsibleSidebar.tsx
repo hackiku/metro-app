@@ -54,7 +54,7 @@ const navigationConfig: NavGroupConfig[] = [
 		// HR planning & debug
 		items: [
 			{ href: "/hr", icon: BarChart2, text: "HR Admin" },
-			{ href: "/competences", icon: Briefcase, text: "Competences" }
+			{ href: "/competences", icon: Briefcase, text: "Competences" },
 			{ href: "/job-family", icon: Layers, text: "Job Families" },
 		],
 		showDivider: true
