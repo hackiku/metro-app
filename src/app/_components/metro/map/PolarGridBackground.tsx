@@ -72,7 +72,7 @@ export function PolarGridBackground({
 					stroke={angleColor}
 					strokeWidth="0.5"
 					strokeDasharray="4 4"
-					opacity={opacity * 0.6} // Make angle lines slightly more faint
+					opacity={opacity * 0.8} // Make angle lines slightly more faint
 				/>
 			))}
 

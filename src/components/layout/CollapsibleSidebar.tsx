@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
-import { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 interface NavItemConfig {
 	href: string;
@@ -39,22 +39,23 @@ interface NavGroupConfig {
 // Navigation configuration
 const navigationConfig: NavGroupConfig[] = [
 	{
-		// Primary navigation
+		// User perspective navigation
 		items: [
+			{ href: "/", icon: Home, text: "Dashboard" },
 			{ href: "/metro", icon: Play, text: "Metro" },
 			{ href: "/destinations", icon: Compass, text: "Destinations" },
-			{ href: "/comparison", icon: ChartColumnIncreasing, text: "Comparison" },
+			{ href: "/skills", icon: Briefcase, text: "Skills" },
+			// { href: "/comparison", icon: ChartColumnIncreasing, text: "Comparison" },
 			{ href: "/route", icon: Map, text: "Route Plan" },
 		],
 		showDivider: true
 	},
 	{
-		// Main navigation items
+		// HR planning & debug
 		items: [
-			{ href: "/", icon: Home, text: "Dashboard" },
-			{ href: "/development", icon: BarChart2, text: "Development" },
-			{ href: "/job-family", icon: Layers, text: "Job Families" },
+			{ href: "/hr", icon: BarChart2, text: "HR Admin" },
 			{ href: "/competences", icon: Briefcase, text: "Competences" }
+			{ href: "/job-family", icon: Layers, text: "Job Families" },
 		],
 		showDivider: true
 	},

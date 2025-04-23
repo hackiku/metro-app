@@ -239,7 +239,7 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 				width={dimensions.width}
 				height={dimensions.height}
 				className="block"
-				style={{ cursor: 'grab', background: 'transparent' }}
+				style={{ cursor: 'default', background: 'transparent' }}
 				onMouseDown={(e) => { e.currentTarget.style.cursor = 'grabbing'; }}
 				onMouseUp={(e) => { e.currentTarget.style.cursor = 'grab'; }}
 				onMouseLeave={(e) => { e.currentTarget.style.cursor = 'grab'; }}
