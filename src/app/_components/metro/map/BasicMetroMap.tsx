@@ -102,7 +102,7 @@ export default function BasicMetroMap({ layout, className = "" }: BasicMetroMapP
 				onMouseUp={() => { if (svgRef.current) svgRef.current.style.cursor = 'grab'; }}
 			>
 				{/* Background rect for zoom */}
-				<rect width="100%" height="100%" fill="transparent" />
+				<rect width="100%" height="100%" fill="transparent"/>
 				{/* Apply the currentZoom transform to the group */}
 				<g ref={gRef} transform={currentZoom.toString()}>
 					{/* --- Render Polar Grid FIRST --- */}

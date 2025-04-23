@@ -20,8 +20,8 @@ export function PolarGridBackground({
 	maxRadius,
 	radiusSteps = 5, // e.g., 5 circles
 	angleSteps = 12, // e.g., 12 lines (every 30 degrees)
-	radiusColor = "var(--muted-foreground)",
-	angleColor = "var(--muted-foreground)",
+	radiusColor = "var(--foreground)",
+	angleColor = "var(--foreground)",
 	opacity = 0.2,
 }: PolarGridBackgroundProps) {
 
@@ -72,7 +72,7 @@ export function PolarGridBackground({
 					stroke={angleColor}
 					strokeWidth="0.5"
 					strokeDasharray="4 4"
-					opacity={opacity * 0.8} // Make angle lines slightly more faint
+					opacity={opacity * 0.6} // Make angle lines slightly more faint
 				/>
 			))}
 
