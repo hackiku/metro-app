@@ -1,9 +1,10 @@
 // src/app/hr/page.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
-import { HrDashboard } from "./components/HrDashboard";
 import { SessionProvider } from "~/contexts/SessionContext";
+import HrAdminPage from "./HrAdminPage";
 
 export default function HrPage() {
 	const [isClient, setIsClient] = useState(false);
@@ -16,9 +17,8 @@ export default function HrPage() {
 	return (
 		<div className="space-y-6 p-6">
 			{isClient ? (
-				// Wrap the HrDashboard with SessionProvider to provide the session context
 				<SessionProvider>
-					<HrDashboard />
+					<HrAdminPage />
 				</SessionProvider>
 			) : (
 				<div className="animate-pulse">
