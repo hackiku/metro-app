@@ -41,7 +41,35 @@ export const positionRouter = createTRPCRouter({
       if (error) throw new Error(`Error fetching positions for career path: ${error.message}`);
       return data || [];
     }),
-    
+  
+
+	  getAllPathsPositions: publicProcedure
+    .input(z.object({ 
+      organizationId: z.string(),
+      pathIds: z.array(z.string())
+    }))
+    .query(async ({ input }) => {
+      if (input.pathIds.length === 0) {
+        return [];
+      }
+
+      const { data, error } = await supabase
+        .from('position_details')
+        .select(`
+          id,
+          level,
+          sequence_in_path,
+          path_specific_description,
+          career_path_id,
+          positions:position_id(id, name, base_description)
+        `)
+        .eq('organization_id', input.organizationId)
+        .in('career_path_id', input.pathIds)
+        .order('level');
+        
+      if (error) throw new Error(`Error fetching positions for paths: ${error.message}`);
+      return data || [];
+    }),
   // Create a new position
   create: publicProcedure
     .input(z.object({

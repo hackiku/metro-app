@@ -1,5 +1,4 @@
 // src/app/hr/positions/Positions.tsx
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,6 +6,11 @@ import { api } from "~/trpc/react";
 import { useSession } from "~/contexts/SessionContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { AssignmentsList } from "../assignments/AssignmentsList";
+import { PositionsList } from "./PositionsList";
+import { PositionDialog } from "./PositionDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog";
+import { Button } from "~/components/ui/button";
+import { usePositions } from "../hooks/usePositions";
 import { toast } from "sonner";
 
 interface PositionsProps {
@@ -16,6 +20,20 @@ interface PositionsProps {
 export default function Positions({ selectedPathId }: PositionsProps) {
 	const { currentOrgId } = useSession();
 	const [pathName, setPathName] = useState<string>("");
+
+	// Dialog state
+	const [isCreating, setIsCreating] = useState(false);
+	const [editingId, setEditingId] = useState<string | null>(null);
+	const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+	// Get positions data and operations
+	const {
+		positions,
+		isLoading,
+		error,
+		deletePosition,
+		isDeleting
+	} = usePositions();
 
 	// Fetch the specific career path details if one is selected
 	const pathQuery = api.career.getPathById.useQuery(
@@ -33,20 +51,107 @@ export default function Positions({ selectedPathId }: PositionsProps) {
 		}
 	}, [pathQuery.data]);
 
+	// Handle opening the create dialog
+	const handleAddPosition = () => {
+		setIsCreating(true);
+	};
+
+	// Handle opening the edit dialog
+	const handleEditPosition = (id: string) => {
+		setEditingId(id);
+	};
+
+	// Handle opening the delete confirmation dialog
+	const handleDeletePrompt = (id: string) => {
+		setConfirmDeleteId(id);
+	};
+
+	// Handle confirming deletion
+	const handleConfirmDelete = () => {
+		if (!confirmDeleteId) return;
+
+		deletePosition({ id: confirmDeleteId }, {
+			onSuccess: () => {
+				toast.success("Position deleted successfully");
+				setConfirmDeleteId(null);
+			},
+			onError: (error) => {
+				toast.error(`Failed to delete: ${error.message}`);
+			}
+		});
+	};
+
+	// Handle completion of create/edit operation
+	const handleDialogComplete = () => {
+		setIsCreating(false);
+		setEditingId(null);
+	};
+
 	// If no path is selected, show all positions
 	if (!selectedPathId) {
 		return (
-			<Card>
-				<CardHeader>
-					<CardTitle className="text-xl">Positions</CardTitle>
-					<CardDescription>
-						All generic positions across career paths
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<PositionsList />
-				</CardContent>
-			</Card>
+			<>
+				<PositionsList
+					positions={positions}
+					isLoading={isLoading}
+					onAddPosition={handleAddPosition}
+					onEditPosition={handleEditPosition}
+					onDeletePosition={handleDeletePrompt}
+				/>
+
+				{/* Create/Edit Position Dialogs */}
+				<PositionDialog
+					open={isCreating}
+					mode="create"
+					onOpenChange={setIsCreating}
+					onComplete={handleDialogComplete}
+				/>
+
+				<PositionDialog
+					open={!!editingId}
+					mode="edit"
+					positionId={editingId || undefined}
+					onOpenChange={(open) => !open && setEditingId(null)}
+					onComplete={handleDialogComplete}
+				/>
+
+				{/* Delete Confirmation Dialog */}
+				<Dialog
+					open={!!confirmDeleteId}
+					onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+				>
+					<DialogContent>
+						<DialogHeader>
+							<DialogTitle>Confirm Deletion</DialogTitle>
+							<DialogDescription>
+								Are you sure you want to delete this position? This action cannot be undone.
+							</DialogDescription>
+						</DialogHeader>
+						<div className="flex justify-end gap-2 mt-4">
+							<Button
+								variant="outline"
+								onClick={() => setConfirmDeleteId(null)}
+							>
+								Cancel
+							</Button>
+							<Button
+								variant="destructive"
+								onClick={handleConfirmDelete}
+								disabled={isDeleting}
+							>
+								{isDeleting ? (
+									<>
+										<div className="animate-spin h-4 w-4 mr-2 border-b-2 border-background rounded-full" />
+										Deleting...
+									</>
+								) : (
+									'Delete'
+								)}
+							</Button>
+						</div>
+					</DialogContent>
+				</Dialog>
+			</>
 		);
 	}
 
@@ -96,6 +201,3 @@ export default function Positions({ selectedPathId }: PositionsProps) {
 		/>
 	);
 }
-
-// Import at the end to avoid circular dependencies
-import { PositionsList } from "./PositionsList";

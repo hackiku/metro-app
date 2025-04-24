@@ -6,11 +6,11 @@ import { api } from "~/trpc/react";
 import { useSession } from "~/contexts/SessionContext";
 import { Button } from "~/components/ui/button";
 import { RefreshCw, Map } from "lucide-react";
-import SummaryResizable from "./summary/SummaryResizable";
 import CareerPaths from "./career-paths/CareerPaths";
 import Positions from "./positions/Positions";
 import { Toaster } from "sonner";
 import Link from "next/link";
+import { toast } from "sonner";
 
 export default function HrAdminPage() {
 	// Get organization ID from session context
@@ -44,9 +44,6 @@ export default function HrAdminPage() {
 
 	return (
 		<div className="space-y-6 p-6">
-			{/* Summary section with resizable panels */}
-			{/* <SummaryResizable /> */}
-
 			{/* Actions row */}
 			<div className="flex gap-3 justify-end">
 				<Button variant="outline" size="sm" onClick={handleRefresh}>
@@ -82,6 +79,3 @@ export default function HrAdminPage() {
 		</div>
 	);
 }
-
-// Import at the end to avoid circular dependencies
-import { toast } from "sonner";
