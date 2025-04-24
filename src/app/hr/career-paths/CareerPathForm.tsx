@@ -8,9 +8,12 @@ import { useCareerPaths } from "../hooks/useCareerPaths";
 import { Button } from "~/components/ui/button";
 import { FormField } from "~/components/forms/FormField";
 import { FormWrapper } from "~/components/forms/FormWrapper";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import { HexColorPicker } from "react-colorful";
+import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { toast } from "sonner";
 import { api } from "~/trpc/react";
-import Link from "next/link";
 
 interface CareerPathFormProps {
 	pathId?: string;
@@ -34,8 +37,6 @@ export function CareerPathForm({
 }: CareerPathFormProps) {
 	const { currentOrgId } = useSession();
 	const {
-		careerPaths,
-		isLoading,
 		createPath,
 		updatePath,
 		isCreating,
@@ -57,26 +58,38 @@ export function CareerPathForm({
 		color: "#4299E1",
 	});
 
+	// Color picker state
+	const [colorPickerOpen, setColorPickerOpen] = useState(false);
+	const [selectedColor, setSelectedColor] = useState("#4299E1");
+
 	// When editing, populate form with existing data
 	useEffect(() => {
 		if (mode === 'edit' && pathId && pathQuery.data) {
+			const pathColor = pathQuery.data.color || "#4299E1";
 			setDefaultValues({
 				name: pathQuery.data.name,
 				description: pathQuery.data.description || "",
-				color: pathQuery.data.color || "#4299E1",
+				color: pathColor,
 			});
+			setSelectedColor(pathColor);
 		}
 	}, [mode, pathId, pathQuery.data]);
 
 	// Form submission handler
 	const handleSubmit = (data: FormValues) => {
+		// Update color with the currently selected one from the picker
+		const formData = {
+			...data,
+			color: selectedColor
+		};
+
 		if (mode === "create") {
 			createPath(
 				{
 					organizationId: currentOrgId!,
-					name: data.name,
-					description: data.description || null,
-					color: data.color
+					name: formData.name,
+					description: formData.description || null,
+					color: formData.color
 				},
 				{
 					onSuccess: () => {
@@ -92,9 +105,9 @@ export function CareerPathForm({
 			updatePath(
 				{
 					id: pathId!,
-					name: data.name,
-					description: data.description || null,
-					color: data.color
+					name: formData.name,
+					description: formData.description || null,
+					color: formData.color
 				},
 				{
 					onSuccess: () => {
@@ -117,10 +130,27 @@ export function CareerPathForm({
 		);
 	}
 
+	// Color input change handler
+	const handleColorChange = (color: string) => {
+		setSelectedColor(color);
+	};
+
+	// Handle manual color input
+	const handleColorInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const value = e.target.value;
+		if (value.match(/^#[0-9A-F]{0,6}$/i)) {
+			// Only update if it's valid hex format
+			setSelectedColor(value.length === 7 ? value : value.padEnd(7, '0'));
+		}
+	};
+
 	return (
 		<FormWrapper
 			schema={careerPathSchema}
-			defaultValues={defaultValues}
+			defaultValues={{
+				...defaultValues,
+				color: selectedColor // Ensure the color is kept in sync
+			}}
 			onSubmit={handleSubmit}
 		>
 			<div className="space-y-4">
@@ -138,14 +168,39 @@ export function CareerPathForm({
 				/>
 
 				<div className="space-y-2">
-					<FormField
-						name="color"
-						label="Color"
-						type="color"
-					/>
-					<p className="text-sm text-muted-foreground">
-						Used for visual representation in the metro map
-					</p>
+					<Label htmlFor="color">Color</Label>
+					<div className="flex items-center gap-2">
+						<Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
+							<PopoverTrigger asChild>
+								<Button
+									variant="outline"
+									className="h-10 w-10 p-0 border-2"
+									style={{
+										backgroundColor: selectedColor,
+										borderColor: selectedColor
+									}}
+								/>
+							</PopoverTrigger>
+							<PopoverContent className="w-auto p-3" side="right" align="start">
+								<HexColorPicker
+									color={selectedColor}
+									onChange={handleColorChange}
+									style={{ width: '200px', height: '200px' }}
+								/>
+							</PopoverContent>
+						</Popover>
+
+						<Input
+							value={selectedColor}
+							onChange={handleColorInputChange}
+							className="font-mono h-10 w-24"
+							maxLength={7}
+						/>
+
+						<p className="text-sm text-muted-foreground">
+							Used in metro map
+						</p>
+					</div>
 				</div>
 
 				<div className="flex justify-end gap-3 pt-4">
