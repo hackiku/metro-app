@@ -13,7 +13,7 @@ interface PositionsProps {
 	selectedPathId: string | null;
 }
 
-export function Positions({ selectedPathId }: PositionsProps) {
+export default function Positions({ selectedPathId }: PositionsProps) {
 	const { currentOrgId } = useSession();
 	const [pathName, setPathName] = useState<string>("");
 

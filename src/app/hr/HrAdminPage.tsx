@@ -6,13 +6,13 @@ import { api } from "~/trpc/react";
 import { useSession } from "~/contexts/SessionContext";
 import { Button } from "~/components/ui/button";
 import { RefreshCw, Map } from "lucide-react";
-import Link from "next/link";
-import { CareerPaths } from "./career-paths/CareerPaths";
-import { Positions } from "./positions/Positions";
+import SummaryResizable from "./summary/SummaryResizable";
+import CareerPaths from "./career-paths/CareerPaths";
+import Positions from "./positions/Positions";
 import { Toaster } from "sonner";
+import Link from "next/link";
 
-
-export function HrAdminPage() {
+export default function HrAdminPage() {
 	// Get organization ID from session context
 	const { currentOrgId } = useSession();
 
@@ -43,22 +43,19 @@ export function HrAdminPage() {
 	};
 
 	return (
-		<div className="space-y-6">
-			{/* Header section with title and actions */}
-			<div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-				<div>
-					<h1 className="text-2xl font-bold">HR Admin</h1>
-					<p className="text-muted-foreground">
-						Manage career paths, positions, and their relationships
-					</p>
-				</div>
+		<div className="space-y-6 p-6">
+			{/* Summary section with resizable panels */}
+			{/* <SummaryResizable /> */}
+
+			{/* Actions row */}
+			<div className="flex gap-3 justify-end">
+				<Button variant="outline" size="sm" onClick={handleRefresh}>
+					<RefreshCw className="mr-2 h-4 w-4" />
+					Refresh Data
+				</Button>
 
 				<div className="flex items-center gap-3">
-					<Button variant="outline" size="sm" onClick={handleRefresh}>
-						<RefreshCw className="mr-2 h-4 w-4" />
-						Refresh
-					</Button>
-					<Button asChild>
+					<Button asChild size="sm" variant="default">
 						<Link href="/metro">
 							<Map className="mr-2 h-4 w-4" />
 							View Metro Map
@@ -88,5 +85,3 @@ export function HrAdminPage() {
 
 // Import at the end to avoid circular dependencies
 import { toast } from "sonner";
-
-export default HrAdminPage;

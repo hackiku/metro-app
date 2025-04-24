@@ -19,7 +19,7 @@ interface CareerPathsProps {
 	selectedPathId: string | null;
 }
 
-export function CareerPaths({ onSelectPath, selectedPathId }: CareerPathsProps) {
+export default function CareerPaths({ onSelectPath, selectedPathId }: CareerPathsProps) {
 	const [isCreating, setIsCreating] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
