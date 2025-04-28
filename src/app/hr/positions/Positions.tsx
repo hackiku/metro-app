@@ -4,16 +4,16 @@
 import { useState, useEffect } from "react";
 import { api } from "~/trpc/react";
 import { useSession } from "~/contexts/SessionContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { Button } from "~/components/ui/button";
+import { Card } from "~/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog";
+import { Button } from "~/components/ui/button";
 import { toast } from "sonner";
 
 // Import components
 import { AssignmentsList } from "../assignments/AssignmentsList";
 import { PositionsList } from "./PositionsList";
 import { PositionDialog } from "./PositionDialog";
+import { CareerPathPositionHeader } from "./CareerPathPositionHeader";
 import { usePositions } from "../hooks/usePositions";
 
 interface PositionsProps {
@@ -22,10 +22,10 @@ interface PositionsProps {
 
 export default function Positions({ selectedPathId }: PositionsProps) {
   const { currentOrgId } = useSession();
-  const [pathName, setPathName] = useState<string>("");
-  const [activeTab, setActiveTab] = useState("positions");
+  const [activeTab, setActiveTab] = useState("assigned-positions");
+  const [isAssigning, setIsAssigning] = useState(false);
   
-  // Dialog state
+  // Dialog state for position management
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -39,6 +39,12 @@ export default function Positions({ selectedPathId }: PositionsProps) {
     isDeleting
   } = usePositions();
 
+  // Get all career paths
+  const careerPathsQuery = api.career.getPaths.useQuery(
+    { organizationId: currentOrgId! },
+    { enabled: !!currentOrgId }
+  );
+
   // Fetch the specific career path details if one is selected
   const pathQuery = api.career.getPathById.useQuery(
     { id: selectedPathId! },
@@ -48,12 +54,14 @@ export default function Positions({ selectedPathId }: PositionsProps) {
     }
   );
 
-  // Update path name when data changes
-  useEffect(() => {
-    if (pathQuery.data) {
-      setPathName(pathQuery.data.name);
-    }
-  }, [pathQuery.data]);
+  // Fetch positions assigned to the selected path
+  const pathPositionsQuery = api.position.getByCareerPath.useQuery(
+    {
+      organizationId: currentOrgId!,
+      careerPathId: selectedPathId!
+    },
+    { enabled: !!currentOrgId && !!selectedPathId }
+  );
 
   // Handler functions
   const handleAddPosition = () => {
@@ -85,10 +93,21 @@ export default function Positions({ selectedPathId }: PositionsProps) {
   const handleDialogComplete = () => {
     setIsCreating(false);
     setEditingId(null);
+    setIsAssigning(false);
+  };
+
+  const handlePathChange = (pathId: string) => {
+    // This would need to be implemented in the parent component
+    // For now, we'll just log it
+    console.log("Change to path:", pathId);
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
   };
 
   // If no path is selected, show all positions
-  if (!selectedPathId) {
+  if (!selectedPathId || !pathQuery.data) {
     return (
       <>
         <PositionsList
@@ -158,144 +177,110 @@ export default function Positions({ selectedPathId }: PositionsProps) {
   // If path is selected but still loading
   if (pathQuery.isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">Loading...</CardTitle>
-          <CardDescription>
-            Retrieving career path details
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-40">
-            <div className="animate-spin h-6 w-6 border-b-2 border-primary rounded-full" />
-          </div>
-        </CardContent>
+      <Card className="p-6">
+        <div className="flex items-center justify-center h-40">
+          <div className="animate-spin h-6 w-6 border-b-2 border-primary rounded-full" />
+          <span className="ml-2">Loading career path details...</span>
+        </div>
       </Card>
     );
   }
 
-  // If path is selected but there was an error
-  if (pathQuery.error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl text-destructive">Error</CardTitle>
-          <CardDescription>
-            Failed to load career path details
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="p-4 bg-destructive/10 rounded-md text-destructive">
-            {pathQuery.error.message}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Render career path details with tabs
+  // If a path is selected and loaded, show the career path header and content
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-xl">{pathName}</CardTitle>
-              <CardDescription>
-                Career path and position management
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+    <>
+      <CareerPathPositionHeader
+        selectedPath={pathQuery.data}
+        availablePaths={careerPathsQuery.data || []}
+        pathPositions={pathPositionsQuery.data || []}
+        onPathChange={handlePathChange}
+        onTabChange={handleTabChange}
+        onAssignPosition={() => setIsAssigning(true)}
+      />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="positions">Assigned Positions</TabsTrigger>
-          <TabsTrigger value="create-positions">Create Positions</TabsTrigger>
-          <TabsTrigger value="skills" disabled>Skills</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="positions" className="mt-4">
-          <AssignmentsList 
+      {/* Content based on active tab */}
+      <div className="mt-4">
+        {activeTab === "assigned-positions" ? (
+          <AssignmentsList
             careerPathId={selectedPathId}
-            pathName={pathName}
+            pathName={pathQuery.data.name}
           />
-        </TabsContent>
-
-        <TabsContent value="create-positions" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Position Management</CardTitle>
-              <CardDescription>
-                Create and manage position templates that can be assigned to career paths
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PositionsList
-                positions={positions}
-                isLoading={isLoading}
-                onAddPosition={handleAddPosition}
-                onEditPosition={handleEditPosition}
-                onDeletePosition={handleDeletePrompt}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Create/Edit Position Dialogs */}
-          <PositionDialog
-            open={isCreating}
-            mode="create"
-            onOpenChange={setIsCreating}
-            onComplete={handleDialogComplete}
+        ) : activeTab === "create-positions" ? (
+          <PositionsList
+            positions={positions}
+            isLoading={isLoading}
+            onAddPosition={handleAddPosition}
+            onEditPosition={handleEditPosition}
+            onDeletePosition={handleDeletePrompt}
           />
+        ) : null}
+      </div>
 
-          <PositionDialog
-            open={!!editingId}
-            mode="edit"
-            positionId={editingId || undefined}
-            onOpenChange={(open) => !open && setEditingId(null)}
-            onComplete={handleDialogComplete}
-          />
+      {/* Assign Position Dialog */}
+      <Dialog open={isAssigning} onOpenChange={setIsAssigning}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Position to Path</DialogTitle>
+            <DialogDescription>
+              Add a position to the "{pathQuery.data.name}" career path
+            </DialogDescription>
+          </DialogHeader>
+          {/* You would include your AssignPositionForm component here */}
+        </DialogContent>
+      </Dialog>
 
-          {/* Delete Confirmation Dialog */}
-          <Dialog
-            open={!!confirmDeleteId}
-            onOpenChange={(open) => !open && setConfirmDeleteId(null)}
-          >
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Confirm Deletion</DialogTitle>
-                <DialogDescription>
-                  Are you sure you want to delete this position? This action cannot be undone.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex justify-end gap-2 mt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setConfirmDeleteId(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleConfirmDelete}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 mr-2 border-b-2 border-background rounded-full" />
-                      Deleting...
-                    </>
-                  ) : (
-                    'Delete'
-                  )}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </TabsContent>
-      </Tabs>
-    </div>
+      {/* Position Management Dialogs */}
+      <PositionDialog
+        open={isCreating}
+        mode="create"
+        onOpenChange={setIsCreating}
+        onComplete={handleDialogComplete}
+      />
+
+      <PositionDialog
+        open={!!editingId}
+        mode="edit"
+        positionId={editingId || undefined}
+        onOpenChange={(open) => !open && setEditingId(null)}
+        onComplete={handleDialogComplete}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={!!confirmDeleteId}
+        onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this position? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDeleteId(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <div className="animate-spin h-4 w-4 mr-2 border-b-2 border-background rounded-full" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

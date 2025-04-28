@@ -55,7 +55,7 @@ export function PositionsList({
 			<CardHeader>
 				<div className="flex items-center justify-between">
 					<div>
-						<CardTitle className="text-xl">Positions</CardTitle>
+						<CardTitle className="text-xl">PositionsList</CardTitle>
 						<CardDescription>
 							{!isLoading && positions && (
 								positions.length === 0

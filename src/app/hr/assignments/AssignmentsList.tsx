@@ -6,11 +6,10 @@ import { api } from "~/trpc/react";
 import { useSession } from "~/contexts/SessionContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
-import { Pencil, Plus, Trash2, AlertTriangle, Info } from "lucide-react";
+import { Pencil, Plus, Trash2, Save, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 import { ActionTable, type Column } from "~/components/tables/ActionTable";
 import { AssignPositionForm } from "./AssignPositionForm";
 import { toast } from "sonner";
@@ -109,7 +108,9 @@ export function AssignmentsList({
 	const handleSaveDetail = (id: string) => {
 		updateDetailMutation.mutate({
 			id,
-			...editedDetail
+			level: editedDetail.level,
+			sequenceInPath: editedDetail.sequenceInPath,
+			pathSpecificDescription: editedDetail.pathSpecificDescription
 		});
 	};
 
@@ -126,7 +127,7 @@ export function AssignmentsList({
 		removePositionMutation.mutate({ id });
 	};
 
-	// Sort positions by level and then by sequence_in_path if available
+	// Sort positions by level
 	const sortedPositions = [...(pathPositionsQuery.data || [])].sort((a, b) => {
 		const levelDiff = a.level - b.level;
 		if (levelDiff !== 0) return levelDiff;
@@ -144,7 +145,7 @@ export function AssignmentsList({
 		{
 			key: "position",
 			header: "Position",
-			width: "w-[30%]",
+			width: "w-[35%]",
 			render: (detail) => (
 				<span className="font-medium">
 					{detail.positions?.name || "Unknown Position"}
@@ -154,7 +155,7 @@ export function AssignmentsList({
 		{
 			key: "level",
 			header: "Level",
-			width: "w-[10%]",
+			width: "w-[15%]",
 			render: (detail) => (
 				editingDetailId === detail.id ? (
 					<Input
@@ -163,56 +164,20 @@ export function AssignmentsList({
 						value={editedDetail.level}
 						onChange={(e) => setEditedDetail({
 							...editedDetail,
-							level: parseInt(e.target.value)
+							level: parseInt(e.target.value),
+							sequenceInPath: editedDetail.sequenceInPath === detail.level ? parseInt(e.target.value) : editedDetail.sequenceInPath
 						})}
 						className="w-20"
 					/>
 				) : (
-					<span>{detail.level}</span>
-				)
-			)
-		},
-		{
-			key: "sequence",
-			header: "Sequence",
-			width: "w-[15%]",
-			render: (detail) => (
-				editingDetailId === detail.id ? (
-					<Input
-						type="number"
-						min={1}
-						value={editedDetail.sequenceInPath}
-						onChange={(e) => setEditedDetail({
-							...editedDetail,
-							sequenceInPath: parseInt(e.target.value)
-						})}
-						className="w-20"
-					/>
-				) : (
-					detail.sequence_in_path ? (
-						<span>{detail.sequence_in_path}</span>
-					) : (
-						<TooltipProvider>
-							<Tooltip>
-								<TooltipTrigger>
-									<span className="flex items-center text-muted-foreground">
-										<Info className="h-3 w-3 mr-1" />
-										Same as level
-									</span>
-								</TooltipTrigger>
-								<TooltipContent>
-									<p>No specific sequence set, defaulting to level value</p>
-								</TooltipContent>
-							</Tooltip>
-						</TooltipProvider>
-					)
+					<span className="font-medium">{detail.level}</span>
 				)
 			)
 		},
 		{
 			key: "description",
 			header: "Path-Specific Description",
-			width: "w-[45%]",
+			width: "w-[50%]",
 			render: (detail) => (
 				editingDetailId === detail.id ? (
 					<Textarea
@@ -236,13 +201,15 @@ export function AssignmentsList({
 		}
 	];
 
-	// Custom row actions for the ActionTable
-	const getRowActions = (detail: PositionDetail) => {
-		if (editingDetailId === detail.id) {
+	// Get row actions for each row
+	const getRowActions = (id: string) => {
+		const isEditing = editingDetailId === id;
+
+		if (isEditing) {
 			return {
 				edit: {
 					label: "Save",
-					onClick: () => handleSaveDetail(detail.id)
+					onClick: () => handleSaveDetail(id)
 				},
 				delete: {
 					label: "Cancel",
@@ -254,11 +221,11 @@ export function AssignmentsList({
 		return {
 			edit: {
 				label: "Edit",
-				onClick: () => handleEditDetail(detail.id)
+				onClick: () => handleEditDetail(id)
 			},
 			delete: {
 				label: "Remove",
-				onClick: () => handleRemovePrompt(detail.id)
+				onClick: () => handleRemovePrompt(id)
 			}
 		};
 	};
@@ -289,15 +256,18 @@ export function AssignmentsList({
 						data={sortedPositions}
 						columns={columns}
 						isLoading={pathPositionsQuery.isLoading}
-						rowActions={{
-							edit: {
-								label: "Edit",
-								onClick: (id) => handleEditDetail(id)
-							},
-							delete: {
-								label: "Remove",
-								onClick: (id) => handleRemovePrompt(id)
-							}
+						rowActions={(detail) => {
+							const isEditing = editingDetailId === detail.id;
+							return {
+								edit: {
+									label: isEditing ? "Save" : "Edit",
+									onClick: (id) => isEditing ? handleSaveDetail(id) : handleEditDetail(id)
+								},
+								delete: {
+									label: isEditing ? "Cancel" : "Remove",
+									onClick: (id) => isEditing ? handleCancelEdit() : handleRemovePrompt(id)
+								}
+							};
 						}}
 						primaryAction={{
 							label: "Assign New Position",
@@ -312,20 +282,6 @@ export function AssignmentsList({
 							}
 						}}
 					/>
-
-					{!pathPositionsQuery.isLoading && sortedPositions.length > 0 && (
-						<div className="mt-4 bg-muted/50 p-3 rounded-md flex items-start gap-2">
-							<AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5" />
-							<div className="text-sm">
-								<p className="font-medium">About Levels and Sequences</p>
-								<p className="text-muted-foreground mt-1">
-									<strong>Level</strong> represents the seniority or pay grade of a position.{" "}
-									<strong>Sequence</strong> determines the position's order within the same level for visualization.
-									If sequence is not specified, it will use the level value.
-								</p>
-							</div>
-						</div>
-					)}
 				</CardContent>
 			</Card>
 
