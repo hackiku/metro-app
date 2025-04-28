@@ -1,12 +1,9 @@
 // src/app/hr/career-paths/CareersList.tsx
 "use client";
 
-import { useState } from "react";
 import { ActionTable, type Column } from "~/components/tables/ActionTable";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { ColorPreview } from "~/components/ui/color-preview";
 import type { CareerPath } from "~/types/compass";
-import { toast } from "sonner";
 
 interface CareersListProps {
 	careerPaths: CareerPath[];
@@ -65,53 +62,34 @@ export function CareersList({
 	};
 
 	return (
-		<Card>
-			<CardHeader>
-				<div className="flex items-center justify-between">
-					<div>
-						<CardTitle className="text-xl">Career Paths</CardTitle>
-						<CardDescription>
-							{!isLoading && (
-								careerPaths.length === 0
-									? "No career paths available. Create your first one!"
-									: `${careerPaths.length} career paths available`
-							)}
-						</CardDescription>
-					</div>
-				</div>
-			</CardHeader>
-
-			<CardContent>
-				<ActionTable
-					data={careerPaths}
-					columns={columns}
-					isLoading={isLoading}
-					selectedId={selectedPathId}
-					onRowClick={handleRowClick}
-					primaryAction={{
-						label: "Add New Career Path",
-						onClick: onAddPath
-					}}
-					rowActions={{
-						edit: {
-							label: "Edit",
-							onClick: onEditPath
-						},
-						delete: {
-							label: "Delete",
-							onClick: onDeletePath
-						}
-					}}
-					emptyState={{
-						title: "No Career Paths Yet",
-						description: "Career paths help organize positions into clear progression tracks",
-						action: {
-							label: "Create Your First Path",
-							onClick: onAddPath
-						}
-					}}
-				/>
-			</CardContent>
-		</Card>
+		<ActionTable
+			data={careerPaths}
+			columns={columns}
+			isLoading={isLoading}
+			selectedId={selectedPathId}
+			onRowClick={handleRowClick}
+			primaryAction={{
+				label: "Add New Career Path",
+				onClick: onAddPath
+			}}
+			rowActions={{
+				edit: {
+					label: "Edit",
+					onClick: onEditPath
+				},
+				delete: {
+					label: "Delete",
+					onClick: onDeletePath
+				}
+			}}
+			emptyState={{
+				title: "No Career Paths Yet",
+				description: "Career paths help organize positions into clear progression tracks",
+				action: {
+					label: "Create Your First Path",
+					onClick: onAddPath
+				}
+			}}
+		/>
 	);
 }

@@ -6,8 +6,12 @@ import { useCareerPaths } from "../hooks/useCareerPaths";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 import { CareersList } from "./CareersList";
+import { SimpleCards } from "./SimpleCards";
+import { DetailCards } from "./DetailCards";
+import { ViewSelector } from "./ViewSelector";
 import { CareerPathDialog } from "./CareerPathDialog";
 import { toast } from "sonner";
+import { Card, CardContent } from "~/components/ui/card";
 
 interface CareerPathsProps {
 	onSelectPath: (id: string | null) => void;
@@ -15,6 +19,9 @@ interface CareerPathsProps {
 }
 
 export default function CareerPaths({ onSelectPath, selectedPathId }: CareerPathsProps) {
+	// View mode state - "table", "simple", or "details"
+	const [viewMode, setViewMode] = useState<"table" | "simple" | "details">("simple");
+
 	// Dialog state
 	const [isCreating, setIsCreating] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
@@ -68,18 +75,62 @@ export default function CareerPaths({ onSelectPath, selectedPathId }: CareerPath
 		setEditingId(null);
 	};
 
+	// Handle view mode change
+	const handleViewModeChange = (mode: "table" | "simple" | "details") => {
+		setViewMode(mode);
+	};
+
 	return (
 		<>
-			{/* Main careers list */}
-			<CareersList
-				careerPaths={careerPaths}
-				isLoading={isLoading}
-				selectedPathId={selectedPathId}
-				onSelectPath={onSelectPath}
-				onAddPath={handleAddPath}
-				onEditPath={handleEditPath}
-				onDeletePath={handleDeletePrompt}
-			/>
+			<Card>
+				<CardContent className="pt-6">
+					{/* View selector header */}
+					<ViewSelector
+						viewMode={viewMode}
+						onViewModeChange={handleViewModeChange}
+						onAddPath={handleAddPath}
+						careerPathCount={careerPaths.length}
+					/>
+
+					{/* Error message */}
+					{error && (
+						<div className="bg-destructive/10 p-4 mb-4 rounded-md text-destructive">
+							<p>Error loading career paths: {error.message}</p>
+						</div>
+					)}
+
+					{/* Render view based on selected mode */}
+					{viewMode === "simple" && (
+						<SimpleCards
+							careerPaths={careerPaths}
+							selectedPathId={selectedPathId}
+							onSelectPath={onSelectPath}
+							isLoading={isLoading}
+						/>
+					)}
+
+					{viewMode === "details" && (
+						<DetailCards
+							careerPaths={careerPaths}
+							selectedPathId={selectedPathId}
+							onSelectPath={onSelectPath}
+							isLoading={isLoading}
+						/>
+					)}
+
+					{viewMode === "table" && (
+						<CareersList
+							careerPaths={careerPaths}
+							isLoading={isLoading}
+							selectedPathId={selectedPathId}
+							onSelectPath={onSelectPath}
+							onAddPath={handleAddPath}
+							onEditPath={handleEditPath}
+							onDeletePath={handleDeletePrompt}
+						/>
+					)}
+				</CardContent>
+			</Card>
 
 			{/* Create/Edit Career Path Dialogs */}
 			<CareerPathDialog
