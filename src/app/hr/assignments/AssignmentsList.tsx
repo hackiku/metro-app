@@ -1,11 +1,9 @@
 // src/app/hr/assignments/AssignmentsList.tsx
-
 "use client";
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import { useSession } from "~/contexts/SessionContext";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Pencil, Plus, Trash2, AlertTriangle, Info } from "lucide-react";
@@ -13,8 +11,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
+import { ActionTable, type Column } from "~/components/tables/ActionTable";
 import { AssignPositionForm } from "./AssignPositionForm";
 import { toast } from "sonner";
+
+// Define our position detail type
+interface PositionDetail {
+	id: string;
+	level: number;
+	sequence_in_path?: number;
+	path_specific_description: string | null;
+	positions?: {
+		id: string;
+		name: string;
+		base_description: string | null;
+	} | null;
+}
 
 interface AssignmentsListProps {
 	careerPathId: string;
@@ -82,18 +94,16 @@ export function AssignmentsList({
 	});
 
 	// Handler functions
-	const handleEditDetail = (
-		id: string,
-		level: number,
-		sequenceInPath: number | undefined,
-		description: string | null
-	) => {
-		setEditingDetailId(id);
-		setEditedDetail({
-			level,
-			sequenceInPath: sequenceInPath || level,
-			pathSpecificDescription: description
-		});
+	const handleEditDetail = (id: string) => {
+		const detail = pathPositionsQuery.data?.find(p => p.id === id);
+		if (detail) {
+			setEditingDetailId(id);
+			setEditedDetail({
+				level: detail.level,
+				sequenceInPath: detail.sequence_in_path || detail.level,
+				pathSpecificDescription: detail.path_specific_description
+			});
+		}
 	};
 
 	const handleSaveDetail = (id: string) => {
@@ -101,6 +111,15 @@ export function AssignmentsList({
 			id,
 			...editedDetail
 		});
+	};
+
+	const handleCancelEdit = () => {
+		setEditingDetailId(null);
+		setEditedDetail({});
+	};
+
+	const handleRemovePrompt = (id: string) => {
+		setConfirmRemoveId(id);
 	};
 
 	const handleRemovePosition = (id: string) => {
@@ -119,6 +138,130 @@ export function AssignmentsList({
 
 		return 0;
 	});
+
+	// Define columns for the ActionTable
+	const columns: Column<PositionDetail>[] = [
+		{
+			key: "position",
+			header: "Position",
+			width: "w-[30%]",
+			render: (detail) => (
+				<span className="font-medium">
+					{detail.positions?.name || "Unknown Position"}
+				</span>
+			)
+		},
+		{
+			key: "level",
+			header: "Level",
+			width: "w-[10%]",
+			render: (detail) => (
+				editingDetailId === detail.id ? (
+					<Input
+						type="number"
+						min={1}
+						value={editedDetail.level}
+						onChange={(e) => setEditedDetail({
+							...editedDetail,
+							level: parseInt(e.target.value)
+						})}
+						className="w-20"
+					/>
+				) : (
+					<span>{detail.level}</span>
+				)
+			)
+		},
+		{
+			key: "sequence",
+			header: "Sequence",
+			width: "w-[15%]",
+			render: (detail) => (
+				editingDetailId === detail.id ? (
+					<Input
+						type="number"
+						min={1}
+						value={editedDetail.sequenceInPath}
+						onChange={(e) => setEditedDetail({
+							...editedDetail,
+							sequenceInPath: parseInt(e.target.value)
+						})}
+						className="w-20"
+					/>
+				) : (
+					detail.sequence_in_path ? (
+						<span>{detail.sequence_in_path}</span>
+					) : (
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger>
+									<span className="flex items-center text-muted-foreground">
+										<Info className="h-3 w-3 mr-1" />
+										Same as level
+									</span>
+								</TooltipTrigger>
+								<TooltipContent>
+									<p>No specific sequence set, defaulting to level value</p>
+								</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					)
+				)
+			)
+		},
+		{
+			key: "description",
+			header: "Path-Specific Description",
+			width: "w-[45%]",
+			render: (detail) => (
+				editingDetailId === detail.id ? (
+					<Textarea
+						value={editedDetail.pathSpecificDescription || ""}
+						onChange={(e) => setEditedDetail({
+							...editedDetail,
+							pathSpecificDescription: e.target.value
+						})}
+						className="h-20"
+					/>
+				) : (
+					detail.path_specific_description ? (
+						<div className="text-sm line-clamp-2">{detail.path_specific_description}</div>
+					) : (
+						<span className="text-muted-foreground italic">
+							Using generic description
+						</span>
+					)
+				)
+			)
+		}
+	];
+
+	// Custom row actions for the ActionTable
+	const getRowActions = (detail: PositionDetail) => {
+		if (editingDetailId === detail.id) {
+			return {
+				edit: {
+					label: "Save",
+					onClick: () => handleSaveDetail(detail.id)
+				},
+				delete: {
+					label: "Cancel",
+					onClick: () => handleCancelEdit()
+				}
+			};
+		}
+
+		return {
+			edit: {
+				label: "Edit",
+				onClick: () => handleEditDetail(detail.id)
+			},
+			delete: {
+				label: "Remove",
+				onClick: () => handleRemovePrompt(detail.id)
+			}
+		};
+	};
 
 	return (
 		<>
@@ -142,162 +285,33 @@ export function AssignmentsList({
 				</CardHeader>
 
 				<CardContent>
-					{pathPositionsQuery.isLoading ? (
-						<div className="flex items-center justify-center h-40">
-							<div className="animate-spin h-6 w-6 border-b-2 border-primary rounded-full" />
-							<span className="ml-2 text-muted-foreground">Loading positions...</span>
-						</div>
-					) : pathPositionsQuery.error ? (
-						<div className="bg-destructive/10 p-4 rounded-md text-destructive">
-							<p>Error loading positions: {pathPositionsQuery.error.message}</p>
-						</div>
-					) : (
-						<div className="rounded-md border">
-							<Table>
-								<TableHeader className="bg-muted/50">
-									<TableRow>
-										<TableHead>Position</TableHead>
-										<TableHead>Level</TableHead>
-										<TableHead>Sequence</TableHead>
-										<TableHead>Path-Specific Description</TableHead>
-										<TableHead className="w-24">Actions</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{sortedPositions.length === 0 ? (
-										<TableRow>
-											<TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-												No positions assigned to this career path yet.
-											</TableCell>
-										</TableRow>
-									) : (
-										sortedPositions.map((detail) => (
-											<TableRow key={detail.id}>
-												<TableCell>
-													<span className="font-medium">
-														{detail.positions?.name || "Unknown Position"}
-													</span>
-												</TableCell>
-												<TableCell>
-													{editingDetailId === detail.id ? (
-														<Input
-															type="number"
-															min={1}
-															value={editedDetail.level}
-															onChange={(e) => setEditedDetail({
-																...editedDetail,
-																level: parseInt(e.target.value)
-															})}
-															className="w-20"
-														/>
-													) : (
-														detail.level
-													)}
-												</TableCell>
-												<TableCell>
-													{editingDetailId === detail.id ? (
-														<Input
-															type="number"
-															min={1}
-															value={editedDetail.sequenceInPath}
-															onChange={(e) => setEditedDetail({
-																...editedDetail,
-																sequenceInPath: parseInt(e.target.value)
-															})}
-															className="w-20"
-														/>
-													) : (
-														detail.sequence_in_path || (
-															<TooltipProvider>
-																<Tooltip>
-																	<TooltipTrigger>
-																		<span className="flex items-center text-muted-foreground">
-																			<Info className="h-3 w-3 mr-1" />
-																			Same as level
-																		</span>
-																	</TooltipTrigger>
-																	<TooltipContent>
-																		<p>No specific sequence set, defaulting to level value</p>
-																	</TooltipContent>
-																</Tooltip>
-															</TooltipProvider>
-														)
-													)}
-												</TableCell>
-												<TableCell className="max-w-xs">
-													{editingDetailId === detail.id ? (
-														<Textarea
-															value={editedDetail.pathSpecificDescription || ""}
-															onChange={(e) => setEditedDetail({
-																...editedDetail,
-																pathSpecificDescription: e.target.value
-															})}
-															className="h-20"
-														/>
-													) : (
-														detail.path_specific_description || (
-															<span className="text-muted-foreground italic">
-																Using generic description
-															</span>
-														)
-													)}
-												</TableCell>
-												<TableCell>
-													<div className="flex items-center gap-2">
-														{editingDetailId === detail.id ? (
-															<>
-																<Button
-																	variant="ghost"
-																	size="icon"
-																	onClick={() => handleSaveDetail(detail.id)}
-																	disabled={updateDetailMutation.isPending}
-																>
-																	{updateDetailMutation.isPending ? (
-																		<div className="animate-spin h-4 w-4 border-b-2 border-primary rounded-full" />
-																	) : (
-																		<Pencil className="h-4 w-4" />
-																	)}
-																</Button>
-																<Button
-																	variant="ghost"
-																	size="icon"
-																	onClick={() => setEditingDetailId(null)}
-																>
-																	<Trash2 className="h-4 w-4" />
-																</Button>
-															</>
-														) : (
-															<>
-																<Button
-																	variant="ghost"
-																	size="icon"
-																	onClick={() => handleEditDetail(
-																		detail.id,
-																		detail.level,
-																		detail.sequence_in_path,
-																		detail.path_specific_description
-																	)}
-																>
-																	<Pencil className="h-4 w-4" />
-																</Button>
-																<Button
-																	variant="ghost"
-																	size="icon"
-																	onClick={() => setConfirmRemoveId(detail.id)}
-																>
-																	<Trash2 className="h-4 w-4 text-destructive" />
-																</Button>
-															</>
-														)}
-													</div>
-												</TableCell>
-											</TableRow>
-										))
-									)}
-								</TableBody>
-							</Table>
-						</div>
-					)}
+					<ActionTable
+						data={sortedPositions}
+						columns={columns}
+						isLoading={pathPositionsQuery.isLoading}
+						rowActions={{
+							edit: {
+								label: "Edit",
+								onClick: (id) => handleEditDetail(id)
+							},
+							delete: {
+								label: "Remove",
+								onClick: (id) => handleRemovePrompt(id)
+							}
+						}}
+						primaryAction={{
+							label: "Assign New Position",
+							onClick: () => setIsAssigning(true)
+						}}
+						emptyState={{
+							title: "No Positions Assigned",
+							description: "This career path doesn't have any positions assigned yet",
+							action: {
+								label: "Assign First Position",
+								onClick: () => setIsAssigning(true)
+							}
+						}}
+					/>
 
 					{!pathPositionsQuery.isLoading && sortedPositions.length > 0 && (
 						<div className="mt-4 bg-muted/50 p-3 rounded-md flex items-start gap-2">
@@ -305,7 +319,7 @@ export function AssignmentsList({
 							<div className="text-sm">
 								<p className="font-medium">About Levels and Sequences</p>
 								<p className="text-muted-foreground mt-1">
-									<strong>Level</strong> represents the seniority or pay grade of a position.
+									<strong>Level</strong> represents the seniority or pay grade of a position.{" "}
 									<strong>Sequence</strong> determines the position's order within the same level for visualization.
 									If sequence is not specified, it will use the level value.
 								</p>

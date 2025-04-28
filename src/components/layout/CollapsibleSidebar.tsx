@@ -44,7 +44,7 @@ const navigationConfig: NavGroupConfig[] = [
 			{ href: "/", icon: Home, text: "Dashboard" },
 			{ href: "/metro", icon: Play, text: "Metro" },
 			{ href: "/destinations", icon: Compass, text: "Destinations" },
-			{ href: "/skills", icon: Briefcase, text: "Skills" },
+			{ href: "/competences", icon: Briefcase, text: "Competences" },
 			// { href: "/comparison", icon: ChartColumnIncreasing, text: "Comparison" },
 			{ href: "/route", icon: Map, text: "Route Plan" },
 		],
@@ -54,7 +54,6 @@ const navigationConfig: NavGroupConfig[] = [
 		// HR planning & debug
 		items: [
 			{ href: "/hr", icon: BarChart2, text: "HR Admin" },
-			{ href: "/competences", icon: Briefcase, text: "Competences" },
 			{ href: "/job-family", icon: Layers, text: "Job Families" },
 		],
 		showDivider: true
