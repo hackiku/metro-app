@@ -36,11 +36,11 @@ export function ViewSelector({
 					<TabsList>
 						<TabsTrigger value="simple" className="flex items-center gap-1">
 							<LayoutGrid className="h-4 w-4" />
-							<span className="hidden sm:inline">Simple</span>
+							<span className="hidden sm:inline">Cards</span>
 						</TabsTrigger>
 						<TabsTrigger value="details" className="flex items-center gap-1">
 							<LayoutList className="h-4 w-4" />
-							<span className="hidden sm:inline">Detailed</span>
+							<span className="hidden sm:inline">Details</span>
 						</TabsTrigger>
 						<TabsTrigger value="table" className="flex items-center gap-1">
 							<TableIcon className="h-4 w-4" />
