@@ -11,7 +11,6 @@ import { Database } from 'lucide-react';
 import { generateGridLayout } from './engine/gridLayoutEngine';
 import type { LayoutData } from './engine/types';
 import MetroMap from './map/MetroMap';
-import StreamlinedMetroMap from './map/StreamlinedMetroMap';
 
 export default function CareerCompass() {
   const contextData = useCareerCompass();
@@ -66,25 +65,16 @@ export default function CareerCompass() {
 			{/* Render the updated MetroMap */}
 			<div className="absolute inset-0">
 				{layout ? (
-					<StreamlinedMetroMap
+					<MetroMap // Use renamed component
 						layout={layout}
-						selectedNodeId={selectedNodeId}
-						onNodeSelect={setSelectedNodeId}
-						routeMode="manhattan"
-						cornerRadius={0}
-					/>				
-
-					// <MetroMap // Use renamed component
-					// 	layout={layout}
-					// 	selectedNodeId={selectedNodeId} // Pass selection state
-					// 	onNodeSelect={setSelectedNodeId} // Pass selection handler
-					// />
+						selectedNodeId={selectedNodeId} // Pass selection state
+						onNodeSelect={setSelectedNodeId} // Pass selection handler
+					/>
 				) : (
 					<div className="flex items-center justify-center h-full">
 						<p className="text-muted-foreground">Preparing map layout...</p>
 					</div>
 				)}
-				
 			</div>
 
 			{/* Data Display Trigger & Sheet */}

@@ -42,7 +42,7 @@ export default function MetroStation({
 
 	// Determine stroke colors and widths
 	const strokeWidth = isSelected ? 3 : 1.5;
-	let strokeColor = "var(--border-foreground)"; // Updated to use border-foreground
+	let strokeColor = "var(--background)"; // Default
 
 	if (isSelected) strokeColor = "var(--primary)";
 	if (isCurrent) strokeColor = "#4f46e5"; // Indigo
@@ -91,6 +91,23 @@ export default function MetroStation({
 			>
 				{node.name}
 			</text>
+
+			{/* Level indicator (optional) */}
+			{false && (
+				<text
+					y={adjustedRadius + 12}
+					textAnchor="middle"
+					fontSize="8px"
+					fill="var(--muted-foreground)"
+					className="select-none pointer-events-none"
+					paintOrder="stroke"
+					stroke="var(--background)"
+					strokeWidth="2px"
+					strokeLinejoin="round"
+				>
+					L{node.level}
+				</text>
+			)}
 		</g>
 	);
 }

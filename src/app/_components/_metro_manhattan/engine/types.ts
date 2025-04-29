@@ -83,8 +83,8 @@ export interface LayoutConfig {
  * Default configuration for grid layout
  */
 export const DEFAULT_GRID_CONFIG: GridLayoutConfig = {
-	cellWidth: 200,
-	cellHeight: 160,
+	cellWidth: 100,
+	cellHeight: 80,
 	xPadding: 50,
 	yPadding: 60,
 	levelMultiplier: 1.2,     // Higher values = more vertical spread
