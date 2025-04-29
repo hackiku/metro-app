@@ -1,5 +1,5 @@
 // src/app/_components/metro/CareerCompass.tsx
-// Update to use the grid layout engine instead of the polar one
+"use client";
 
 import React, { useState, useMemo } from 'react';
 import { useCareerCompass } from '~/contexts/CareerCompassProvider';
@@ -7,51 +7,52 @@ import DataDisplay from './ui/DataDisplay';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/components/ui/sheet';
 import { Button } from '~/components/ui/button';
 import { Database } from 'lucide-react';
-// Import the new grid layout engine
-import { generateGridLayout } from './engine/gridLayoutEngine';
-import type { LayoutData } from './engine/types';
-import MetroMap from './map/MetroMap';
+// --- Use the RENAMED engine function and map component ---
+import { generateLayout } from './engine/layoutEngine'; // Updated import name
+// import type {  } from './engine/layoutEngine'; // Updated import name
+import type { LayoutData, LayoutConfig } from './engine/types'; // Properly import types
+import MetroMap from './map/MetroMap'; // Updated import name
 
 export default function CareerCompass() {
-  const contextData = useCareerCompass();
-  const {
-    organization,
-    careerPaths,
-    positions,
-    positionDetails,
-    loading,
-    error,
-  } = contextData;
+	const contextData = useCareerCompass();
+	const {
+		organization,
+		careerPaths,
+		positions,
+		positionDetails,
+		loading,
+		error,
+	} = contextData;
 
-  const [isDataSheetOpen, setIsDataSheetOpen] = useState(false);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+	const [isDataSheetOpen, setIsDataSheetOpen] = useState(false);
+	// --- State for selected node ID ---
+	const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
-  // Layout Calculation using the grid approach
-  const layout = useMemo<LayoutData | null>(() => {
-    if (loading || error || !Array.isArray(careerPaths) || !Array.isArray(positionDetails) || !Array.isArray(positions)
-      || careerPaths.length === 0 || positionDetails.length === 0 || positions.length === 0) {
-      console.log("Skipping layout calculation - data not ready");
-      return null;
-    }
+	// --- Layout Calculation ---
+	const layout = useMemo<LayoutData | null>(() => { // Update type to LayoutData
+		if (loading || error || !Array.isArray(careerPaths) || !Array.isArray(positionDetails) || !Array.isArray(positions)
+			|| careerPaths.length === 0 || positionDetails.length === 0 || positions.length === 0) {
+			console.log("Skipping layout calculation - data not ready");
+			return null;
+		}
 
-    console.log("Calculating grid layout...");
+		console.log("Calculating layout (v3 - Centrality)...");
 
-    return generateGridLayout(
-      careerPaths,
-      positionDetails,
-      positions,
-      {
-        cellWidth: 120,
-        cellHeight: 80,
-        levelMultiplier: 1.5,
-        domainSpread: 2,
-        centerWeight: 0.7
-      }
-    );
-  }, [loading, error, careerPaths, positionDetails, positions]);
+		// Configuration for the layout engine
+		const layoutConfig: Partial<LayoutConfig> = {
+			radiusStep: 150,        // Increased for better spacing
+			centerRadius: 50,      // Negative value for inverse mode
+			centralityFactor: 1.6,   // Stronger centrality effect
+			jitter: 0.01             // Minimal jitter for cleaner appearance
+		};
 
-  // Rest of the component remains the same
-  // ...
+		return generateLayout(
+			careerPaths,
+			positionDetails,
+			positions,
+			layoutConfig
+		);
+	}, [loading, error, careerPaths, positionDetails, positions]);
 
 	// --- Loading State ---
 	if (loading) { return <LoadingIndicator />; }
