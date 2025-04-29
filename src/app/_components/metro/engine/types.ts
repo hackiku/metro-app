@@ -21,11 +21,10 @@ export interface LayoutNode {
  * Path metadata for a career path
  */
 export interface LayoutPath {
-	id: string;                // Career path ID
-	name: string;              // Path name
-	color: string;             // Path color
-	nodes: string[];           // IDs of nodes in this path, ordered by level
-	angle?: number;            // Kept for backward compatibility
+	id: string;        // Career path ID
+	name: string;      // Path name
+	color: string;     // Path color
+	nodes: string[];   // IDs of nodes in this path, ordered by level
 }
 
 /**
@@ -47,62 +46,5 @@ export interface LayoutData {
 	paths: LayoutPath[];                    // All path metadata
 	pathsById: Record<string, LayoutPath>;  // Quick lookup by ID
 	bounds: LayoutBounds;                   // Viewport bounds
-	configUsed: LayoutConfig | GridLayoutConfig; // Configuration used
+	configUsed: unknown;                    // Configuration used (type defined by specific layout)
 }
-
-/**
- * Configuration options for grid layout
- */
-export interface GridLayoutConfig {
-	cellWidth: number;         // Width of grid cells
-	cellHeight: number;        // Height of grid cells
-	xPadding: number;          // Padding around the edges (X)
-	yPadding: number;          // Padding around the edges (Y)
-	levelMultiplier: number;   // How much levels affect vertical position
-	domainSpread: number;      // How far apart career paths are horizontally
-	centerWeight: number;      // How strongly to pull interchange nodes to center
-	routingMode?: 'direct' | 'manhattan' | 'smooth'; // How paths are drawn
-}
-
-/**
- * Configuration options for polar layout (legacy)
- */
-export interface LayoutConfig {
-	radiusStep?: number;          // Distance between level rings
-	centerRadius?: number;        // Radius for central nodes
-	startAngle?: number;          // Starting angle in degrees
-	angleSpread?: number;         // Angular spread in degrees
-	padding?: number;             // Padding around bounds
-	midLevelOverride?: number;    // Force a specific mid-level point
-	centralityFactor?: number;    // How strongly centrality affects placement
-	pathSpacing?: number;         // Minimum angular distance between paths
-	jitter?: number;              // Random offset to prevent perfect overlaps
-}
-
-/**
- * Default configuration for grid layout
- */
-export const DEFAULT_GRID_CONFIG: GridLayoutConfig = {
-	cellWidth: 200,
-	cellHeight: 160,
-	xPadding: 50,
-	yPadding: 60,
-	levelMultiplier: 1.2,     // Higher values = more vertical spread
-	domainSpread: 1.8,        // Higher values = more horizontal spread
-	centerWeight: 0.7,        // How much to pull common nodes toward center
-	routingMode: 'manhattan'  // Default to manhattan routing
-};
-
-/**
- * Default configuration for polar layout (legacy)
- */
-export const DEFAULT_CONFIG: LayoutConfig = {
-	radiusStep: 80,
-	centerRadius: 50,
-	startAngle: 30,
-	angleSpread: 300,
-	padding: 50,
-	centralityFactor: 0.5,
-	pathSpacing: 0.8,
-	jitter: 0.1
-};

@@ -1,13 +1,14 @@
 // src/app/_components/metro/map/MetroMap.tsx
 "use client";
 
-import React, { useRef, useState, useEffect, useMemo, useImperativeHandle } from 'react';
-import * as d3 from 'd3';
+import React, { useRef, useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import type { LayoutData, LayoutNode } from '../engine/types';
 import MetroGrid from './MetroGrid';
 import MetroLine from './MetroLine';
 import MetroStation from './MetroStation';
 import type { RouteMode } from '../engine/manhattanRoute';
+import { ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
+import { Button } from '~/components/ui/button';
 
 interface MetroMapProps {
 	layout: LayoutData | null;
@@ -15,10 +16,11 @@ interface MetroMapProps {
 	onNodeSelect?: (nodeId: string) => void;
 	currentNodeId?: string | null;
 	targetNodeId?: string | null;
+	onSetTarget?: (nodeId: string) => void;
+	onRemoveTarget?: (nodeId: string) => void;
 	className?: string;
-	showDebugGrid?: boolean;
+	showControls?: boolean;
 	routeMode?: RouteMode;
-	cornerRadius?: number;
 }
 
 // Define Ref type for imperative controls
@@ -29,27 +31,85 @@ export interface MetroMapRef {
 	centerOnNode: (nodeId: string) => void;
 }
 
-// Use React.forwardRef for imperative handle
-const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
+const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 	layout,
 	selectedNodeId,
 	onNodeSelect,
 	currentNodeId,
 	targetNodeId,
+	onSetTarget,
+	onRemoveTarget,
 	className = "",
-	showDebugGrid = false,
-	routeMode = 'manhattan',
-	cornerRadius = 0
+	showControls = false,
+	routeMode = 'manhattan'
 }, ref) => {
-	// Refs for SVG elements
-	const svgRef = useRef<SVGSVGElement>(null);
-	const gRef = useRef<SVGGElement>(null);
+	// Refs for elements
 	const containerRef = useRef<HTMLDivElement>(null);
+	const svgRef = useRef<SVGSVGElement>(null);
+	const contentRef = useRef<SVGGElement>(null);
 
-	// State for dimensions and zoom
+	// State for dimensions and basic zoom/pan
 	const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-	const zoomBehavior = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
-	const [currentZoomState, setCurrentZoomState] = useState<d3.ZoomTransform>(d3.zoomIdentity);
+	const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+	const [isDragging, setIsDragging] = useState(false);
+	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+	const [showGrid, setShowGrid] = useState(process.env.NODE_ENV === 'development');
+
+	// --- Expose methods via ref ---
+	useImperativeHandle(ref, () => ({
+		zoomIn: () => {
+			setTransform(prev => ({
+				...prev,
+				scale: Math.min(prev.scale * 1.2, 5) // Limit max zoom
+			}));
+		},
+		zoomOut: () => {
+			setTransform(prev => ({
+				...prev,
+				scale: Math.max(prev.scale / 1.2, 0.1) // Limit min zoom
+			}));
+		},
+		zoomReset: () => {
+			if (!layout || !containerRef.current) return;
+
+			const { bounds } = layout;
+			const { width, height } = dimensions;
+			const { minX, maxX, minY, maxY } = bounds;
+
+			const boundsWidth = maxX - minX;
+			const boundsHeight = maxY - minY;
+
+			if (boundsWidth <= 0 || boundsHeight <= 0) return;
+
+			const padding = 50;
+			const effectiveWidth = width - padding * 2;
+			const effectiveHeight = height - padding * 2;
+
+			// Calculate scale to fit content
+			const scaleX = effectiveWidth / boundsWidth;
+			const scaleY = effectiveHeight / boundsHeight;
+			const scale = Math.max(0.1, Math.min(scaleX, scaleY, 1.5));
+
+			// Calculate translation to center content
+			const x = (width / 2) - ((minX + maxX) / 2) * scale;
+			const y = (height / 2) - ((minY + maxY) / 2) * scale;
+
+			setTransform({ x, y, scale });
+		},
+		centerOnNode: (nodeId: string) => {
+			if (!layout?.nodesById || !layout.nodesById[nodeId]) return;
+
+			const node = layout.nodesById[nodeId];
+			const { width, height } = dimensions;
+			const { scale } = transform;
+
+			// Calculate translation to center on node
+			const x = width / 2 - node.x * scale;
+			const y = height / 2 - node.y * scale;
+
+			setTransform(prev => ({ ...prev, x, y }));
+		}
+	}), [layout, dimensions, transform]);
 
 	// --- Update dimensions on resize ---
 	useEffect(() => {
@@ -82,118 +142,85 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 		};
 	}, []);
 
-	// --- Set up D3 Zoom ---
+	// --- Calculate initial zoom transform when layout changes ---
 	useEffect(() => {
-		if (!svgRef.current || !gRef.current || !layout || dimensions.width === 0) return;
+		if (!layout || !containerRef.current) return;
 
-		const svg = d3.select(svgRef.current);
-		const g = d3.select(gRef.current);
+		const { bounds } = layout;
+		const { width, height } = dimensions;
+		const { minX, maxX, minY, maxY } = bounds;
 
-		// Create the zoom behavior
-		const newZoomBehavior = d3.zoom<SVGSVGElement, unknown>()
-			.scaleExtent([0.1, 8]) // Min/max zoom scale
-			.on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
-				if (!event.transform) return;
-				setCurrentZoomState(event.transform); // Update internal state
-				g.attr("transform", event.transform.toString());
-			});
-
-		// Store it in the ref
-		zoomBehavior.current = newZoomBehavior;
-		svg.call(newZoomBehavior);
-
-		// Calculate initial transform only once or when layout/dimensions significantly change
-		let initialTransform = d3.zoomIdentity;
-		const { minX, maxX, minY, maxY } = layout.bounds;
 		const boundsWidth = maxX - minX;
 		const boundsHeight = maxY - minY;
 
-		if (boundsWidth > 0 && boundsHeight > 0) {
-			const padding = 50;
-			const effectiveWidth = dimensions.width - padding * 2;
-			const effectiveHeight = dimensions.height - padding * 2;
-			const scaleX = effectiveWidth / boundsWidth;
-			const scaleY = effectiveHeight / boundsHeight;
-			const initialScale = Math.max(0.1, Math.min(scaleX, scaleY, 1.5));
-			const initialTranslateX = (dimensions.width / 2) - ((minX + maxX) / 2) * initialScale;
-			const initialTranslateY = (dimensions.height / 2) - ((minY + maxY) / 2) * initialScale;
-			initialTransform = d3.zoomIdentity.translate(initialTranslateX, initialTranslateY).scale(initialScale);
-		} else {
-			initialTransform = d3.zoomIdentity.translate(dimensions.width / 2, dimensions.height / 2).scale(1);
+		if (boundsWidth <= 0 || boundsHeight <= 0) return;
+
+		const padding = 50;
+		const effectiveWidth = width - padding * 2;
+		const effectiveHeight = height - padding * 2;
+
+		// Calculate scale to fit content in viewport
+		const scaleX = effectiveWidth / boundsWidth;
+		const scaleY = effectiveHeight / boundsHeight;
+		const scale = Math.max(0.1, Math.min(scaleX, scaleY, 1.5));
+
+		// Calculate translation to center content
+		const x = (width / 2) - ((minX + maxX) / 2) * scale;
+		const y = (height / 2) - ((minY + maxY) / 2) * scale;
+
+		setTransform({ x, y, scale });
+	}, [layout, dimensions]);
+
+	// --- Pan/zoom handlers ---
+	const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+		if (e.button !== 0) return; // Only left mouse button
+		setIsDragging(true);
+		setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
+		e.currentTarget.style.cursor = 'grabbing';
+	};
+
+	const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+		if (!isDragging) return;
+		const newX = e.clientX - dragStart.x;
+		const newY = e.clientY - dragStart.y;
+		setTransform(prev => ({ ...prev, x: newX, y: newY }));
+	};
+
+	const handleMouseUp = (e: React.MouseEvent<SVGSVGElement>) => {
+		setIsDragging(false);
+		e.currentTarget.style.cursor = 'grab';
+	};
+
+	const handleMouseLeave = (e: React.MouseEvent<SVGSVGElement>) => {
+		if (isDragging) {
+			setIsDragging(false);
+			e.currentTarget.style.cursor = 'grab';
 		}
+	};
 
-		// Apply the initial transform
-		svg.call(newZoomBehavior.transform, initialTransform);
-		setCurrentZoomState(initialTransform); // Set initial state
+	const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
+		e.preventDefault();
 
-		// Cleanup
-		return () => {
-			svg.on(".zoom", null);
-			zoomBehavior.current = null;
-		};
+		// Determine zoom direction
+		const delta = e.deltaY < 0 ? 1.1 : 0.9;
+		const newScale = transform.scale * delta;
 
-	}, [layout, dimensions.width, dimensions.height]); // Depend on layout and dimensions
+		// Limit scale range
+		const scale = Math.max(0.1, Math.min(newScale, 5));
 
-	// --- Imperative Handle for Controls ---
-	useImperativeHandle(ref, () => ({
-		zoomIn: () => {
-			if (svgRef.current && zoomBehavior.current) {
-				d3.select(svgRef.current).transition().call(zoomBehavior.current.scaleBy, 1.2);
-			}
-		},
-		zoomOut: () => {
-			if (svgRef.current && zoomBehavior.current) {
-				d3.select(svgRef.current).transition().call(zoomBehavior.current.scaleBy, 1 / 1.2);
-			}
-		},
-		zoomReset: () => {
-			if (svgRef.current && zoomBehavior.current && layout) {
-				// Recalculate initial transform to reset view
-				let initialTransform = d3.zoomIdentity;
-				const { minX, maxX, minY, maxY } = layout.bounds;
-				const boundsWidth = maxX - minX;
-				const boundsHeight = maxY - minY;
+		// Zoom towards cursor position
+		const rect = svgRef.current?.getBoundingClientRect();
+		if (!rect) return;
 
-				if (boundsWidth > 0 && boundsHeight > 0) {
-					const padding = 50;
-					const effectiveWidth = dimensions.width - padding * 2;
-					const effectiveHeight = dimensions.height - padding * 2;
-					const scaleX = effectiveWidth / boundsWidth;
-					const scaleY = effectiveHeight / boundsHeight;
-					const initialScale = Math.max(0.1, Math.min(scaleX, scaleY, 1.5));
-					const initialTranslateX = (dimensions.width / 2) - ((minX + maxX) / 2) * initialScale;
-					const initialTranslateY = (dimensions.height / 2) - ((minY + maxY) / 2) * initialScale;
-					initialTransform = d3.zoomIdentity.translate(initialTranslateX, initialTranslateY).scale(initialScale);
-				} else {
-					initialTransform = d3.zoomIdentity.translate(dimensions.width / 2, dimensions.height / 2).scale(1);
-				}
+		const mouseX = e.clientX - rect.left;
+		const mouseY = e.clientY - rect.top;
 
-				d3.select(svgRef.current)
-					.transition()
-					.duration(500) // Smooth transition
-					.call(zoomBehavior.current.transform, initialTransform);
-			}
-		},
-		centerOnNode: (nodeId: string) => {
-			if (!svgRef.current || !zoomBehavior.current || !layout?.nodesById || !layout.nodesById[nodeId]) return;
+		// Calculate new position to zoom toward cursor
+		const x = mouseX - (mouseX - transform.x) * (scale / transform.scale);
+		const y = mouseY - (mouseY - transform.y) * (scale / transform.scale);
 
-			const node = layout.nodesById[nodeId];
-			const targetX = node.x;
-			const targetY = node.y;
-			const currentScale = currentZoomState.k; // Use the stored scale
-
-			// Calculate the translation needed to center the node
-			const targetTranslateX = dimensions.width / 2 - targetX * currentScale;
-			const targetTranslateY = dimensions.height / 2 - targetY * currentScale;
-
-			const newTransform = d3.zoomIdentity.translate(targetTranslateX, targetTranslateY).scale(currentScale);
-
-			d3.select(svgRef.current)
-				.transition()
-				.duration(500) // Smooth transition
-				.call(zoomBehavior.current.transform, newTransform);
-		}
-	}), [layout, dimensions, currentZoomState]); // Add dependencies for functions using them
+		setTransform({ x, y, scale });
+	};
 
 	// --- Organize nodes by path ---
 	const nodesByPath = useMemo(() => {
@@ -233,27 +260,35 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 
 	// --- Render ---
 	return (
-		<div ref={containerRef} className={`w-full h-full overflow-hidden ${className}`}>
+		<div
+			ref={containerRef}
+			className={`w-full h-full overflow-hidden relative ${className}`}
+		>
 			<svg
 				ref={svgRef}
 				width={dimensions.width}
 				height={dimensions.height}
 				className="block"
-				style={{ cursor: 'default', background: 'transparent' }}
-				onMouseDown={(e) => { e.currentTarget.style.cursor = 'grabbing'; }}
-				onMouseUp={(e) => { e.currentTarget.style.cursor = 'grab'; }}
-				onMouseLeave={(e) => { e.currentTarget.style.cursor = 'grab'; }}
+				style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+				onMouseDown={handleMouseDown}
+				onMouseMove={handleMouseMove}
+				onMouseUp={handleMouseUp}
+				onMouseLeave={handleMouseLeave}
+				onWheel={handleWheel}
 			>
 				<rect width="100%" height="100%" fill="none" pointerEvents="all" />
 
-				{/* Main content group with zoom transform */}
-				<g ref={gRef} transform={currentZoomState.toString()}>
-					{/* Optional Debug Grid */}
-					{(showDebugGrid || process.env.NODE_ENV === 'development') && layout && (
+				{/* Main content group with transform */}
+				<g
+					ref={contentRef}
+					transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}
+				>
+					{/* Optional grid - shown under everything */}
+					{showGrid && layout && (
 						<MetroGrid
 							layout={layout}
 							showNodeIds={true}
-							opacity={0.2}
+							opacity={0.25}
 						/>
 					)}
 
@@ -271,9 +306,9 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 								nodes={pathNodes}
 								isSelected={isPathSelected}
 								lineWidth={lineWidth}
-								opacity={0.7}
+								opacity={0.75}
 								routeMode={routeMode}
-								cornerRadius={cornerRadius}
+								cornerRadius={0}
 							/>
 						);
 					})}
@@ -287,12 +322,61 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 							isCurrent={node.id === currentNodeId}
 							isTarget={node.id === targetNodeId}
 							onClick={handleNodeClick}
+							onSetTarget={onSetTarget}
+							onRemoveTarget={onRemoveTarget}
 							baseRadius={nodeRadius}
 							interchangeRadius={interchangeRadius}
 						/>
 					))}
 				</g>
 			</svg>
+
+			{/* Controls */}
+			{showControls && (
+				<div className="absolute left-4 top-4 flex flex-col gap-2 z-10">
+					<Button
+						variant="outline"
+						size="icon"
+						className="bg-background/80 backdrop-blur hover:bg-background/90"
+						onClick={() => setShowGrid(prev => !prev)}
+						title={showGrid ? "Hide Grid" : "Show Grid"}
+					>
+						<div className="w-4 h-4 grid grid-cols-2 gap-0.5">
+							<div className={`w-full h-full ${showGrid ? 'bg-primary' : 'border border-foreground/40'}`}></div>
+							<div className={`w-full h-full ${showGrid ? 'bg-primary' : 'border border-foreground/40'}`}></div>
+							<div className={`w-full h-full ${showGrid ? 'bg-primary' : 'border border-foreground/40'}`}></div>
+							<div className={`w-full h-full ${showGrid ? 'bg-primary' : 'border border-foreground/40'}`}></div>
+						</div>
+					</Button>
+					<Button
+						variant="outline"
+						size="icon"
+						className="bg-background/80 backdrop-blur hover:bg-background/90"
+						onClick={() => zoomIn()}
+						title="Zoom In"
+					>
+						<ZoomIn className="h-4 w-4" />
+					</Button>
+					<Button
+						variant="outline"
+						size="icon"
+						className="bg-background/80 backdrop-blur hover:bg-background/90"
+						onClick={() => zoomOut()}
+						title="Zoom Out"
+					>
+						<ZoomOut className="h-4 w-4" />
+					</Button>
+					<Button
+						variant="outline"
+						size="icon"
+						className="bg-background/80 backdrop-blur hover:bg-background/90"
+						onClick={() => zoomReset()}
+						title="Reset View"
+					>
+						<RefreshCw className="h-4 w-4" />
+					</Button>
+				</div>
+			)}
 		</div>
 	);
 });

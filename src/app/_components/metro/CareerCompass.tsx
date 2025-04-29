@@ -10,6 +10,7 @@ import { Database } from 'lucide-react';
 import { generateGridLayout } from './engine/gridLayoutEngine';
 import type { LayoutData } from './engine/types';
 import StreamlinedMetroMap from './map/StreamlinedMetroMap';
+import MetroMap from './map/MetroMap';
 // Import the new hook instead of context
 import { useCareerCompassData } from './hooks/useCareerCompassData';
 
@@ -45,7 +46,7 @@ export default function CareerCompass() {
 				cellWidth: 100,
 				cellHeight: 100,
 				levelMultiplier: 1.5,
-				domainSpread: 2,
+				domainSpread: 4,
 				centerWeight: 0.4
 			}
 		);
@@ -63,7 +64,7 @@ export default function CareerCompass() {
 			{/* Render the updated MetroMap */}
 			<div className="absolute inset-0">
 				{layout ? (
-					<StreamlinedMetroMap
+					<MetroMap
 						layout={layout}
 						selectedNodeId={selectedNodeId}
 						onNodeSelect={setSelectedNodeId}

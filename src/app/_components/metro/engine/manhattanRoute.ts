@@ -1,5 +1,7 @@
 // src/app/_components/metro/engine/manhattanRoute.ts
 import type { LayoutNode } from './types';
+import { DEFAULT_ROUTE_OPTIONS, ManhattanRouteOptions } from './config';
+import { sortPathNodes } from './calculations';
 
 /**
  * Route types for metro lines
@@ -7,45 +9,26 @@ import type { LayoutNode } from './types';
 export type RouteMode = 'direct' | 'manhattan' | 'smooth';
 
 /**
- * Route point with x, y coordinates and optional control points
+ * Generate appropriate path data based on route mode
  */
-export interface RoutePoint {
-  x: number;
-  y: number;
-  controlX1?: number; // For cubic bezier curves
-  controlY1?: number;
-  controlX2?: number;
-  controlY2?: number;
+export function generatePath(
+  nodes: LayoutNode[],
+  routeMode: RouteMode = 'manhattan',
+  options: ManhattanRouteOptions = {}
+): string {
+  switch (routeMode) {
+    case 'direct':
+      return generateDirectPath(nodes);
+    case 'smooth':
+      return generateSmoothManhattanPath(nodes, { 
+        ...options, 
+        cornerRadius: options.cornerRadius ?? 10 
+      });
+    case 'manhattan':
+    default:
+      return generateManhattanPath(nodes, options);
+  }
 }
-
-/**
- * A route segment between two points
- */
-export interface RouteSegment {
-  from: RoutePoint;
-  to: RoutePoint;
-  type: 'line' | 'curve';
-}
-
-/**
- * Options for generating manhattan routes
- */
-export interface ManhattanRouteOptions {
-  verticalFirst?: boolean;  // Whether to move vertically first (true) or horizontally first (false)
-  minSegmentLength?: number; // Minimum length for a segment to be included
-  cornerRadius?: number;     // Radius for smoothed corners (0 for sharp corners)
-  levelPriority?: boolean;   // Prioritize keeping level sequences aligned
-}
-
-/**
- * Default options for manhattan routing
- */
-const DEFAULT_ROUTE_OPTIONS: ManhattanRouteOptions = {
-  verticalFirst: true,
-  minSegmentLength: 5,
-  cornerRadius: 0,
-  levelPriority: true
-};
 
 /**
  * Generates a manhattan route SVG path string between nodes
@@ -63,24 +46,8 @@ export function generateManhattanPath(
   // Merge with default options
   const routeOptions = { ...DEFAULT_ROUTE_OPTIONS, ...options };
   
-  // Sort nodes by level (primary) and sequence (secondary)
-  const sortedNodes = [...nodes].sort((a, b) => {
-    // First sort by level
-    const levelDiff = a.level - b.level;
-    if (levelDiff !== 0) return levelDiff;
-
-    // If levels are the same, try to sort by sequence_in_path if it exists
-    const aSeq = a.sequence_in_path ?? 0;
-    const bSeq = b.sequence_in_path ?? 0;
-
-    if (aSeq !== bSeq) {
-      return aSeq - bSeq;
-    }
-
-    // Default to x/y position for stable sorting
-    const xDiff = a.x - b.x;
-    return xDiff !== 0 ? xDiff : a.y - b.y;
-  });
+  // Sort nodes by level and sequence
+  const sortedNodes = sortPathNodes(nodes);
 
   // Generate path data
   let pathData = `M ${sortedNodes[0].x} ${sortedNodes[0].y}`;
@@ -135,17 +102,94 @@ export function generateSmoothManhattanPath(
   nodes: LayoutNode[],
   options: ManhattanRouteOptions = {}
 ): string {
-  // Start with a regular manhattan path
-  const sharpPath = generateManhattanPath(nodes, options);
+  if (nodes.length < 2) return '';
+  const cornerRadius = options.cornerRadius || 0;
   
-  // If corner radius is 0, just return the sharp path
-  if (!options.cornerRadius || options.cornerRadius <= 0) {
-    return sharpPath;
+  // If corner radius is 0, just return regular manhattan path
+  if (cornerRadius <= 0) {
+    return generateManhattanPath(nodes, options);
   }
   
-  // TODO: Implement corner smoothing via SVG path arc commands
-  // This is a placeholder for future enhancement
-  return sharpPath;
+  // Sort nodes by level and sequence
+  const sortedNodes = sortPathNodes(nodes);
+  
+  // Start with the first point
+  let pathData = `M ${sortedNodes[0].x} ${sortedNodes[0].y}`;
+  
+  // First generate all corner points using the manhattan algorithm
+  const corners: { x: number, y: number }[] = [{ x: sortedNodes[0].x, y: sortedNodes[0].y }];
+  
+  // Strategy: Create Manhattan corner points between consecutive nodes
+  for (let i = 1; i < sortedNodes.length; i++) {
+    const prev = sortedNodes[i-1];
+    const curr = sortedNodes[i];
+    
+    if (options.verticalFirst) {
+      // Add intermediate corner
+      corners.push({ x: prev.x, y: curr.y });
+    } else {
+      // Add intermediate corner
+      corners.push({ x: curr.x, y: prev.y });
+    }
+    
+    // Add destination point
+    corners.push({ x: curr.x, y: curr.y });
+  }
+  
+  // Now generate path with rounded corners
+  // First point is always a move command
+  pathData = `M ${corners[0].x} ${corners[0].y}`;
+  
+  // Process each triplet of points to find where to place arc commands
+  for (let i = 1; i < corners.length - 1; i++) {
+    const prev = corners[i-1];
+    const curr = corners[i];
+    const next = corners[i+1];
+    
+    // Calculate distances
+    const distToPrev = Math.hypot(curr.x - prev.x, curr.y - prev.y);
+    const distToNext = Math.hypot(next.x - curr.x, next.y - curr.y);
+    
+    // Use smaller of the two distances and cap radius
+    const maxRadius = Math.min(distToPrev / 2, distToNext / 2, cornerRadius);
+    
+    // Skip if segments are too short for rounding
+    if (maxRadius < 2) {
+      pathData += ` L ${curr.x} ${curr.y}`;
+      continue;
+    }
+    
+    // Calculate direction vectors
+    const toPrev = { x: (prev.x - curr.x) / distToPrev, y: (prev.y - curr.y) / distToPrev };
+    const toNext = { x: (next.x - curr.x) / distToNext, y: (next.y - curr.y) / distToNext };
+    
+    // Calculate arc start and end points
+    const arcStart = { 
+      x: curr.x + toPrev.x * maxRadius, 
+      y: curr.y + toPrev.y * maxRadius 
+    };
+    
+    const arcEnd = { 
+      x: curr.x + toNext.x * maxRadius, 
+      y: curr.y + toNext.y * maxRadius 
+    };
+    
+    // Add line to arc start, then add the arc
+    pathData += ` L ${arcStart.x} ${arcStart.y}`;
+    
+    // Determine if we're making a right or left turn for sweep flag
+    // Right turn = cross product is negative
+    const crossProduct = toPrev.x * toNext.y - toPrev.y * toNext.x;
+    const sweepFlag = crossProduct < 0 ? 1 : 0;
+    
+    // Add the arc command
+    pathData += ` A ${maxRadius} ${maxRadius} 0 0 ${sweepFlag} ${arcEnd.x} ${arcEnd.y}`;
+  }
+  
+  // Add final line to last point
+  pathData += ` L ${corners[corners.length - 1].x} ${corners[corners.length - 1].y}`;
+  
+  return pathData;
 }
 
 /**
@@ -155,20 +199,7 @@ export function generateDirectPath(nodes: LayoutNode[]): string {
   if (nodes.length < 2) return '';
   
   // Sort nodes as with other methods
-  const sortedNodes = [...nodes].sort((a, b) => {
-    const levelDiff = a.level - b.level;
-    if (levelDiff !== 0) return levelDiff;
-    
-    const aSeq = a.sequence_in_path ?? 0;
-    const bSeq = b.sequence_in_path ?? 0;
-    
-    if (aSeq !== bSeq) {
-      return aSeq - bSeq;
-    }
-    
-    const xDiff = a.x - b.x;
-    return xDiff !== 0 ? xDiff : a.y - b.y;
-  });
+  const sortedNodes = sortPathNodes(nodes);
   
   // Simple direct lines
   let pathData = `M ${sortedNodes[0].x} ${sortedNodes[0].y}`;
@@ -178,26 +209,4 @@ export function generateDirectPath(nodes: LayoutNode[]): string {
   }
   
   return pathData;
-}
-
-/**
- * Generate appropriate path data based on route mode
- */
-export function generatePath(
-  nodes: LayoutNode[],
-  routeMode: RouteMode = 'manhattan',
-  options: ManhattanRouteOptions = {}
-): string {
-  switch (routeMode) {
-    case 'direct':
-      return generateDirectPath(nodes);
-    case 'smooth':
-      return generateSmoothManhattanPath(nodes, { 
-        ...options, 
-        cornerRadius: options.cornerRadius ?? 10 
-      });
-    case 'manhattan':
-    default:
-      return generateManhattanPath(nodes, options);
-  }
 }

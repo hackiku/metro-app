@@ -2,10 +2,6 @@
 import type { PositionDetail } from '~/types/compass';
 
 /**
- * Shared utility functions for layout calculations
- */
-
-/**
  * Calculates centrality scores for each position based on how many paths it appears in.
  * Positions that appear in multiple paths act as interchange stations.
  * 
@@ -91,7 +87,11 @@ export function mapPositionsToPaths(positionDetails: PositionDetail[]): Map<stri
     if (!pathsByPosition.has(detail.position_id)) {
       pathsByPosition.set(detail.position_id, []);
     }
-    pathsByPosition.get(detail.position_id)?.push(detail.career_path_id);
+    
+    const paths = pathsByPosition.get(detail.position_id);
+    if (paths && !paths.includes(detail.career_path_id)) {
+      paths.push(detail.career_path_id);
+    }
   });
   
   return pathsByPosition;
@@ -103,7 +103,7 @@ export function mapPositionsToPaths(positionDetails: PositionDetail[]): Map<stri
  * @param nodes Array of nodes to sort 
  * @returns Sorted array of nodes
  */
-export function sortPathNodes<T extends { level: number, sequence_in_path?: number | null }>(nodes: T[]): T[] {
+export function sortPathNodes<T extends { level: number; sequence_in_path?: number | null }>(nodes: T[]): T[] {
   return [...nodes].sort((a, b) => {
     // First sort by level
     const levelDiff = a.level - b.level;

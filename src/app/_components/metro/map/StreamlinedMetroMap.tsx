@@ -1,7 +1,7 @@
 // src/app/_components/metro/map/StreamlinedMetroMap.tsx
 "use client";
 
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import type { LayoutData, LayoutNode } from '../engine/types';
 import MetroGrid from './MetroGrid';
 import MetroLine from './MetroLine';
@@ -19,7 +19,15 @@ interface MetroMapProps {
 	cornerRadius?: number;
 }
 
-export default function StreamlinedMetroMap({
+// Define Ref type for imperative controls
+export interface MetroMapRef {
+	zoomIn: () => void;
+	zoomOut: () => void;
+	zoomReset: () => void;
+	centerOnNode: (nodeId: string) => void;
+}
+
+const StreamlinedMetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 	layout,
 	selectedNodeId,
 	onNodeSelect,
@@ -28,7 +36,7 @@ export default function StreamlinedMetroMap({
 	className = "",
 	routeMode = 'manhattan',
 	cornerRadius = 0
-}: MetroMapProps) {
+}, ref) => {
 	// Refs for elements
 	const containerRef = useRef<HTMLDivElement>(null);
 	const svgRef = useRef<SVGSVGElement>(null);
@@ -39,6 +47,62 @@ export default function StreamlinedMetroMap({
 	const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+	// --- Expose methods via ref ---
+	useImperativeHandle(ref, () => ({
+		zoomIn: () => {
+			setTransform(prev => ({
+				...prev,
+				scale: Math.min(prev.scale * 1.2, 5) // Limit max zoom
+			}));
+		},
+		zoomOut: () => {
+			setTransform(prev => ({
+				...prev,
+				scale: Math.max(prev.scale / 1.2, 0.1) // Limit min zoom
+			}));
+		},
+		zoomReset: () => {
+			if (!layout || !containerRef.current) return;
+
+			const { bounds } = layout;
+			const { width, height } = dimensions;
+			const { minX, maxX, minY, maxY } = bounds;
+
+			const boundsWidth = maxX - minX;
+			const boundsHeight = maxY - minY;
+
+			if (boundsWidth <= 0 || boundsHeight <= 0) return;
+
+			const padding = 50;
+			const effectiveWidth = width - padding * 2;
+			const effectiveHeight = height - padding * 2;
+
+			// Calculate scale to fit content
+			const scaleX = effectiveWidth / boundsWidth;
+			const scaleY = effectiveHeight / boundsHeight;
+			const scale = Math.max(0.1, Math.min(scaleX, scaleY, 1.5));
+
+			// Calculate translation to center content
+			const x = (width / 2) - ((minX + maxX) / 2) * scale;
+			const y = (height / 2) - ((minY + maxY) / 2) * scale;
+
+			setTransform({ x, y, scale });
+		},
+		centerOnNode: (nodeId: string) => {
+			if (!layout?.nodesById || !layout.nodesById[nodeId]) return;
+
+			const node = layout.nodesById[nodeId];
+			const { width, height } = dimensions;
+			const { scale } = transform;
+
+			// Calculate translation to center on node
+			const x = width / 2 - node.x * scale;
+			const y = height / 2 - node.y * scale;
+
+			setTransform(prev => ({ ...prev, x, y }));
+		}
+	}), [layout, dimensions, transform]);
 
 	// --- Update dimensions on resize ---
 	useEffect(() => {
@@ -212,7 +276,7 @@ export default function StreamlinedMetroMap({
 					ref={contentRef}
 					transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}
 				>
-					{/* Always show the debug grid */}
+					{/* Optional debug grid */}
 					{layout && (
 						<MetroGrid
 							layout={layout}
@@ -259,4 +323,9 @@ export default function StreamlinedMetroMap({
 			</svg>
 		</div>
 	);
-}
+});
+
+// Add display name for DevTools
+StreamlinedMetroMap.displayName = 'StreamlinedMetroMap';
+
+export default StreamlinedMetroMap;
