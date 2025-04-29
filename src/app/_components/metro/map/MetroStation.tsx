@@ -1,9 +1,9 @@
 // src/app/_components/metro/map/MetroStation.tsx
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import type { LayoutNode } from '../engine/types';
-import { Target, Trash2, MoreHorizontal } from 'lucide-react';
+import { Target, Trash2 } from 'lucide-react';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -19,12 +19,10 @@ interface MetroStationProps {
 	onClick?: (nodeId: string) => void;
 	onSetTarget?: (nodeId: string) => void;
 	onRemoveTarget?: (nodeId: string) => void;
-	baseRadius?: number;
-	interchangeRadius?: number;
 }
 
 /**
- * Renders a station (node) on the metro map with dropdown menu.
+ * Renders a station node on the metro map
  */
 export default function MetroStation({
 	node,
@@ -33,154 +31,90 @@ export default function MetroStation({
 	isTarget = false,
 	onClick,
 	onSetTarget,
-	onRemoveTarget,
-	baseRadius = 7,
-	interchangeRadius = 9
+	onRemoveTarget
 }: MetroStationProps) {
-	const [menuOpen, setMenuOpen] = useState(false);
-	const dropdownRef = useRef<HTMLDivElement>(null);
+	const [isOpen, setIsOpen] = useState(false);
+	const circleRef = useRef<SVGCircleElement>(null);
 
-	// Determine appropriate radius
-	const radius = node.isInterchange ? interchangeRadius : baseRadius;
+	// Base styling values
+	const radius = node.isInterchange ? 9 : 7;
 
-	// Apply selected/current/target adjustments
-	const adjustedRadius = isSelected ? radius + 1 : radius;
-
-	// Determine stroke colors and widths
-	const strokeWidth = isSelected ? 3 : 1.5;
+	// Station style based on state
 	let strokeColor = "var(--border-foreground)";
-
-	if (isSelected) strokeColor = "var(--primary)";
 	if (isCurrent) strokeColor = "#4f46e5"; // Indigo
 	if (isTarget) strokeColor = "#f59e0b";  // Amber
 
-	// Handle click (prevent propagation if menu is open)
-	const handleClick = (e: React.MouseEvent) => {
-		if (menuOpen) {
-			e.stopPropagation();
-			return;
-		}
-
+	// Station click handler
+	const handleStationClick = () => {
 		if (onClick) onClick(node.id);
+		// Don't automatically open menu on click - only on right click or explicit menu trigger
 	};
 
-	// Handle menu items
-	const handleSetTarget = (e: React.MouseEvent) => {
-		e.stopPropagation();
-		if (onSetTarget) onSetTarget(node.id);
-		setMenuOpen(false);
+	// Right click handler to open context menu
+	const handleContextMenu = (e: React.MouseEvent) => {
+		e.preventDefault();
+		if (circleRef.current) {
+			setIsOpen(true);
+		}
 	};
 
-	const handleRemoveTarget = (e: React.MouseEvent) => {
-		e.stopPropagation();
-		if (onRemoveTarget) onRemoveTarget(node.id);
-		setMenuOpen(false);
-	};
-
-	// Position the dropdown relative to SVG coordinates
-	const dropdownStyle = {
-		position: 'absolute',
-		left: `${node.x}px`,
-		top: `${node.y}px`,
-		transform: 'translate(-50%, -50%)',
-		zIndex: 100
-	} as React.CSSProperties;
-
-	// SVG station and label elements
-	const stationElements = (
+	return (
 		<g
 			transform={`translate(${node.x}, ${node.y})`}
-			onClick={handleClick}
-			style={{ cursor: 'pointer' }}
-			className={`metro-station ${isSelected ? 'selected' : ''} ${isCurrent ? 'current' : ''} ${isTarget ? 'target' : ''}`}
-			data-node-id={node.id}
-			data-position-id={node.positionId}
-			data-level={node.level}
-			data-interchange={node.isInterchange}
+			className={`station ${isCurrent ? 'current' : ''} ${isTarget ? 'target' : ''} ${isOpen ? 'menu-open' : ''}`}
 		>
-			{/* Station Circle */}
-			<circle
-				r={adjustedRadius}
-				fill={node.color}
-				strokeWidth={strokeWidth}
-				stroke={strokeColor}
-				className={node.isInterchange ? 'interchange-node' : ''}
-				style={{ transition: 'r 0.15s ease-out, stroke 0.15s ease-out' }}
-			>
-				<title>{`${node.name} (Level ${node.level})${node.isInterchange ? ' [Interchange]' : ''}`}</title>
-			</circle>
+			{/* Station circle */}
+			<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+				<DropdownMenuTrigger asChild>
+					<circle
+						ref={circleRef}
+						r={radius}
+						fill={node.color}
+						stroke={strokeColor}
+						strokeWidth={1.5}
+						className="cursor-pointer transition-colors duration-200"
+						onClick={handleStationClick}
+						onContextMenu={handleContextMenu}
+					/>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="center" sideOffset={5}>
+					<DropdownMenuItem
+						className="gap-2 cursor-pointer"
+						onClick={() => onSetTarget?.(node.id)}
+					>
+						<Target size={16} />
+						<span>Set Target</span>
+					</DropdownMenuItem>
 
-			{/* Station Label */}
-			<text
-				y={-adjustedRadius - 5}
-				textAnchor="middle"
-				fontSize="9px"
-				fill={isSelected ? "var(--primary)" : "var(--foreground)"}
-				className="select-none pointer-events-none font-medium"
-				paintOrder="stroke"
-				stroke="var(--background)"
-				strokeWidth="2.5px"
-				strokeLinejoin="round"
-				style={{ transition: 'fill 0.15s ease-out' }}
-			>
-				{node.name}
-			</text>
-
-			{/* Optional dropdown trigger circle - shown on hover/selection */}
-			{(isSelected || isTarget) && (
-				<circle
-					r={3}
-					cy={adjustedRadius + 7}
-					fill="var(--background)"
-					stroke="var(--border)"
-					strokeWidth="1"
-					style={{ cursor: 'pointer' }}
-					onClick={(e) => {
-						e.stopPropagation();
-						setMenuOpen(prev => !prev);
-					}}
-				/>
-			)}
-
-			{/* Menu icon inside trigger circle */}
-			{(isSelected || isTarget) && (
-				<MoreHorizontal
-					className="pointer-events-none"
-					size={6}
-					style={{
-						transform: `translate(-3px, ${adjustedRadius + 5}px)`,
-						color: 'var(--foreground)'
-					}}
-				/>
-			)}
-		</g>
-	);
-
-	// Render dropdown menu separately to avoid SVG nesting issues
-	return (
-		<>
-			{stationElements}
-
-			{/* Dropdown menu positioned absolutely */}
-			<div ref={dropdownRef} style={dropdownStyle} className="pointer-events-none">
-				<DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-					<DropdownMenuTrigger asChild className="pointer-events-none">
-						<button className="invisible">Menu</button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end" className="w-36 pointer-events-auto">
-						<DropdownMenuItem onClick={handleSetTarget} className="gap-2">
-							<Target size={16} />
-							<span>Set Target</span>
+					{isTarget && (
+						<DropdownMenuItem
+							className="gap-2 cursor-pointer text-destructive"
+							onClick={() => onRemoveTarget?.(node.id)}
+						>
+							<Trash2 size={16} />
+							<span>Remove Target</span>
 						</DropdownMenuItem>
-						{isTarget && (
-							<DropdownMenuItem onClick={handleRemoveTarget} className="gap-2 text-destructive">
-								<Trash2 size={16} />
-								<span>Remove Target</span>
-							</DropdownMenuItem>
-						)}
-					</DropdownMenuContent>
-				</DropdownMenu>
-			</div>
-		</>
+					)}
+				</DropdownMenuContent>
+			</DropdownMenu>
+
+			{/* Station label using foreignObject for Tailwind styling */}
+			<foreignObject
+				x={-60}
+				y={-radius - 25}
+				width={120}
+				height={24}
+				style={{ pointerEvents: 'none' }}
+			>
+				<div className="h-full flex items-center justify-center text-xs font-medium">
+					<div
+						className="px-1.5 py-0.5 rounded bg-background/90 text-foreground truncate"
+						style={{ maxWidth: '114px' }}
+					>
+						{node.name}
+					</div>
+				</div>
+			</foreignObject>
+		</g>
 	);
 }

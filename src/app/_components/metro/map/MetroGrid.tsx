@@ -7,7 +7,6 @@ import type { LayoutData } from '../engine/types';
 interface MetroGridProps {
 	layout: LayoutData;
 	showCoordinates?: boolean;
-	showNodeIds?: boolean;
 	opacity?: number;
 }
 
@@ -18,7 +17,6 @@ interface MetroGridProps {
 export default function MetroGrid({
 	layout,
 	showCoordinates = true,
-	showNodeIds = false,
 	opacity = 0.2,
 }: MetroGridProps) {
 	if (!layout) return null;
@@ -115,26 +113,6 @@ export default function MetroGrid({
 		}
 	}
 
-	// Node position markers and levels
-	const nodeMarkers = layout.nodes.map(node => (
-		<g key={`marker-${node.id}`}>
-			{/* Display level of node for debugging */}
-			{showNodeIds && (
-				<text
-					x={node.x}
-					y={node.y - 10}
-					fontSize="8px"
-					textAnchor="middle"
-					fill="#777777"
-					opacity={opacity * 3}
-					fontWeight="bold"
-				>
-					L{node.level}:{node.name.substring(0, 10)}
-				</text>
-			)}
-		</g>
-	));
-
 	// Render everything in a group
 	return (
 		<g className="metro-grid-debug" pointerEvents="none">
@@ -144,9 +122,6 @@ export default function MetroGrid({
 
 			{/* Grid intersections */}
 			{plusMarkers}
-
-			{/* Node labels */}
-			{nodeMarkers}
 
 			{/* Debug info panel */}
 			<g transform={`translate(${bounds.minX + 10}, ${bounds.maxY - 10})`}>

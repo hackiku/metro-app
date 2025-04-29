@@ -1,49 +1,77 @@
 // src/app/_components/metro/engine/config.ts
 
 /**
- * Grid layout configuration options
+ * Configuration for the grid layout engine
  */
-export interface GridLayoutConfig {
-  cellWidth: number;        // Width of grid cells
-  cellHeight: number;       // Height of grid cells
-  xPadding: number;         // Padding around the edges (X)
-  yPadding: number;         // Padding around the edges (Y)
-  levelMultiplier: number;  // How much levels affect vertical position
-  domainSpread: number;     // How far apart career paths are horizontally
-  centerWeight: number;     // How strongly to pull interchange nodes to center
-  routingMode?: 'direct' | 'manhattan' | 'smooth'; // How paths are drawn
-}
-
-/**
- * Default grid config with sensible defaults
- */
-export const DEFAULT_GRID_CONFIG: GridLayoutConfig = {
-  cellWidth: 100,
-  cellHeight: 80,
+export const GRID_CONFIG = {
+  // Basic cell dimensions
+  cellWidth: 80,           // Width of each grid cell
+  cellHeight: 80,          // Height of each grid cell
+  
+  // Grid settings
+  initialGridSize: 20,     // Initial grid size (will expand as needed)
+  centerX: 0,              // Center X coordinate (will be adjusted)
+  centerY: 0,              // Center Y coordinate (will be adjusted)
+  
+  // Padding around the grid edges
   xPadding: 40,
   yPadding: 40,
-  levelMultiplier: 1.2,  // Higher values = more vertical spread
-  domainSpread: 2.0,     // Higher values = more horizontal spread
-  centerWeight: 0.7,     // How much to pull common nodes toward center
-  routingMode: 'manhattan'
+  
+  // Path distribution
+  minPathAngleVariation: 30,  // Minimum angle between paths to avoid clustering
+  centerWeight: 0.6,          // How strongly to pull nodes toward the center (0-1)
+  
+  // Spacing and jitter
+  nodeSpacing: 1.2,           // Spacing multiplier between nodes
+  jitterFactor: 0.1,          // Random jitter to prevent perfect overlaps
+  
+  // Movement constraints
+  allowedDirections: [
+    { x: 1, y: 0 },    // Right
+    { x: -1, y: 0 },   // Left
+    { x: 0, y: 1 },    // Down
+    { x: 0, y: -1 },   // Up
+    { x: 1, y: 1 },    // Down-Right
+    { x: -1, y: 1 },   // Down-Left
+    { x: 1, y: -1 },   // Up-Right
+    { x: -1, y: -1 },  // Up-Left
+  ]
 };
 
 /**
- * Manhattan route configuration options
+ * Common utility functions
  */
-export interface ManhattanRouteOptions {
-  verticalFirst?: boolean;  // Whether to move vertically first (true) or horizontally first (false)
-  minSegmentLength?: number; // Minimum length for a segment to be included
-  cornerRadius?: number;     // Radius for smoothed corners (0 for sharp corners)
-  levelPriority?: boolean;   // Prioritize keeping level sequences aligned
-}
+export const normalizeVector = (x: number, y: number): { x: number, y: number } => {
+  const length = Math.sqrt(x * x + y * y);
+  return length === 0 ? { x: 0, y: 0 } : { x: x / length, y: y / length };
+};
 
 /**
- * Default options for manhattan routing
+ * Utility to get a random direction vector with some spread
+ * Returns a normalized vector in a random direction
  */
-export const DEFAULT_ROUTE_OPTIONS: ManhattanRouteOptions = {
-  verticalFirst: true,
-  minSegmentLength: 5,
-  cornerRadius: 0,
-  levelPriority: true
+export const getRandomDirection = (spreadDegrees = 30): { x: number, y: number } => {
+  // Random angle in radians
+  const angle = (Math.random() * 2 * Math.PI);
+  
+  // Convert to vector
+  const x = Math.cos(angle);
+  const y = Math.sin(angle);
+  
+  return normalizeVector(x, y);
+};
+
+/**
+ * Utility to calculate a direction vector from center to a point on the edge
+ * based on an angle in degrees
+ */
+export const getDirectionFromAngle = (angleDegrees: number): { x: number, y: number } => {
+  // Convert degrees to radians
+  const angleRadians = (angleDegrees * Math.PI) / 180;
+  
+  // Calculate direction vector
+  const x = Math.cos(angleRadians);
+  const y = Math.sin(angleRadians);
+  
+  return { x, y };
 };

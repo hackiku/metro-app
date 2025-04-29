@@ -48,3 +48,57 @@ export interface LayoutData {
 	bounds: LayoutBounds;                   // Viewport bounds
 	configUsed: unknown;                    // Configuration used (type defined by specific layout)
 }
+
+/**
+ * Raw data types for inputs from database
+ */
+export interface CareerPath {
+	id: string;
+	name: string;
+	description?: string;
+	color: string;
+	organization_id?: string;
+	created_at?: string;
+}
+
+export interface Position {
+	id: string;
+	name: string;
+	base_description?: string;
+	organization_id?: string;
+	created_at?: string;
+}
+
+export interface PositionDetail {
+	id: string;
+	position_id: string;
+	career_path_id: string;
+	level: number;
+	sequence_in_path?: number | null;
+}
+
+/**
+ * Grid cell for layout calculations
+ */
+export interface GridCell {
+	x: number;
+	y: number;
+	occupied: boolean;
+	pathId?: string;
+}
+
+/**
+ * Direction vectors for path routing
+ */
+export type Direction = {
+	x: number;
+	y: number;
+}
+
+/**
+ * Simple point interface
+ */
+export interface Point {
+	x: number;
+	y: number;
+}
