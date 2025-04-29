@@ -41,11 +41,11 @@ export default function CareerCompass() {
       positionDetails,
       positions,
       {
-        cellWidth: 120,
-        cellHeight: 80,
+        cellWidth: 100,
+        cellHeight: 100,
         levelMultiplier: 1.5,
         domainSpread: 2,
-        centerWeight: 0.7
+        centerWeight: 0.4
       }
     );
   }, [loading, error, careerPaths, positionDetails, positions]);

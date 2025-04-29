@@ -3,6 +3,8 @@
 
 import React, { useMemo } from 'react';
 import type { LayoutPath, LayoutNode } from '../engine/types';
+import { generatePath } from '../engine/manhattanRoute';
+import type { RouteMode } from '../engine/manhattanRoute';
 
 interface MetroLineProps {
 	path: LayoutPath;
@@ -10,6 +12,8 @@ interface MetroLineProps {
 	isSelected?: boolean;
 	lineWidth?: number;
 	opacity?: number;
+	routeMode?: RouteMode;
+	cornerRadius?: number;
 }
 
 /**
@@ -20,47 +24,34 @@ interface MetroLineProps {
  * @param isSelected - Whether this line is currently selected
  * @param lineWidth - Width of the line
  * @param opacity - Opacity of the line
+ * @param routeMode - Routing algorithm: 'direct', 'manhattan', or 'smooth'
+ * @param cornerRadius - Corner radius for smooth paths (0 for sharp corners)
  */
 export default function MetroLine({
 	path,
 	nodes,
 	isSelected = false,
 	lineWidth = 5,
-	opacity = 0.8
+	opacity = 0.8,
+	routeMode = 'manhattan',
+	cornerRadius = 0
 }: MetroLineProps) {
 	// Generate SVG path data for this line
-	// Generate SVG path data for this line
 	const pathData = useMemo(() => {
-		if (!nodes.length) return '';
+		if (nodes.length < 2) return '';
 
-		// Sort nodes by level and then by sequence_in_path if available
-		const sortedNodes = [...nodes].sort((a, b) => {
-			// First sort by level
-			const levelDiff = a.level - b.level;
-			if (levelDiff !== 0) return levelDiff;
-
-			// If levels are the same, try to sort by sequence_in_path if it exists in the node data
-			const aSeq = (a as any).sequence_in_path;
-			const bSeq = (b as any).sequence_in_path;
-
-			if (aSeq !== undefined && bSeq !== undefined) {
-				return aSeq - bSeq;
+		// Use the new path generation utilities
+		return generatePath(
+			nodes,
+			routeMode,
+			{
+				cornerRadius,
+				verticalFirst: true,
+				minSegmentLength: 10,
+				levelPriority: true
 			}
-
-			// Default to x/y position for stable sorting
-			const xDiff = a.x - b.x;
-			return xDiff !== 0 ? xDiff : a.y - b.y;
-		});
-
-		// Simple path connecting nodes in sorted order
-		let data = `M ${sortedNodes[0].x} ${sortedNodes[0].y}`;
-
-		for (let i = 1; i < sortedNodes.length; i++) {
-			data += ` L ${sortedNodes[i].x} ${sortedNodes[i].y}`;
-		}
-
-		return data;
-	}, [nodes]);
+		);
+	}, [nodes, routeMode, cornerRadius]);
 
 	// If there are no nodes or only one node, don't render
 	if (nodes.length < 2) return null;

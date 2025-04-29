@@ -4,9 +4,10 @@
 import React, { useRef, useState, useEffect, useMemo, useImperativeHandle } from 'react';
 import * as d3 from 'd3';
 import type { LayoutData, LayoutNode } from '../engine/types';
-import PolarGridBackground from './PolarGridBackground';
+import MetroGrid from './MetroGrid';
 import MetroLine from './MetroLine';
 import MetroStation from './MetroStation';
+import type { RouteMode } from '../engine/manhattanRoute';
 
 interface MetroMapProps {
 	layout: LayoutData | null;
@@ -15,6 +16,9 @@ interface MetroMapProps {
 	currentNodeId?: string | null;
 	targetNodeId?: string | null;
 	className?: string;
+	showDebugGrid?: boolean;
+	routeMode?: RouteMode;
+	cornerRadius?: number;
 }
 
 // Define Ref type for imperative controls
@@ -32,7 +36,10 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 	onNodeSelect,
 	currentNodeId,
 	targetNodeId,
-	className = ""
+	className = "",
+	showDebugGrid = false,
+	routeMode = 'manhattan',
+	cornerRadius = 0
 }, ref) => {
 	// Refs for SVG elements
 	const svgRef = useRef<SVGSVGElement>(null);
@@ -74,13 +81,6 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 			resizeObserver.disconnect();
 		};
 	}, []);
-
-	// --- Calculate max radius for polar grid ---
-	const maxRadiusForGrid = useMemo(() => {
-		if (!layout?.bounds) return 300;
-		const { minX, maxX, minY, maxY } = layout.bounds;
-		return Math.max(Math.abs(minX), Math.abs(maxX), Math.abs(minY), Math.abs(maxY), 100);
-	}, [layout?.bounds]);
 
 	// --- Set up D3 Zoom ---
 	useEffect(() => {
@@ -248,15 +248,12 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 
 				{/* Main content group with zoom transform */}
 				<g ref={gRef} transform={currentZoomState.toString()}>
-					{/* Render Polar Grid */}
-					{layout && (
-						<PolarGridBackground
-							maxRadius={maxRadiusForGrid * 1.05}
-							radiusSteps={Math.max(3, Math.round(maxRadiusForGrid / (layout.configUsed.radiusStep || 80)))}
-							angleSteps={12}
-							opacity={0.15}
-							radiusColor="var(--foreground)"
-							angleColor="var(--foreground)"
+					{/* Optional Debug Grid */}
+					{(showDebugGrid || process.env.NODE_ENV === 'development') && layout && (
+						<MetroGrid
+							layout={layout}
+							showNodeIds={true}
+							opacity={0.2}
 						/>
 					)}
 
@@ -275,6 +272,8 @@ const MetroMap = React.forwardRef<MetroMapRef, MetroMapProps>(({
 								isSelected={isPathSelected}
 								lineWidth={lineWidth}
 								opacity={0.7}
+								routeMode={routeMode}
+								cornerRadius={cornerRadius}
 							/>
 						);
 					})}
