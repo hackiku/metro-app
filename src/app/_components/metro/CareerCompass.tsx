@@ -4,19 +4,21 @@ import DataDisplay from './ui/DataDisplay';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/components/ui/sheet';
 import { Button } from '~/components/ui/button';
 import { Database, ZoomIn, ZoomOut, RefreshCw, Grid } from 'lucide-react';
-// Import the grid layout engine
-import { generateGridLayout } from './engine/layoutEngine';
-import type { LayoutData } from './engine/types';
+// Import the NEW polar grid layout engine
+import { generatePolarGridLayout } from './engine/polarGridLayoutEngine';
+// Import necessary types, including the config type
+import type { LayoutData, PolarGridConfig } from './engine/types';
 import MetroMap from './map/MetroMap';
 import type { MetroMapRef } from './map/MetroMap';
-
 // Import the data hook
 import { useCareerCompassData } from './hooks/useCareerCompassData';
+// Import organization type if needed by DataDisplay
+import type { Organization } from "~/types/compass";
 
 export default function CareerCompass() {
 	// Use the hook to get data
 	const {
-		organization,
+		organization, // Assuming hook provides this or similar
 		careerPaths,
 		positions,
 		positionDetails,
@@ -27,12 +29,13 @@ export default function CareerCompass() {
 	const [isDataSheetOpen, setIsDataSheetOpen] = useState(false);
 	const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 	const [targetNodeId, setTargetNodeId] = useState<string | null>(null);
+	// Default grid visibility based on environment
 	const [showGrid, setShowGrid] = useState(process.env.NODE_ENV === 'development');
 
 	// Ref for map controls
 	const mapRef = useRef<MetroMapRef>(null);
 
-	// Layout Calculation
+	// Layout Calculation using the Polar Grid approach
 	const layout = useMemo<LayoutData | null>(() => {
 		if (loading || error || !Array.isArray(careerPaths) || !Array.isArray(positionDetails) || !Array.isArray(positions)
 			|| careerPaths.length === 0 || positionDetails.length === 0 || positions.length === 0) {
@@ -40,84 +43,74 @@ export default function CareerCompass() {
 			return null;
 		}
 
-		console.log("Calculating layout...");
+		console.log("Calculating Polar Grid layout...");
 
-		return generateGridLayout(
-			careerPaths,
-			positionDetails,
-			positions,
-			{
-				cellWidth: 100,
-				cellHeight: 100,
-				nodeSpacing: 1.5,
-				centerWeight: 0.6
-			}
-		);
+		// Define specific polar grid config options if needed
+		const polarConfig: Partial<PolarGridConfig> = {
+			midLevelRadius: 100,
+			radiusStep: 70,
+			numAngleSteps: 8, // 8 directions (45 deg steps)
+			pullInterchanges: 0.6,
+			nodeSortKey: 'level' // or 'sequence_in_path'
+		};
+
+		try {
+			// Use the new polar grid layout generator
+			return generatePolarGridLayout(
+				careerPaths,
+				positionDetails,
+				positions,
+				polarConfig // Pass the custom config
+			);
+		} catch (layoutError) {
+			console.error("Error generating polar grid layout:", layoutError);
+			// Optionally return a fallback layout or null
+			return null;
+		}
 	}, [loading, error, careerPaths, positionDetails, positions]);
 
 	// --- Loading State ---
-	if (loading) {
-		return (
-			<div className="flex items-center justify-center h-full w-full bg-background">
-				<div className="flex flex-col items-center">
-					<div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-foreground"></div>
-					<p className="mt-4 text-muted-foreground">Loading Career Data...</p>
-				</div>
-			</div>
-		);
-	}
+	if (loading) { return <LoadingIndicator />; }
 
 	// --- Error State ---
-	if (error) {
-		return (
-			<div className="flex items-center justify-center h-full w-full p-4 bg-background">
-				<div className="text-center text-destructive bg-destructive/10 p-6 rounded-lg border border-destructive/20 max-w-md">
-					<h2 className="text-lg font-semibold mb-2">Error Loading Data</h2>
-					<pre className="text-sm text-left whitespace-pre-wrap">{error}</pre>
-					<button
-						onClick={() => window.location.reload()}
-						className="mt-4 px-4 py-2 bg-destructive text-destructive-foreground rounded hover:bg-destructive/80 text-sm"
-					>
-						Retry
-					</button>
-				</div>
-			</div>
-		);
-	}
+	if (error) { return <ErrorDisplay error={error} />; }
+	if (!layout) { return <LayoutErrorDisplay />; } // Specific message if layout fails
 
-	// Handle target setting
+
+	// --- Event Handlers ---
 	const handleSetTarget = (nodeId: string) => {
 		setTargetNodeId(nodeId);
 		// Center the map on the target
-		if (mapRef.current) {
-			mapRef.current.centerOnNode(nodeId);
-		}
+		mapRef.current?.centerOnNode(nodeId);
 	};
 
-	const handleRemoveTarget = () => {
+	const handleRemoveTarget = () => { // Removed nodeId param as it's not needed
 		setTargetNodeId(null);
 	};
 
-	// --- Success State ---
+	const handleNodeSelect = (nodeId: string | null) => {
+		setSelectedNodeId(nodeId);
+		// Optionally center on selected node
+		if (nodeId) {
+			// mapRef.current?.centerOnNode(nodeId);
+		}
+	}
+
+	// --- Render ---
 	return (
 		<div className="relative h-full w-full text-foreground">
 			{/* Render the MetroMap */}
 			<div className="absolute inset-0">
-				{layout ? (
-					<MetroMap
-						ref={mapRef}
-						layout={layout}
-						selectedNodeId={selectedNodeId}
-						targetNodeId={targetNodeId}
-						onNodeSelect={setSelectedNodeId}
-						onSetTarget={handleSetTarget}
-						onRemoveTarget={handleRemoveTarget}
-					/>
-				) : (
-					<div className="flex items-center justify-center h-full">
-						<p className="text-muted-foreground">Preparing map layout...</p>
-					</div>
-				)}
+				<MetroMap
+					ref={mapRef}
+					layout={layout} // Layout is guaranteed non-null here
+					selectedNodeId={selectedNodeId}
+					targetNodeId={targetNodeId}
+					onNodeSelect={handleNodeSelect} // Use updated handler
+					onSetTarget={handleSetTarget}
+					onRemoveTarget={handleRemoveTarget}
+					showGrid={showGrid} // Pass grid visibility state
+				/>
 			</div>
 
 			{/* Map Controls */}
@@ -127,35 +120,17 @@ export default function CareerCompass() {
 					size="icon"
 					className="bg-background/80 backdrop-blur hover:bg-background/90"
 					onClick={() => setShowGrid(prev => !prev)}
-					title="Toggle Grid"
+					title={showGrid ? "Hide Grid" : "Show Grid"}
 				>
-					<Grid className="h-4 w-4" />
+					<Grid className={`h-4 w-4 ${showGrid ? 'text-primary' : ''}`} />
 				</Button>
-				<Button
-					variant="outline"
-					size="icon"
-					className="bg-background/80 backdrop-blur hover:bg-background/90"
-					onClick={() => mapRef.current?.zoomIn()}
-					title="Zoom In"
-				>
+				<Button variant="outline" size="icon" className="bg-background/80 backdrop-blur hover:bg-background/90" onClick={() => mapRef.current?.zoomIn()} title="Zoom In" >
 					<ZoomIn className="h-4 w-4" />
 				</Button>
-				<Button
-					variant="outline"
-					size="icon"
-					className="bg-background/80 backdrop-blur hover:bg-background/90"
-					onClick={() => mapRef.current?.zoomOut()}
-					title="Zoom Out"
-				>
+				<Button variant="outline" size="icon" className="bg-background/80 backdrop-blur hover:bg-background/90" onClick={() => mapRef.current?.zoomOut()} title="Zoom Out" >
 					<ZoomOut className="h-4 w-4" />
 				</Button>
-				<Button
-					variant="outline"
-					size="icon"
-					className="bg-background/80 backdrop-blur hover:bg-background/90"
-					onClick={() => mapRef.current?.zoomReset()}
-					title="Reset View"
-				>
+				<Button variant="outline" size="icon" className="bg-background/80 backdrop-blur hover:bg-background/90" onClick={() => mapRef.current?.zoomReset()} title="Reset View" >
 					<RefreshCw className="h-4 w-4" />
 				</Button>
 			</div>
@@ -164,11 +139,7 @@ export default function CareerCompass() {
 			<div className="absolute top-4 right-4 z-10">
 				<Sheet open={isDataSheetOpen} onOpenChange={setIsDataSheetOpen}>
 					<SheetTrigger asChild>
-						<Button
-							variant="outline"
-							size="icon"
-							className="bg-background/80 backdrop-blur hover:bg-background/90"
-						>
+						<Button variant="outline" size="icon" className="bg-background/80 backdrop-blur hover:bg-background/90" >
 							<Database className="h-4 w-4" />
 							<span className="sr-only">Show Data</span>
 						</Button>
@@ -178,11 +149,12 @@ export default function CareerCompass() {
 							<SheetTitle>Career Framework Data</SheetTitle>
 						</SheetHeader>
 						<DataDisplay
-							organization={organization}
+							organization={organization as Organization | null | undefined} // Cast if needed
 							careerPaths={careerPaths}
 							positions={positions}
 							positionDetails={positionDetails}
-							selectedNodeId={selectedNodeId}
+							selectedNodeId={selectedNodeId} // Pass selectedNodeId
+							layoutData={layout} // Pass layout data if needed by DataDisplay
 						/>
 					</SheetContent>
 				</Sheet>
@@ -190,3 +162,34 @@ export default function CareerCompass() {
 		</div>
 	);
 }
+
+
+// --- Helper Components ---
+const LoadingIndicator = () => (
+	<div className="flex items-center justify-center h-full w-full bg-background">
+		<div className="flex flex-col items-center">
+			<div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-foreground"></div>
+			<p className="mt-4 text-muted-foreground">Loading Career Data...</p>
+		</div>
+	</div>
+);
+
+const ErrorDisplay = ({ error }: { error: string | null }) => (
+	<div className="flex items-center justify-center h-full w-full p-4 bg-background">
+		<div className="text-center text-destructive bg-destructive/10 p-6 rounded-lg border border-destructive/20 max-w-md">
+			<h2 className="text-lg font-semibold mb-2">Error Loading Data</h2>
+			<pre className="text-sm text-left whitespace-pre-wrap">{error || "Unknown error"}</pre>
+			<button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-destructive text-destructive-foreground rounded hover:bg-destructive/80 text-sm"> Retry </button>
+		</div>
+	</div>
+);
+
+const LayoutErrorDisplay = () => (
+	<div className="flex items-center justify-center h-full w-full p-4 bg-background">
+		<div className="text-center text-warning bg-warning/10 p-6 rounded-lg border border-warning/20 max-w-md">
+			<h2 className="text-lg font-semibold mb-2">Layout Calculation Failed</h2>
+			<p className="text-sm">Could not generate the map layout. Please check the data or configuration.</p>
+			<button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-warning text-warning-foreground rounded hover:bg-warning/80 text-sm"> Retry </button>
+		</div>
+	</div>
+);

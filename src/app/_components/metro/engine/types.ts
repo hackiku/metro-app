@@ -1,34 +1,36 @@
 // src/app/_components/metro/engine/types.ts
 
+// --- Layout Output Structures ---
+
 /**
- * Layout node representing a station on the map
+ * Represents a single node (position instance) in the calculated layout.
  */
 export interface LayoutNode {
-	id: string;                // PositionDetail ID - unique identifier for this specific node instance
-	positionId: string;        // ID of the generic position
-	careerPathId: string;      // ID of the path this instance belongs to
+	id: string;                // Unique ID (e.g., PositionDetail ID)
+	positionId: string;        // ID of the generic Position
+	careerPathId: string;      // ID of the CareerPath this node instance belongs to
 	level: number;             // Seniority level
-	name: string;              // Display name (from position)
-	x: number;                 // X coordinate in layout
-	y: number;                 // Y coordinate in layout
-	color: string;             // Color from the career path
-	isInterchange: boolean;    // Whether this position appears in multiple paths
-	relatedPaths?: string[];   // IDs of all paths this position appears in
-	sequence_in_path?: number; // Optional sequence number within the path
+	name: string;              // Display name (from Position)
+	x: number;                 // Calculated X coordinate
+	y: number;                 // Calculated Y coordinate
+	color: string;             // Inherited from CareerPath
+	isInterchange?: boolean;   // Flag if position exists in multiple paths
+	relatedPaths?: string[];   // IDs of paths this position is part of
+	sequence_in_path?: number | null; // Optional ordering within a path/level
 }
 
 /**
- * Path metadata for a career path
+ * Represents a career path line connecting ordered nodes.
  */
 export interface LayoutPath {
-	id: string;        // Career path ID
-	name: string;      // Path name
-	color: string;     // Path color
-	nodes: string[];   // IDs of nodes in this path, ordered by level
+	id: string;                // CareerPath ID
+	name: string;              // CareerPath name
+	color: string;             // CareerPath color
+	nodes: string[];           // Ordered list of LayoutNode IDs belonging to this path
 }
 
 /**
- * Layout viewport bounds
+ * Defines the bounding box of the entire layout.
  */
 export interface LayoutBounds {
 	minX: number;
@@ -38,67 +40,95 @@ export interface LayoutBounds {
 }
 
 /**
- * Complete layout data structure
+ * Configuration options for the Polar Grid layout engine.
  */
-export interface LayoutData {
-	nodes: LayoutNode[];                    // All nodes in the layout
-	nodesById: Record<string, LayoutNode>;  // Quick lookup by ID
-	paths: LayoutPath[];                    // All path metadata
-	pathsById: Record<string, LayoutPath>;  // Quick lookup by ID
-	bounds: LayoutBounds;                   // Viewport bounds
-	configUsed: unknown;                    // Configuration used (type defined by specific layout)
+export interface PolarGridConfig {
+	layoutType: 'polarGrid';    // Discriminator for the layout type
+	// Radius definition
+	midLevelRadius: number;     // Radius for the 'middle' level(s)
+	radiusStep: number;         // Change in radius per level away from the middle
+	minRadius?: number;         // Optional minimum radius (innermost ring)
+	// Angle definition
+	numAngleSteps: number;      // How many radial lines (e.g., 8 for 45-degree steps)
+	angleOffsetDegrees?: number;// Optional rotation offset for the entire grid
+	// Placement options
+	levelGrouping?: 'nearest' | 'floor' | 'ceiling'; // How to group levels onto radius rings
+	pullInterchanges?: number;  // Factor (0-1) to pull interchange nodes towards average angle/radius
+	// General
+	padding: number;            // Padding around the calculated bounds
+	nodeSortKey?: 'level' | 'sequence_in_path'; // How to order nodes for line drawing
 }
 
 /**
- * Raw data types for inputs from database
+ * The complete layout data structure returned by the engine.
  */
-export interface CareerPath {
-	id: string;
-	name: string;
-	description?: string;
-	color: string;
-	organization_id?: string;
-	created_at?: string;
+export interface LayoutData {
+	nodes: LayoutNode[];                    // Array of all nodes
+	nodesById: Record<string, LayoutNode>;  // Nodes indexed by their ID
+	paths: LayoutPath[];                    // Array of all paths
+	pathsById: Record<string, LayoutPath>;  // Paths indexed by their ID
+	bounds: LayoutBounds;                   // Calculated bounds
+	configUsed: PolarGridConfig;            // The configuration used
 }
 
+// --- Input Data Structures (Mirroring your likely DB types) ---
+// Assuming these might be imported from a central types file elsewhere
+// For completeness if running standalone:
 export interface Position {
 	id: string;
 	name: string;
-	base_description?: string;
-	organization_id?: string;
-	created_at?: string;
+	description?: string | null;
+	organization_id: string;
+	created_at: string;
+	updated_at?: string | null;
+	tenant_id?: string | null;
+}
+
+export interface CareerPath {
+	id: string;
+	name: string;
+	description?: string | null;
+	color?: string | null;
+	organization_id: string;
+	created_at: string;
+	updated_at?: string | null;
+	tenant_id?: string | null;
 }
 
 export interface PositionDetail {
-	id: string;
+	id: string; // Unique ID for this entry in the join table
 	position_id: string;
 	career_path_id: string;
 	level: number;
-	sequence_in_path?: number | null;
+	sequence_in_path?: number | null; // Optional ordering within a path at the same level
+	created_at: string;
+	updated_at?: string | null;
+	tenant_id?: string | null;
+	organization_id: string;
 }
 
-/**
- * Grid cell for layout calculations
- */
+
+// --- Internal Helper Types used by engine files ---
+export interface PolarPoint {
+	radius: number;
+	angleDegrees: number;
+}
+
+export interface Point {
+	x: number;
+	y: number;
+}
+
+// Can add other internal types like GridCell, Direction if needed by engines
+// For example, if keeping the grid layout engine files:
 export interface GridCell {
 	x: number;
 	y: number;
 	occupied: boolean;
-	pathId?: string;
+	pathId?: string; // Optional: track which path occupies the cell
 }
 
-/**
- * Direction vectors for path routing
- */
-export type Direction = {
-	x: number;
-	y: number;
-}
-
-/**
- * Simple point interface
- */
-export interface Point {
+export interface Direction {
 	x: number;
 	y: number;
 }
