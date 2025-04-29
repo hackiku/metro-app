@@ -42,7 +42,6 @@ export const positionRouter = createTRPCRouter({
       return data || [];
     }),
   
-
 	  getAllPathsPositions: publicProcedure
     .input(z.object({ 
       organizationId: z.string(),
@@ -68,6 +67,51 @@ export const positionRouter = createTRPCRouter({
         .order('level');
         
       if (error) throw new Error(`Error fetching positions for paths: ${error.message}`);
+      return data || [];
+    }),
+
+		// Get positions for a specific career path
+  getByCareerPath: publicProcedure
+    .input(z.object({ 
+      organizationId: z.string(),
+      careerPathId: z.string()
+    }))
+    .query(async ({ input }) => {
+      const { data, error } = await supabase
+        .from('position_details')
+        .select(`
+          id,
+          level,
+          sequence_in_path,
+          path_specific_description,
+          positions:position_id(id, name, base_description)
+        `)
+        .eq('organization_id', input.organizationId)
+        .eq('career_path_id', input.careerPathId)
+        .order('level');
+        
+      if (error) throw new Error(`Error fetching positions for career path: ${error.message}`);
+      return data || [];
+    }),
+    
+  // Get all position details for an organization
+  getAllDetails: publicProcedure
+    .input(z.object({ organizationId: z.string() }))
+    .query(async ({ input }) => {
+      const { data, error } = await supabase
+        .from('position_details')
+        .select(`
+          id,
+          level,
+          sequence_in_path,
+          path_specific_description,
+          career_path_id,
+          position_id,
+          organization_id
+        `)
+        .eq('organization_id', input.organizationId);
+        
+      if (error) throw new Error(`Error fetching position details: ${error.message}`);
       return data || [];
     }),
   // Create a new position

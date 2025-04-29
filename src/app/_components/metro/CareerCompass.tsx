@@ -1,58 +1,55 @@
 // src/app/_components/metro/CareerCompass.tsx
-// Update to use the grid layout engine instead of the polar one
+// Refactored to use tRPC hooks instead of context
 
 import React, { useState, useMemo } from 'react';
-import { useCareerCompass } from '~/contexts/CareerCompassProvider';
 import DataDisplay from './ui/DataDisplay';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/components/ui/sheet';
 import { Button } from '~/components/ui/button';
 import { Database } from 'lucide-react';
-// Import the new grid layout engine
+// Import the grid layout engine
 import { generateGridLayout } from './engine/gridLayoutEngine';
 import type { LayoutData } from './engine/types';
-import MetroMap from './map/MetroMap';
 import StreamlinedMetroMap from './map/StreamlinedMetroMap';
+// Import the new hook instead of context
+import { useCareerCompassData } from './hooks/useCareerCompassData';
 
 export default function CareerCompass() {
-  const contextData = useCareerCompass();
-  const {
-    organization,
-    careerPaths,
-    positions,
-    positionDetails,
-    loading,
-    error,
-  } = contextData;
+	// Use the new hook instead of the context
+	const {
+		organization,
+		careerPaths,
+		positions,
+		positionDetails,
+		loading,
+		error,
+	} = useCareerCompassData();
 
-  const [isDataSheetOpen, setIsDataSheetOpen] = useState(false);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+	const [isDataSheetOpen, setIsDataSheetOpen] = useState(false);
+	const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
-  // Layout Calculation using the grid approach
-  const layout = useMemo<LayoutData | null>(() => {
-    if (loading || error || !Array.isArray(careerPaths) || !Array.isArray(positionDetails) || !Array.isArray(positions)
-      || careerPaths.length === 0 || positionDetails.length === 0 || positions.length === 0) {
-      console.log("Skipping layout calculation - data not ready");
-      return null;
-    }
+	// Layout Calculation using the grid approach
+	const layout = useMemo<LayoutData | null>(() => {
+		if (loading || error || !Array.isArray(careerPaths) || !Array.isArray(positionDetails) || !Array.isArray(positions)
+			|| careerPaths.length === 0 || positionDetails.length === 0 || positions.length === 0) {
+			console.log("Skipping layout calculation - data not ready");
+			return null;
+		}
 
-    console.log("Calculating grid layout...");
+		console.log("Calculating grid layout...");
 
-    return generateGridLayout(
-      careerPaths,
-      positionDetails,
-      positions,
-      {
-        cellWidth: 100,
-        cellHeight: 100,
-        levelMultiplier: 1.5,
-        domainSpread: 2,
-        centerWeight: 0.4
-      }
-    );
-  }, [loading, error, careerPaths, positionDetails, positions]);
-
-  // Rest of the component remains the same
-  // ...
+		return generateGridLayout(
+			careerPaths,
+			positionDetails,
+			positions,
+			{
+				cellWidth: 100,
+				cellHeight: 100,
+				levelMultiplier: 1.5,
+				domainSpread: 2,
+				centerWeight: 0.4
+			}
+		);
+	}, [loading, error, careerPaths, positionDetails, positions]);
 
 	// --- Loading State ---
 	if (loading) { return <LoadingIndicator />; }
@@ -72,19 +69,12 @@ export default function CareerCompass() {
 						onNodeSelect={setSelectedNodeId}
 						routeMode="manhattan"
 						cornerRadius={0}
-					/>				
-
-					// <MetroMap // Use renamed component
-					// 	layout={layout}
-					// 	selectedNodeId={selectedNodeId} // Pass selection state
-					// 	onNodeSelect={setSelectedNodeId} // Pass selection handler
-					// />
+					/>
 				) : (
 					<div className="flex items-center justify-center h-full">
 						<p className="text-muted-foreground">Preparing map layout...</p>
 					</div>
 				)}
-				
 			</div>
 
 			{/* Data Display Trigger & Sheet */}
@@ -116,7 +106,6 @@ export default function CareerCompass() {
 		</div>
 	);
 }
-
 
 // --- Loading State component ---
 const LoadingIndicator = () => (

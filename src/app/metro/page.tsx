@@ -2,9 +2,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// Import the UPDATED Providers
-import { Providers } from "~/contexts/Providers";
-// Import the NEW CareerCompass component (adjust path if you place it elsewhere)
+// Only need the SessionProvider now
+import { SessionProvider } from "~/contexts/SessionContext";
+// Import the refactored CareerCompass component
 import CareerCompass from "~/app/_components/metro/CareerCompass";
 
 export default function MetroPage() {
@@ -16,15 +16,18 @@ export default function MetroPage() {
 	}, []);
 
 	return (
-		<div className="relative h-full w-full"> {/* Ensure full height/width */}
+		<div className="relative h-full w-full">
 			{isClient ? (
-				<Providers>
-					{/* Wrap CareerCompass directly, let it handle layout */}
+				<SessionProvider>
 					<CareerCompass />
-				</Providers>
+				</SessionProvider>
 			) : (
-				// Optional: Add a server-side placeholder or loading state
-				<div>Loading Map...</div>
+				<div className="flex items-center justify-center h-full w-full">
+					<div className="flex flex-col items-center">
+						<div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-foreground"></div>
+						<p className="mt-4 text-muted-foreground">Loading Metro Map...</p>
+					</div>
+				</div>
 			)}
 		</div>
 	);
