@@ -3,10 +3,10 @@ import React, { useState, useMemo, useRef } from 'react';
 import DataDisplay from './ui/DataDisplay';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/components/ui/sheet';
 import { Button } from '~/components/ui/button';
-import { Database, ZoomIn, ZoomOut, RefreshCw, Grid } from 'lucide-react';
-// Import the NEW polar grid layout engine
+import { Database } from 'lucide-react';
+// Import the polar grid layout engine
 import { generateMetroLayout } from './engine/metroEngine';
-// Import necessary types, including the config type
+// Import necessary types
 import type { LayoutData, PolarGridConfig } from './engine/types';
 import MetroMap from './map/MetroMap';
 import type { MetroMapRef } from './map/MetroMap';
@@ -18,7 +18,7 @@ import type { Organization } from "~/types/compass";
 export default function CareerCompass() {
 	// Use the hook to get data
 	const {
-		organization, // Assuming hook provides this or similar
+		organization,
 		careerPaths,
 		positions,
 		positionDetails,
@@ -55,7 +55,7 @@ export default function CareerCompass() {
 		};
 
 		try {
-			// Use the new polar grid layout generator
+			// Use the polar grid layout generator
 			return generateMetroLayout(
 				careerPaths,
 				positions,
@@ -84,7 +84,6 @@ export default function CareerCompass() {
 	if (error) { return <ErrorDisplay error={error} />; }
 	if (!layout) { return <LayoutErrorDisplay />; } // Specific message if layout fails
 
-
 	// --- Event Handlers ---
 	const handleSetTarget = (nodeId: string) => {
 		setTargetNodeId(nodeId);
@@ -92,7 +91,7 @@ export default function CareerCompass() {
 		mapRef.current?.centerOnNode(nodeId);
 	};
 
-	const handleRemoveTarget = () => { // Removed nodeId param as it's not needed
+	const handleRemoveTarget = () => {
 		setTargetNodeId(null);
 	};
 
@@ -104,6 +103,10 @@ export default function CareerCompass() {
 		}
 	}
 
+	const handleToggleGrid = () => {
+		setShowGrid(prev => !prev);
+	};
+
 	// --- Render ---
 	return (
 		<div className="relative h-full w-full text-foreground">
@@ -114,33 +117,12 @@ export default function CareerCompass() {
 					layout={layout} // Layout is guaranteed non-null here
 					selectedNodeId={selectedNodeId}
 					targetNodeId={targetNodeId}
-					onNodeSelect={handleNodeSelect} // Use updated handler
+					onNodeSelect={handleNodeSelect}
 					onSetTarget={handleSetTarget}
 					onRemoveTarget={handleRemoveTarget}
-					showGrid={showGrid} // Pass grid visibility state
+					showGrid={showGrid}
+					onToggleGrid={handleToggleGrid}
 				/>
-			</div>
-
-			{/* Map Controls */}
-			<div className="absolute left-4 top-4 flex flex-col gap-2 z-10">
-				<Button
-					variant="outline"
-					size="icon"
-					className="bg-background/80 backdrop-blur hover:bg-background/90"
-					onClick={() => setShowGrid(prev => !prev)}
-					title={showGrid ? "Hide Grid" : "Show Grid"}
-				>
-					<Grid className={`h-4 w-4 ${showGrid ? 'text-primary' : ''}`} />
-				</Button>
-				<Button variant="outline" size="icon" className="bg-background/80 backdrop-blur hover:bg-background/90" onClick={() => mapRef.current?.zoomIn()} title="Zoom In" >
-					<ZoomIn className="h-4 w-4" />
-				</Button>
-				<Button variant="outline" size="icon" className="bg-background/80 backdrop-blur hover:bg-background/90" onClick={() => mapRef.current?.zoomOut()} title="Zoom Out" >
-					<ZoomOut className="h-4 w-4" />
-				</Button>
-				<Button variant="outline" size="icon" className="bg-background/80 backdrop-blur hover:bg-background/90" onClick={() => mapRef.current?.zoomReset()} title="Reset View" >
-					<RefreshCw className="h-4 w-4" />
-				</Button>
 			</div>
 
 			{/* Data Display Trigger & Sheet */}
@@ -157,12 +139,12 @@ export default function CareerCompass() {
 							<SheetTitle>Career Framework Data</SheetTitle>
 						</SheetHeader>
 						<DataDisplay
-							organization={organization as Organization | null | undefined} // Cast if needed
+							organization={organization as Organization | null | undefined}
 							careerPaths={careerPaths}
 							positions={positions}
 							positionDetails={positionDetails}
-							selectedNodeId={selectedNodeId} // Pass selectedNodeId
-							layoutData={layout} // Pass layout data if needed by DataDisplay
+							selectedNodeId={selectedNodeId}
+							layoutData={layout}
 						/>
 					</SheetContent>
 				</Sheet>
@@ -170,7 +152,6 @@ export default function CareerCompass() {
 		</div>
 	);
 }
-
 
 // --- Helper Components ---
 const LoadingIndicator = () => (
