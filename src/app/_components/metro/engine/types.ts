@@ -5,6 +5,38 @@
 /**
  * Represents a single node (position instance) in the calculated layout.
  */
+
+// src/app/_components/metro/engine/types.ts - PolarGridConfig Update
+
+export interface PolarGridConfig {
+	layoutType: 'polarGrid';          // Discriminator for the layout type
+
+	// Radius definition
+	midLevelRadius: number;           // Radius for the 'middle' level(s)
+	radiusStep: number;               // Change in radius per level away from the middle
+	minRadius?: number;               // Optional minimum radius (innermost ring)
+
+	// Angle definition
+	numAngleSteps: number;            // How many radial lines (e.g., 8 for 45-degree steps)
+	angleOffsetDegrees?: number;      // Optional rotation offset for the entire grid
+
+	// Placement options
+	levelGrouping?: 'nearest' | 'floor' | 'ceiling'; // How to group levels onto radius rings
+	pullInterchanges?: number;        // Factor (0-1) to pull interchange nodes towards average angle/radius
+
+	// General
+	padding: number;                  // Padding around the calculated bounds
+	nodeSortKey?: 'level' | 'sequence_in_path'; // How to order nodes for line drawing
+
+	// New options for improved layout
+	pathSpacingFactor?: number;       // Controls angular spacing between adjacent paths (default: 1.0)
+	levelSpreadFactor?: number;       // Controls how much levels spread outward (default: 1.0)
+	snapPathsToGrid?: boolean;        // Whether to snap paths to grid angles
+	snapRadiusToGrid?: boolean;       // Whether to snap radius to discrete steps
+	radiusRingStep?: number;          // Step size for radius rings if snapping
+	useJitter?: boolean;              // Whether to add slight random variation to positions
+	jitterAmount?: number;            // Amount of jitter to apply (0-1, default: 0.02)
+}
 export interface LayoutNode {
 	id: string;                // Unique ID (e.g., PositionDetail ID)
 	positionId: string;        // ID of the generic Position

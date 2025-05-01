@@ -4,19 +4,27 @@ import type { PolarGridConfig } from './types';
 
 export const DEFAULT_POLAR_GRID_CONFIG: PolarGridConfig = {
 	layoutType: 'polarGrid',
-	// Radius
-	midLevelRadius: 100,        // Middle levels will be around this radius
-	radiusStep: 60,           // Each level step away from middle adds/subtracts this radius
-	minRadius: 40,            // Ensure innermost ring isn't too small
+
+	// Radius - Significantly increased for better spacing
+	midLevelRadius: 300,       // Increase the middle level radius for more space
+	radiusStep: 150,           // Larger steps between levels
+	minRadius: 100,            // Increased minimum radius to prevent center crowding
+
 	// Angles
-	numAngleSteps: 8,           // 8 directions (0, 45, 90, 135, 180, etc.)
-	angleOffsetDegrees: 0,      // Start angles at 0 degrees (right)
+	numAngleSteps: 8,          // 8 directions (0, 45, 90, 135, 180, etc.)
+	angleOffsetDegrees: 22.5,  // Offset by half a step to avoid perfect horizontal/vertical
+
 	// Placement
-	levelGrouping: 'nearest',   // Group levels to the closest radius ring
-	pullInterchanges: 0.5,      // Moderately pull interchanges towards their average location
+	levelGrouping: 'nearest',  // Group levels to the closest radius ring
+	pullInterchanges: 0.3,     // Reduced pull to maintain path clarity
+
 	// General
-	padding: 50,                // Padding for bounds calculation
-	nodeSortKey: 'level',       // Sort nodes primarily by level for path drawing
+	padding: 80,               // Increased padding
+	nodeSortKey: 'level',      // Sort nodes primarily by level for path drawing
+
+	// Path Distribution
+	pathSpacingFactor: 1.5,    // Added: Control angular spacing between adjacent paths
+	levelSpreadFactor: 1.0     // Added: Control how much levels spread outward
 };
 
 /**
@@ -25,7 +33,8 @@ export const DEFAULT_POLAR_GRID_CONFIG: PolarGridConfig = {
  * @returns Angle step in degrees
  */
 export function getAngleStep(config: PolarGridConfig): number {
-	return 360 / config.numAngleSteps;
+	// Ensure numAngleSteps is at least 1 to avoid division by zero
+	return 360 / Math.max(1, config.numAngleSteps);
 }
 
 /**
@@ -49,9 +58,42 @@ export function polarToCartesian(radius: number, angleDegrees: number): { x: num
  */
 export function snapToNearestAngle(angleDegrees: number, config: PolarGridConfig): number {
 	const angleStep = getAngleStep(config);
+	// Handle potential division by zero if angleStep is 0
+	if (angleStep === 0) return config.angleOffsetDegrees || 0;
+
 	const offsetAngle = angleDegrees - (config.angleOffsetDegrees || 0);
-	const stepIndex = Math.round(offsetAngle / angleStep);
+	// More robust rounding:
+	const stepIndex = Math.floor(offsetAngle / angleStep + 0.5);
+
 	const snappedAngle = stepIndex * angleStep + (config.angleOffsetDegrees || 0);
-	// Normalize angle to be within [0, 360) or similar range if needed
+	// Normalize angle to be within [0, 360)
 	return ((snappedAngle % 360) + 360) % 360;
+}
+
+/**
+ * Calculates a radius based on level using a non-linear scaling function
+ * to create better distribution of levels
+ */
+export function calculateEnhancedRadius(
+	level: number,
+	levelInfo: { minLevel: number; maxLevel: number; midLevel: number },
+	config: PolarGridConfig
+): number {
+	const { minLevel, maxLevel, midLevel } = levelInfo;
+	const { midLevelRadius, radiusStep, minRadius = 0, levelSpreadFactor = 1.0 } = config;
+
+	// Calculate normalized position in level range (0 to 1)
+	const levelRange = maxLevel - minLevel;
+	if (levelRange === 0) return midLevelRadius; // Handle edge case
+
+	const normalizedLevel = (level - minLevel) / levelRange;
+
+	// Apply non-linear scaling - this creates more space between levels as they move outward
+	// Square root function gives more space to higher levels, multiplier controls intensity
+	const scalingFactor = Math.pow(normalizedLevel, 0.5) * levelSpreadFactor;
+
+	// Calculate radius based on normalized position
+	const radius = minRadius + (midLevelRadius - minRadius) + (scalingFactor * radiusStep * levelRange);
+
+	return Math.max(radius, minRadius);
 }
