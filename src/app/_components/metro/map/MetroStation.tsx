@@ -91,9 +91,12 @@ export default function MetroStation({
 	const inverseScale = currentScale > 0 ? 1 / currentScale : 1;
 
 	// adaptive text size based on zoom level
-	const adaptiveTextSize = Math.max(0.9, Math.min(1, 1 * ((currentScale) * 0.2)));
+	// const adaptiveTextSize = Math.max(0.9, Math.min(1, 1 * ((currentScale) * 0.2)));
 	// const adaptiveTextSize = (currentScale) * 0.2;
-	
+	const adaptiveTextSize = currentScale < 1
+		? Math.max(9, 14 * currentScale) // Scales down faster when zooming out
+		: Math.min(16, 14 + (currentScale - 1) * 2); // Scales up slower when zooming in
+
 	// Get state-based styling for the ring/stroke
 	let ringColor = "var(--border)";
 	let strokeWidth = 2; // Increased from 1
@@ -165,7 +168,7 @@ export default function MetroStation({
 							display: 'inline-block',
 							maxWidth: '100%',
 							// fontSize: `${adaptiveTextSize}em` // Dynamic font size based on zoom
-							fontSize: `${adaptiveTextSize}em` // Dynamic font size based on zoom
+							fontSize: `${adaptiveTextSize}px` // Dynamic font size based on zoom
 						}}
 					>
 						{node.name}

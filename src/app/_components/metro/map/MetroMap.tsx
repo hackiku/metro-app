@@ -8,6 +8,7 @@ import MetroLine from './MetroLine';
 import MetroStation from './MetroStation';
 import ZoomControls from '../ui/ZoomControls';
 import { useMetroMapInteraction } from '../hooks/useMetroMapInteraction';
+import { ScaleProvider, useScale } from '~/contexts/ScaleContext';
 
 interface MetroMapProps {
 	layout: LayoutData;
