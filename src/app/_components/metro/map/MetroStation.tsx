@@ -22,7 +22,7 @@ interface MetroStationProps {
 }
 
 /**
- * Renders a station node on the metro map
+ * Renders a station node on the metro map with improved text positioning
  */
 export default function MetroStation({
 	node,
@@ -36,11 +36,70 @@ export default function MetroStation({
 	const [isOpen, setIsOpen] = useState(false);
 	const circleRef = useRef<SVGCircleElement>(null);
 
-	// Base styling values
-	const radius = node.isInterchange ? 9 : 7;
+	// Base styling values - make interchange nodes more visible
+	const radius = node.isInterchange ? 8 : 6;
+
+	// Text positioning based on node position to avoid overlap
+	// Calculate angle from center to determine label position
+	const angle = Math.atan2(node.y, node.x) * (180 / Math.PI);
+
+	// Determine label position based on angle
+	let labelX = -60;
+	let labelY = -radius - 25;
+	let labelAnchor = "middle";
+
+	// Position text to avoid overlapping with lines
+	// We divide the space around the node into 8 sectors and position accordingly
+	if (angle > -22.5 && angle <= 22.5) {
+		// Right
+		labelX = radius + 10;
+		labelY = -5;
+		labelAnchor = "start";
+	} else if (angle > 22.5 && angle <= 67.5) {
+		// Bottom-right
+		labelX = radius + 10;
+		labelY = radius + 5;
+		labelAnchor = "start";
+	} else if (angle > 67.5 && angle <= 112.5) {
+		// Bottom
+		labelX = 0;
+		labelY = radius + 15;
+		labelAnchor = "middle";
+	} else if (angle > 112.5 && angle <= 157.5) {
+		// Bottom-left
+		labelX = -radius - 10;
+		labelY = radius + 5;
+		labelAnchor = "end";
+	} else if ((angle > 157.5 && angle <= 180) || (angle <= -157.5 && angle > -180)) {
+		// Left
+		labelX = -radius - 10;
+		labelY = -5;
+		labelAnchor = "end";
+	} else if (angle > -157.5 && angle <= -112.5) {
+		// Top-left
+		labelX = -radius - 10;
+		labelY = -radius - 5;
+		labelAnchor = "end";
+	} else if (angle > -112.5 && angle <= -67.5) {
+		// Top
+		labelX = 0;
+		labelY = -radius - 15;
+		labelAnchor = "middle";
+	} else if (angle > -67.5 && angle <= -22.5) {
+		// Top-right
+		labelX = radius + 10;
+		labelY = -radius - 5;
+		labelAnchor = "start";
+	}
 
 	// Station style based on state
-	let strokeColor = "var(--border-foreground)";
+	let strokeColor = "var(--border)";
+	let strokeWidth = 1.0;
+
+	if (isSelected) {
+		strokeColor = "white";
+		strokeWidth = 2;
+	}
 	if (isCurrent) strokeColor = "#4f46e5"; // Indigo
 	if (isTarget) strokeColor = "#f59e0b";  // Amber
 
@@ -61,22 +120,40 @@ export default function MetroStation({
 	return (
 		<g
 			transform={`translate(${node.x}, ${node.y})`}
-			className={`station ${isCurrent ? 'current' : ''} ${isTarget ? 'target' : ''} ${isOpen ? 'menu-open' : ''}`}
+			className={`metro-station station ${isCurrent ? 'current' : ''} ${isTarget ? 'target' : ''} ${isOpen ? 'menu-open' : ''}`}
 		>
-			{/* Station circle */}
+			{/* Station circle with hover effects */}
 			<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
 				<DropdownMenuTrigger asChild>
-					<circle
-						ref={circleRef}
-						r={radius}
-						fill={node.color}
-						stroke={strokeColor}
-						strokeWidth={1.5}
-						className="cursor-pointer transition-colors duration-200"
-						onClick={handleStationClick}
-						onContextMenu={handleContextMenu}
-					/>
+					<g className="cursor-pointer">
+						{/* Larger hit area for easier interaction */}
+						<circle
+							r={radius + 5}
+							fill="transparent"
+							className="station-hit-area"
+						/>
+
+						{/* Visual station circle */}
+						<circle
+							ref={circleRef}
+							r={radius}
+							fill={node.color}
+							stroke={strokeColor}
+							strokeWidth={strokeWidth}
+							className="station-circle transition-all duration-200 hover:stroke-white"
+						/>
+
+						{/* Inner dot for interchange stations */}
+						{node.isInterchange && (
+							<circle
+								r={radius / 2}
+								fill="var(--background)"
+								className="station-interchange"
+							/>
+						)}
+					</g>
 				</DropdownMenuTrigger>
+
 				<DropdownMenuContent align="center" sideOffset={5}>
 					<DropdownMenuItem
 						className="gap-2 cursor-pointer"
@@ -98,21 +175,33 @@ export default function MetroStation({
 				</DropdownMenuContent>
 			</DropdownMenu>
 
-			{/* Station label using foreignObject for Tailwind styling */}
+			{/* Station label using foreignObject for Tailwind styling 
+          with dynamic positioning based on angle */}
 			<foreignObject
-				x={-60}
-				y={-radius - 25}
+				x={labelX}
+				y={labelY}
 				width={120}
 				height={24}
-				style={{ pointerEvents: 'none' }}
+				style={{
+					pointerEvents: 'none',
+					textAlign: labelAnchor === 'middle' ? 'center' : labelAnchor === 'start' ? 'left' : 'right',
+					overflow: 'visible'
+				}}
+				className="station-label"
 			>
-				<div className="h-full flex items-center justify-center text-xs font-medium">
-					<div
-						className="px-1.5 py-0.5 rounded bg-background/90 text-foreground truncate"
-						style={{ maxWidth: '114px' }}
-					>
-						{node.name}
-					</div>
+				<div
+					className="station-text px-1.5 py-0.5 rounded bg-background/90 text-foreground 
+                     text-xs font-medium inline-block"
+					style={{
+						maxWidth: '114px',
+						whiteSpace: 'nowrap',
+						overflow: 'hidden',
+						textOverflow: 'ellipsis',
+						// Add a subtle text shadow to help with readability
+						textShadow: '0 0 2px rgba(0,0,0,0.5)'
+					}}
+				>
+					{node.name}
 				</div>
 			</foreignObject>
 		</g>

@@ -10,44 +10,110 @@ interface MetroLineProps {
 	nodes: LayoutNode[];
 	lineWidth?: number;
 	opacity?: number;
+	isSelected?: boolean;
 }
 
 /**
  * Renders a metro line connecting nodes of the same career path.
+ * Improved with visual cues and optional highlighting.
  */
 export default function MetroLine({
 	path,
 	nodes,
 	lineWidth = 4,
-	opacity = 0.8
+	opacity = 0.9,
+	isSelected = false
 }: MetroLineProps) {
 	// Generate SVG path data for this line
-	const pathData = useMemo(() => {
-		if (nodes.length < 2) return '';
+	const { pathData, markers } = useMemo(() => {
+		if (nodes.length < 2) return { pathData: '', markers: [] };
 
 		// Generate path points using manhattan routing
 		const pathPoints = generatePathSegments(nodes);
 
-
 		// Convert points to SVG path data
-		return generateSvgPathData(pathPoints);
+		const pathData = generateSvgPathData(pathPoints);
+
+		// Generate markers for the path (e.g., direction indicators)
+		// For each segment longer than a certain threshold
+		const markers: Array<{ x: number, y: number, angle: number }> = [];
+
+		// Add direction indicators on longer segments
+		for (let i = 0; i < pathPoints.length - 1; i++) {
+			const current = pathPoints[i];
+			const next = pathPoints[i + 1];
+
+			// Calculate segment length
+			const dx = next.x - current.x;
+			const dy = next.y - current.y;
+			const length = Math.sqrt(dx * dx + dy * dy);
+
+			// Only add markers for longer segments
+			if (length > 70) {
+				// Calculate the midpoint of this segment
+				const midX = current.x + dx * 0.5;
+				const midY = current.y + dy * 0.5;
+
+				// Calculate angle for rotation
+				const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+
+				markers.push({ x: midX, y: midY, angle });
+			}
+		}
+
+		return { pathData, markers };
 	}, [nodes]);
 
 	// If there are no nodes or only one node, don't render
 	if (nodes.length < 2) return null;
 
-	// Render the line
+	// Modify styles based on selection state
+	const highlightStrokeWidth = isSelected ? lineWidth + 2 : lineWidth;
+	const pathOpacity = isSelected ? 1 : opacity;
+
 	return (
-		<path
-			d={pathData}
-			stroke={path.color}
-			strokeWidth={lineWidth}
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			fill="none"
-			opacity={opacity}
-			className="transition-opacity duration-300"
-			data-path-id={path.id}
-		/>
+		<g className="metro-line">
+			{/* Background stroke for better visibility against dark backgrounds */}
+			<path
+				d={pathData}
+				stroke="rgba(0,0,0,0.3)"
+				strokeWidth={highlightStrokeWidth + 2}
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				fill="none"
+				opacity={0.3}
+				className="metro-line-shadow"
+			/>
+
+			{/* Main path line */}
+			<path
+				d={pathData}
+				stroke={path.color}
+				strokeWidth={highlightStrokeWidth}
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				fill="none"
+				opacity={pathOpacity}
+				className="metro-line-main transition-all duration-300"
+				data-path-id={path.id}
+			/>
+
+			{/* Optional direction markers */}
+			{markers.map((marker, index) => (
+				<g
+					key={`marker-${index}`}
+					transform={`translate(${marker.x}, ${marker.y}) rotate(${marker.angle})`}
+					className="metro-line-marker"
+				>
+					{/* Simple arrow or dot marker */}
+					<circle
+						r={lineWidth / 2}
+						fill={path.color}
+						opacity={pathOpacity}
+						className="metro-line-dot"
+					/>
+				</g>
+			))}
+		</g>
 	);
 }
