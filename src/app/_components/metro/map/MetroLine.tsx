@@ -3,7 +3,7 @@
 
 import React, { useMemo } from 'react';
 import type { LayoutPath, LayoutNode } from '../engine/types';
-import { generateManhattanSegments, generateSvgPathData } from '../engine/pathRouting';
+import { generatePathSegments, generateSvgPathData } from '../engine/pathDrawer';
 
 interface MetroLineProps {
 	path: LayoutPath;
@@ -26,7 +26,8 @@ export default function MetroLine({
 		if (nodes.length < 2) return '';
 
 		// Generate path points using manhattan routing
-		const pathPoints = generateManhattanSegments(nodes);
+		const pathPoints = generatePathSegments(nodes);
+
 
 		// Convert points to SVG path data
 		return generateSvgPathData(pathPoints);

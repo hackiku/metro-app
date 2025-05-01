@@ -1,4 +1,5 @@
-// pathDrawer.ts
+// src/app/_components/metro/engine/pathDrawer.ts
+
 import type { LayoutNode, LayoutPath, Point, MetroConfig } from './types';
 import { DEFAULT_CONFIG } from './config';
 

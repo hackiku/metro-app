@@ -13,10 +13,6 @@ interface PolarGridProps {
 	centerY?: number;
 }
 
-/**
- * Enhanced polar grid overlay to visualize the layout structure
- * Shows concentric circles and radial lines with relevant information
- */
 export default function PolarGrid({
 	config,
 	maxRadius = 500,
@@ -27,10 +23,10 @@ export default function PolarGrid({
 }: PolarGridProps) {
 	if (!config) return null;
 
-	// Extract relevant config values
+	// Extract relevant config values with defaults to prevent NaN values
 	const {
-		midLevelRadius = 300,
-		radiusStep = 100,
+		midLevelRadius = 250,
+		radiusStep = 70,
 		minRadius = 100,
 		numAngleSteps = 8,
 		angleOffsetDegrees = 0,
@@ -38,34 +34,39 @@ export default function PolarGrid({
 
 	// Calculate radii for concentric circles
 	const radii: number[] = [];
-	let currentRadius = minRadius;
 
-	// Add circles below mid level
-	while (currentRadius < midLevelRadius) {
-		radii.push(currentRadius);
-		currentRadius += radiusStep;
+	// Start with minimum radius
+	if (minRadius > 0) {
+		radii.push(minRadius);
 	}
 
-	// Add mid level circle
-	radii.push(midLevelRadius);
-	currentRadius = midLevelRadius + radiusStep;
+	// Add mid-level radius if not already included
+	if (midLevelRadius > 0 && !radii.includes(midLevelRadius)) {
+		radii.push(midLevelRadius);
+	}
 
-	// Add circles above mid level, up to maxRadius
+	// Add additional radius steps
+	let currentRadius = radiusStep;
 	while (currentRadius <= maxRadius) {
-		radii.push(currentRadius);
+		if (!radii.includes(currentRadius)) {
+			radii.push(currentRadius);
+		}
 		currentRadius += radiusStep;
 	}
+
+	// Sort radii in ascending order
+	radii.sort((a, b) => a - b);
 
 	// Calculate angles for radial lines
 	const angles: number[] = [];
-	const angleStep = 360 / numAngleSteps;
+	const angleStep = 360 / Math.max(1, numAngleSteps); // Prevent division by zero
 
 	for (let i = 0; i < numAngleSteps; i++) {
-		angles.push((i * angleStep + angleOffsetDegrees) % 360);
+		angles.push((i * angleStep + (angleOffsetDegrees || 0)) % 360);
 	}
 
 	// Convert angle from degrees to radians
-	const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+	const toRadians = (degrees: number) => ((degrees || 0) * Math.PI) / 180;
 
 	return (
 		<g className="polar-grid" pointerEvents="none">
@@ -97,7 +98,7 @@ export default function PolarGrid({
 							>
 								{radius === midLevelRadius ?
 									`Mid (${radius})` :
-									`${radius < midLevelRadius ? 'Junior' : 'Senior'} (${radius})`
+									`${radius}`
 								}
 							</text>
 						)}
@@ -108,21 +109,25 @@ export default function PolarGrid({
 			{/* Radial Lines */}
 			{angles.map((angle, index) => {
 				const radians = toRadians(angle);
-				const x2 = centerX + maxRadius * Math.cos(radians);
-				const y2 = centerY + maxRadius * Math.sin(radians);
+				// Ensure values are numbers and not NaN
+				const cosAngle = Math.cos(radians) || 0;
+				const sinAngle = Math.sin(radians) || 0;
+
+				const x2 = centerX + maxRadius * cosAngle;
+				const y2 = centerY + maxRadius * sinAngle;
 
 				// Position the label slightly beyond the line end
 				const labelDistance = maxRadius * 1.05;
-				const labelX = centerX + labelDistance * Math.cos(radians);
-				const labelY = centerY + labelDistance * Math.sin(radians);
+				const labelX = centerX + labelDistance * cosAngle;
+				const labelY = centerY + labelDistance * sinAngle;
 
 				return (
 					<React.Fragment key={`angle-${angle}`}>
 						<line
 							x1={centerX}
 							y1={centerY}
-							x2={x2}
-							y2={y2}
+							x2={x2 || centerX} // Fallback to prevent NaN
+							y2={y2 || centerY} // Fallback to prevent NaN
 							stroke="var(--muted-foreground)"
 							strokeWidth="0.5"
 							strokeDasharray="4 4"
@@ -130,8 +135,8 @@ export default function PolarGrid({
 						/>
 						{showLabels && (
 							<text
-								x={labelX}
-								y={labelY}
+								x={labelX || centerX} // Fallback to prevent NaN
+								y={labelY || centerY} // Fallback to prevent NaN
 								fontSize="10px"
 								fill="var(--muted-foreground)"
 								textAnchor="middle"
@@ -145,7 +150,7 @@ export default function PolarGrid({
 				);
 			})}
 
-			{/* Debug Info Panel */}
+			{/* Config Info Panel */}
 			{showLabels && (
 				<g transform={`translate(${centerX - 100}, ${centerY + maxRadius - 140})`}>
 					<rect
@@ -166,8 +171,7 @@ export default function PolarGrid({
 						<tspan x={10} dy={16}>• Radius Step: {radiusStep}</tspan>
 						<tspan x={10} dy={16}>• Min Radius: {minRadius}</tspan>
 						<tspan x={10} dy={16}>• Angle Steps: {numAngleSteps}</tspan>
-						<tspan x={10} dy={16}>• Angle Offset: {angleOffsetDegrees}°</tspan>
-						<tspan x={10} dy={16}>• Pull Interchanges: {config.pullInterchanges || 0}</tspan>
+						<tspan x={10} dy={16}>• Angle Offset: {angleOffsetDegrees || 0}°</tspan>
 					</text>
 				</g>
 			)}

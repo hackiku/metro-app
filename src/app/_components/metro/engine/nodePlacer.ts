@@ -1,4 +1,5 @@
-// nodePlacer.ts
+// src/app/_components/metro/engine/nodePlacer.ts
+
 import type { CareerPath, PositionDetail, Position, LayoutNode, PolarPoint, MetroConfig } from './types';
 import { DEFAULT_CONFIG } from './config';
 

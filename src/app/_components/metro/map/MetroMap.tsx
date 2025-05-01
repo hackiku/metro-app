@@ -7,6 +7,7 @@ import MetroGrid from './MetroGrid';
 import PolarGrid from './PolarGrid';
 import MetroLine from './MetroLine';
 import MetroStation from './MetroStation';
+import ZoomControls from '../ui/ZoomControls';
 
 interface MetroMapProps {
 	layout: LayoutData;
@@ -17,6 +18,7 @@ interface MetroMapProps {
 	onSetTarget?: (nodeId: string) => void;
 	onRemoveTarget?: (nodeId?: string) => void;
 	showGrid?: boolean;
+	onToggleGrid?: () => void;
 	gridType?: 'rectangular' | 'polar' | 'both';
 	className?: string;
 }
@@ -37,6 +39,7 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 	onSetTarget,
 	onRemoveTarget,
 	showGrid = false,
+	onToggleGrid,
 	gridType = 'polar',
 	className = ""
 }, ref) => {
@@ -46,6 +49,17 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 	const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+	const [internalShowGrid, setInternalShowGrid] = useState(showGrid);
+
+	// Use either external or internal grid state
+	const effectiveShowGrid = onToggleGrid ? showGrid : internalShowGrid;
+	const handleToggleGrid = () => {
+		if (onToggleGrid) {
+			onToggleGrid();
+		} else {
+			setInternalShowGrid(prev => !prev);
+		}
+	};
 
 	// Group nodes by path for easier rendering
 	const nodesByPath = useMemo(() => {
@@ -210,29 +224,19 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 		if (isDragging) setIsDragging(false);
 	}
 
-	// Handle clicking on a station node
-	const handleNodeClick = (nodeId: string) => {
-		if (onNodeSelect) {
-			onNodeClick(nodeId);
-		}
-	};
-
-	// Handle setting a target node
-	const handleSetTarget = (nodeId: string) => {
-		if (onSetTarget) {
-			onSetTarget(nodeId);
-		}
-	};
-
-	// Handle removing a target
-	const handleRemoveTarget = (nodeId?: string) => {
-		if (onRemoveTarget) {
-			onRemoveTarget(nodeId);
-		}
-	};
-
 	return (
 		<div ref={containerRef} className={`relative w-full h-full overflow-hidden ${className}`}>
+			{/* ZoomControls Component */}
+			<div className="absolute left-4 top-4 z-10">
+				<ZoomControls
+					onZoomIn={zoomIn}
+					onZoomOut={zoomOut}
+					onZoomReset={zoomReset}
+					showGrid={effectiveShowGrid}
+					onToggleGrid={handleToggleGrid}
+				/>
+			</div>
+
 			<svg
 				ref={svgRef}
 				width={dimensions.width}
@@ -249,7 +253,7 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 				{/* Main transform group */}
 				<g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
 					{/* Optional debug grids */}
-					{showGrid && (
+					{effectiveShowGrid && (
 						<>
 							{(gridType === 'rectangular' || gridType === 'both') && (
 								<MetroGrid layout={layout} opacity={0.1} />
@@ -291,8 +295,8 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 							isCurrent={node.id === currentNodeId}
 							isTarget={node.id === targetNodeId}
 							onClick={onNodeSelect ? () => onNodeSelect(node.id) : undefined}
-							onSetTarget={onSetTarget ? handleSetTarget : undefined}
-							onRemoveTarget={onRemoveTarget ? handleRemoveTarget : undefined}
+							onSetTarget={onSetTarget}
+							onRemoveTarget={onRemoveTarget}
 						/>
 					))}
 				</g>

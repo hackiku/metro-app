@@ -1,4 +1,5 @@
-// metroEngine.ts
+// src/app/_components/metro/engine/metroEngine.ts
+
 import type { CareerPath, Position, PositionDetail, LayoutData, LayoutNode, LayoutPath, LayoutBounds, MetroConfig } from './types';
 import { DEFAULT_CONFIG } from './config';
 import { assignPathAngles, calculateNodePositions } from './nodePlacer';

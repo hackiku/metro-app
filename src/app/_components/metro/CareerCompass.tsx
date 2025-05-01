@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/co
 import { Button } from '~/components/ui/button';
 import { Database, ZoomIn, ZoomOut, RefreshCw, Grid } from 'lucide-react';
 // Import the NEW polar grid layout engine
-import { generatePolarGridLayout } from './engine/polarGridLayoutEngine';
+import { generateMetroLayout } from './engine/metroEngine';
 // Import necessary types, including the config type
 import type { LayoutData, PolarGridConfig } from './engine/types';
 import MetroMap from './map/MetroMap';
@@ -56,11 +56,19 @@ export default function CareerCompass() {
 
 		try {
 			// Use the new polar grid layout generator
-			return generatePolarGridLayout(
+			return generateMetroLayout(
 				careerPaths,
-				positionDetails,
 				positions,
-				polarConfig // Pass the custom config
+				positionDetails,
+				{
+					midLevelRadius: polarConfig.midLevelRadius || 250,
+					radiusStep: polarConfig.radiusStep || 70,
+					minRadius: polarConfig.minRadius || 100,
+					numDirections: polarConfig.numAngleSteps || 8,
+					angleOffset: polarConfig.angleOffsetDegrees || 22.5,
+					eccentricity: 0.3, // Add a default value
+					padding: polarConfig.padding || 50
+				}
 			);
 		} catch (layoutError) {
 			console.error("Error generating polar grid layout:", layoutError);
