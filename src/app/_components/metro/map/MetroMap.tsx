@@ -4,6 +4,7 @@
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 import type { LayoutData, LayoutNode } from '../engine/types';
 import MetroGrid from './MetroGrid';
+import PolarGrid from './PolarGrid';
 import MetroLine from './MetroLine';
 import MetroStation from './MetroStation';
 
@@ -14,8 +15,9 @@ interface MetroMapProps {
 	currentNodeId?: string | null;
 	targetNodeId?: string | null;
 	onSetTarget?: (nodeId: string) => void;
-	onRemoveTarget?: () => void;
+	onRemoveTarget?: (nodeId?: string) => void;
 	showGrid?: boolean;
+	gridType?: 'rectangular' | 'polar' | 'both';
 	className?: string;
 }
 
@@ -35,6 +37,7 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 	onSetTarget,
 	onRemoveTarget,
 	showGrid = false,
+	gridType = 'polar',
 	className = ""
 }, ref) => {
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -44,6 +47,7 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+	// Group nodes by path for easier rendering
 	const nodesByPath = useMemo(() => {
 		const result = new Map<string, LayoutNode[]>();
 		if (!layout) return result;
@@ -56,6 +60,20 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 		return result;
 	}, [layout]);
 
+	// Calculate the maximum radius used in the layout for the polar grid
+	const maxRadius = useMemo(() => {
+		if (!layout?.nodes.length) return 500;
+
+		let maxDist = 0;
+		layout.nodes.forEach(node => {
+			const dist = Math.sqrt(node.x * node.x + node.y * node.y);
+			maxDist = Math.max(maxDist, dist);
+		});
+
+		// Add some padding
+		return Math.ceil(maxDist * 1.2 / 100) * 100;
+	}, [layout]);
+
 	const zoom = (factor: number, center?: { x: number, y: number }) => {
 		const newScale = transform.scale * factor;
 		const scale = Math.max(0.1, Math.min(newScale, 8));
@@ -65,7 +83,6 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 
 		if (center) {
 			x = center.x - (center.x - transform.x) * (scale / transform.scale);
-			// *** FIX: Use center.y instead of mouseY ***
 			y = center.y - (center.y - transform.y) * (scale / transform.scale);
 		} else {
 			const centerX = dimensions.width / 2;
@@ -111,7 +128,7 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 		const currentScale = transform.scale;
 		const x = width / 2 - node.x * currentScale;
 		const y = height / 2 - node.y * currentScale;
-		setTransform(prev => ({ ...prev, x, y, scale: currentScale }));
+		setTransform(prev => ({ ...prev, x, y }));
 	};
 
 	useImperativeHandle(ref, () => ({
@@ -142,7 +159,6 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 
 	const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
 		// Allow panning only if not clicking directly on a station or button
-		// Check if the original target has a 'metro-station' class or similar identifier
 		let targetElement = e.target as Element;
 		// Traverse up if needed (e.g., clicking text inside station group)
 		while (targetElement && targetElement !== svgRef.current) {
@@ -185,14 +201,35 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 	const handleBackgroundClick = (e: React.MouseEvent<SVGSVGElement>) => {
 		// If the click target is the SVG background itself (or the container group)
 		// and not initiated from a drag, deselect node
-		if (!isDragging && (e.target === svgRef.current || e.target === svgRef.current?.firstElementChild) && onNodeSelect) {
-			// Check if we clicked *near* drag end - might need tolerance
-			// Simple check: if not dragging, treat as background click
+		if (!isDragging &&
+			(e.target === svgRef.current || e.target === svgRef.current?.firstElementChild) &&
+			onNodeSelect) {
 			onNodeSelect(null);
 		}
 		// Reset dragging state just in case mouseup didn't fire correctly
 		if (isDragging) setIsDragging(false);
 	}
+
+	// Handle clicking on a station node
+	const handleNodeClick = (nodeId: string) => {
+		if (onNodeSelect) {
+			onNodeClick(nodeId);
+		}
+	};
+
+	// Handle setting a target node
+	const handleSetTarget = (nodeId: string) => {
+		if (onSetTarget) {
+			onSetTarget(nodeId);
+		}
+	};
+
+	// Handle removing a target
+	const handleRemoveTarget = (nodeId?: string) => {
+		if (onRemoveTarget) {
+			onRemoveTarget(nodeId);
+		}
+	};
 
 	return (
 		<div ref={containerRef} className={`relative w-full h-full overflow-hidden ${className}`}>
@@ -200,10 +237,8 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 				ref={svgRef}
 				width={dimensions.width}
 				height={dimensions.height}
-				// *** REMOVE cursor classes related to dragging ***
-				// Let browser/CSS handle cursor (default, pointer on stations)
 				className={`block w-full h-full bg-background`}
-				style={{ cursor: 'default' }} // Explicitly set default cursor
+				style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
 				onMouseDown={handleMouseDown}
 				onMouseMove={handleMouseMove}
 				onMouseUp={handleMouseUpOrLeave}
@@ -213,8 +248,21 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 			>
 				{/* Main transform group */}
 				<g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
-					{/* Optional debug grid */}
-					{showGrid && <MetroGrid layout={layout} />}
+					{/* Optional debug grids */}
+					{showGrid && (
+						<>
+							{(gridType === 'rectangular' || gridType === 'both') && (
+								<MetroGrid layout={layout} opacity={0.1} />
+							)}
+							{(gridType === 'polar' || gridType === 'both') && layout.configUsed && (
+								<PolarGrid
+									config={layout.configUsed}
+									maxRadius={maxRadius}
+									showLabels={true}
+								/>
+							)}
+						</>
+					)}
 
 					{/* Path lines */}
 					{layout.paths.map(path => {
@@ -230,8 +278,6 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 								isSelected={isPathSelected}
 								lineWidth={5}
 								opacity={0.75}
-								routeMode="direct"
-								cornerRadius={0}
 							/>
 						);
 					})}
@@ -245,8 +291,8 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 							isCurrent={node.id === currentNodeId}
 							isTarget={node.id === targetNodeId}
 							onClick={onNodeSelect ? () => onNodeSelect(node.id) : undefined}
-							baseRadius={7}
-							interchangeRadius={9}
+							onSetTarget={onSetTarget ? handleSetTarget : undefined}
+							onRemoveTarget={onRemoveTarget ? handleRemoveTarget : undefined}
 						/>
 					))}
 				</g>
