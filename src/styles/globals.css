@@ -8,6 +8,22 @@
 		"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
+.metro-station {
+	/* Prevent station from scaling with zoom */
+	transform-origin: center;
+	transform-box: fill-box;
+}
+
+.metro-station .station-circle,
+.metro-station .station-hit-area {
+	transition: all 0.2s ease;
+}
+
+.metro-station:hover .station-circle {
+	stroke-width: 2px;
+	stroke: white;
+}
+
 :root {
 	--radius: 0.6rem;
 	--background: oklch(1 0 0);

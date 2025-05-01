@@ -20,11 +20,11 @@ interface MetroLineProps {
 export default function MetroLine({
 	path,
 	nodes,
-	lineWidth = 4,
+	lineWidth = 1,
 	opacity = 0.9,
 	isSelected = false
 }: MetroLineProps) {
-	// Generate SVG path data for this line
+
 	const { pathData, markers } = useMemo(() => {
 		if (nodes.length < 2) return { pathData: '', markers: [] };
 
@@ -71,32 +71,36 @@ export default function MetroLine({
 	const highlightStrokeWidth = isSelected ? lineWidth + 2 : lineWidth;
 	const pathOpacity = isSelected ? 1 : opacity;
 
-	return (
+
+  return (
 		<g className="metro-line">
-			{/* Background stroke for better visibility against dark backgrounds */}
+			{/* Background stroke for better visibility */}
 			<path
 				d={pathData}
 				stroke="rgba(0,0,0,0.3)"
-				strokeWidth={highlightStrokeWidth + 2}
+				strokeWidth={lineWidth + 2}
 				strokeLinecap="round"
 				strokeLinejoin="round"
 				fill="none"
 				opacity={0.3}
 				className="metro-line-shadow"
+				vectorEffect="non-scaling-stroke" // Keep stroke width consistent when zooming
 			/>
 
 			{/* Main path line */}
 			<path
 				d={pathData}
 				stroke={path.color}
-				strokeWidth={highlightStrokeWidth}
+				strokeWidth={lineWidth}
 				strokeLinecap="round"
 				strokeLinejoin="round"
 				fill="none"
 				opacity={pathOpacity}
 				className="metro-line-main transition-all duration-300"
+				vectorEffect="non-scaling-stroke" // Keep stroke width consistent when zooming
 				data-path-id={path.id}
 			/>
+
 
 			{/* Optional direction markers */}
 			{markers.map((marker, index) => (

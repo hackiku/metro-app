@@ -1,7 +1,7 @@
 // src/app/_components/metro/map/MetroStation.tsx
 "use client";
 
-import React, { useRef, useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { LayoutNode } from '../engine/types';
 import { Target, Trash2 } from 'lucide-react';
 import {
@@ -21,9 +21,6 @@ interface MetroStationProps {
 	onRemoveTarget?: (nodeId: string) => void;
 }
 
-/**
- * Renders a station node on the metro map with improved text positioning
- */
 export default function MetroStation({
 	node,
 	isSelected = false,
@@ -34,124 +31,160 @@ export default function MetroStation({
 	onRemoveTarget
 }: MetroStationProps) {
 	const [isOpen, setIsOpen] = useState(false);
-	const circleRef = useRef<SVGCircleElement>(null);
+	const [currentScale, setCurrentScale] = useState(1);
+	const groupRef = useRef<SVGGElement>(null);
 
-	// Base styling values - make interchange nodes more visible
-	const radius = node.isInterchange ? 8 : 6;
+	// Calculate current transform scale using DOM method
+	useEffect(() => {
+		const updateScale = () => {
+			if (!groupRef.current) return;
 
-	// Text positioning based on node position to avoid overlap
-	// Calculate angle from center to determine label position
-	const angle = Math.atan2(node.y, node.x) * (180 / Math.PI);
+			// Try to find the parent SVG transform group
+			let element: Element | null = groupRef.current;
+			while (element && element.tagName !== 'svg') {
+				if (element.tagName === 'g' && element.getAttribute('transform')?.includes('scale')) {
+					const transformAttr = element.getAttribute('transform') || '';
+					const scaleMatch = transformAttr.match(/scale\(([^)]+)\)/);
+					if (scaleMatch && scaleMatch[1]) {
+						const scaleValue = parseFloat(scaleMatch[1]);
+						if (!isNaN(scaleValue) && scaleValue > 0) {
+							setCurrentScale(scaleValue);
+							return;
+						}
+					}
+				}
+				element = element.parentElement;
+			}
+		};
 
-	// Determine label position based on angle
-	let labelX = -60;
-	let labelY = -radius - 25;
-	let labelAnchor = "middle";
+		// Update initially and when parent transform might change
+		updateScale();
 
-	// Position text to avoid overlapping with lines
-	// We divide the space around the node into 8 sectors and position accordingly
-	if (angle > -22.5 && angle <= 22.5) {
-		// Right
-		labelX = radius + 10;
-		labelY = -5;
-		labelAnchor = "start";
-	} else if (angle > 22.5 && angle <= 67.5) {
-		// Bottom-right
-		labelX = radius + 10;
-		labelY = radius + 5;
-		labelAnchor = "start";
-	} else if (angle > 67.5 && angle <= 112.5) {
-		// Bottom
-		labelX = 0;
-		labelY = radius + 15;
-		labelAnchor = "middle";
-	} else if (angle > 112.5 && angle <= 157.5) {
-		// Bottom-left
-		labelX = -radius - 10;
-		labelY = radius + 5;
-		labelAnchor = "end";
-	} else if ((angle > 157.5 && angle <= 180) || (angle <= -157.5 && angle > -180)) {
-		// Left
-		labelX = -radius - 10;
-		labelY = -5;
-		labelAnchor = "end";
-	} else if (angle > -157.5 && angle <= -112.5) {
-		// Top-left
-		labelX = -radius - 10;
-		labelY = -radius - 5;
-		labelAnchor = "end";
-	} else if (angle > -112.5 && angle <= -67.5) {
-		// Top
-		labelX = 0;
-		labelY = -radius - 15;
-		labelAnchor = "middle";
-	} else if (angle > -67.5 && angle <= -22.5) {
-		// Top-right
-		labelX = radius + 10;
-		labelY = -radius - 5;
-		labelAnchor = "start";
-	}
+		// Create a MutationObserver to detect transform changes
+		const observer = new MutationObserver((mutations) => {
+			mutations.forEach((mutation) => {
+				if (mutation.type === 'attributes' &&
+					mutation.attributeName === 'transform') {
+					updateScale();
+				}
+			});
+		});
 
-	// Station style based on state
-	let strokeColor = "var(--border)";
-	let strokeWidth = 1.0;
+		// Start observing parent elements for attribute changes
+		let element: Element | null = groupRef.current;
+		while (element && element.tagName !== 'svg') {
+			if (element.tagName === 'g') {
+				observer.observe(element, { attributes: true });
+			}
+			element = element.parentElement;
+		}
+
+		return () => {
+			observer.disconnect();
+		};
+	}, []);
+
+	// Determine station appearance based on state - INCREASED SIZES
+	const baseStationSize = node.isInterchange ? 24 : 18; // Increased from 16/12
+
+	// Calculate inverse scale to counteract parent transformation
+	const inverseScale = currentScale > 0 ? 1 / currentScale : 1;
+
+	// adaptive text size based on zoom level
+	const adaptiveTextSize = Math.max(0.9, Math.min(1, 1 * ((currentScale) * 0.2)));
+	// const adaptiveTextSize = (currentScale) * 0.2;
+	
+	// Get state-based styling for the ring/stroke
+	let ringColor = "var(--border)";
+	let strokeWidth = 2; // Increased from 1
 
 	if (isSelected) {
-		strokeColor = "white";
-		strokeWidth = 2;
+		ringColor = "white";
+		strokeWidth = 3; // Increased from 2
+	} else if (isCurrent) {
+		ringColor = "#4f46e5"; // Indigo
+		strokeWidth = 3; // Increased from 2
+	} else if (isTarget) {
+		ringColor = "#f59e0b"; // Amber
+		strokeWidth = 3; // Increased from 2
 	}
-	if (isCurrent) strokeColor = "#4f46e5"; // Indigo
-	if (isTarget) strokeColor = "#f59e0b";  // Amber
 
-	// Station click handler
-	const handleStationClick = () => {
+	// Handle station click
+	const handleStationClick = (e: React.MouseEvent) => {
+		e.stopPropagation(); // Prevent map panning
 		if (onClick) onClick(node.id);
-		// Don't automatically open menu on click - only on right click or explicit menu trigger
-	};
-
-	// Right click handler to open context menu
-	const handleContextMenu = (e: React.MouseEvent) => {
-		e.preventDefault();
-		if (circleRef.current) {
-			setIsOpen(true);
-		}
 	};
 
 	return (
 		<g
+			ref={groupRef}
 			transform={`translate(${node.x}, ${node.y})`}
-			className={`metro-station station ${isCurrent ? 'current' : ''} ${isTarget ? 'target' : ''} ${isOpen ? 'menu-open' : ''}`}
+			className="metro-station"
+			onClick={handleStationClick}
 		>
-			{/* Station circle with hover effects */}
+			{/* Counter-scale group to maintain visual size */}
+			<g transform={`scale(${inverseScale})`}>
+				{/* Larger hit area for easier interaction */}
+				<circle
+					r={baseStationSize / 2 + 8} // Increased padding
+					fill="transparent"
+					className="station-hit-area"
+				/>
+
+				{/* Visual station circle */}
+				<circle
+					r={baseStationSize / 2}
+					fill={node.color}
+					stroke={ringColor}
+					strokeWidth={strokeWidth}
+					className="station-circle transition-all duration-200 hover:stroke-white hover:stroke-[3px]"
+				/>
+
+				{/* Inner dot for interchange stations */}
+				{node.isInterchange && (
+					<circle
+						r={baseStationSize / 4}
+						fill="var(--background)"
+						className="station-interchange"
+					/>
+				)}
+
+				{/* Station label with fixed size - MUCH WIDER CONTAINER */}
+				<foreignObject
+					x={-baseStationSize * 2} // Wider container (250px total width)
+					y={-40}
+					width={250} // Much wider container
+					height={40} // Taller container
+					style={{ overflow: 'visible', pointerEvents: 'none'}}
+				>
+					<div
+						className="px-2.5 py-1.5 rounded bg-background/90 text-foreground
+                      font-medium shadow-sm mx-auto whitespace-nowrap 
+                      overflow-hidden text-ellipsis text-center"
+						style={{
+							display: 'inline-block',
+							maxWidth: '100%',
+							// fontSize: `${adaptiveTextSize}em` // Dynamic font size based on zoom
+							fontSize: `${adaptiveTextSize}em` // Dynamic font size based on zoom
+						}}
+					>
+						{node.name}
+					</div>
+				</foreignObject>
+			</g>
+
+			{/* Dropdown menu container - sized to account for scale */}
 			<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
 				<DropdownMenuTrigger asChild>
-					<g className="cursor-pointer">
-						{/* Larger hit area for easier interaction */}
-						<circle
-							r={radius + 5}
-							fill="transparent"
-							className="station-hit-area"
-						/>
-
-						{/* Visual station circle */}
-						<circle
-							ref={circleRef}
-							r={radius}
-							fill={node.color}
-							stroke={strokeColor}
-							strokeWidth={strokeWidth}
-							className="station-circle transition-all duration-200 hover:stroke-white"
-						/>
-
-						{/* Inner dot for interchange stations */}
-						{node.isInterchange && (
-							<circle
-								r={radius / 2}
-								fill="var(--background)"
-								className="station-interchange"
-							/>
-						)}
-					</g>
+					<circle
+						r={(baseStationSize / 2 + 8) * inverseScale} // Larger hit area adjusted for scale
+						fill="transparent"
+						className="cursor-pointer"
+						onClick={(e) => {
+							e.stopPropagation();
+							// Let the DropdownMenuTrigger handle the toggle logic
+						}}
+					/>
 				</DropdownMenuTrigger>
 
 				<DropdownMenuContent align="center" sideOffset={5}>
@@ -174,36 +207,6 @@ export default function MetroStation({
 					)}
 				</DropdownMenuContent>
 			</DropdownMenu>
-
-			{/* Station label using foreignObject for Tailwind styling 
-          with dynamic positioning based on angle */}
-			<foreignObject
-				x={labelX}
-				y={labelY}
-				width={120}
-				height={24}
-				style={{
-					pointerEvents: 'none',
-					textAlign: labelAnchor === 'middle' ? 'center' : labelAnchor === 'start' ? 'left' : 'right',
-					overflow: 'visible'
-				}}
-				className="station-label"
-			>
-				<div
-					className="station-text px-1.5 py-0.5 rounded bg-background/90 text-foreground 
-                     text-xs font-medium inline-block"
-					style={{
-						maxWidth: '114px',
-						whiteSpace: 'nowrap',
-						overflow: 'hidden',
-						textOverflow: 'ellipsis',
-						// Add a subtle text shadow to help with readability
-						textShadow: '0 0 2px rgba(0,0,0,0.5)'
-					}}
-				>
-					{node.name}
-				</div>
-			</foreignObject>
 		</g>
 	);
 }

@@ -156,7 +156,7 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 								key={`line-${path.id}`}
 								path={path}
 								nodes={pathNodes}
-								lineWidth={5}
+								lineWidth={2}
 								opacity={0.75}
 							/>
 						);
