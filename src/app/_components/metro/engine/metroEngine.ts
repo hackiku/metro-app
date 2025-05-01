@@ -36,7 +36,33 @@ function calculateBounds(nodes: LayoutNode[], padding: number): LayoutBounds {
 }
 
 /**
- * Main function to generate metro map layout
+ * Identify interchange nodes (nodes that could belong to multiple paths)
+ * This helps visually distinguish important stations
+ */
+function identifyInterchangeNodes(nodes: LayoutNode[]): LayoutNode[] {
+  // Find positions that appear in multiple career paths
+  const positionPaths = new Map<string, Set<string>>();
+  
+  // Count career paths per position
+  nodes.forEach(node => {
+    if (!positionPaths.has(node.positionId)) {
+      positionPaths.set(node.positionId, new Set());
+    }
+    positionPaths.get(node.positionId)!.add(node.careerPathId);
+  });
+  
+  // Mark nodes as interchanges if their position appears in multiple paths
+  return nodes.map(node => {
+    const pathCount = positionPaths.get(node.positionId)?.size || 0;
+    return {
+      ...node,
+      isInterchange: pathCount > 1
+    };
+  });
+}
+
+/**
+ * Main function to generate metro map layout with improved grid alignment
  */
 export function generateMetroLayout(
   careerPaths: CareerPath[],
@@ -52,7 +78,7 @@ export function generateMetroLayout(
   // Step 1: Assign angles to career paths
   const pathAngles = assignPathAngles(careerPaths, config);
   
-  // Step 2: Calculate node positions
+  // Step 2: Calculate node positions with metro-style grid alignment
   let nodes = calculateNodePositions(
     positionDetails, 
     positions, 
@@ -60,14 +86,17 @@ export function generateMetroLayout(
     config
   );
   
-  // Step 3: Update nodes with path colors
+  // Step 3: Identify interchange nodes
+  nodes = identifyInterchangeNodes(nodes);
+  
+  // Step 4: Update nodes with path colors
   const pathColorMap = new Map(careerPaths.map(p => [p.id, p.color || '#cccccc']));
   nodes = nodes.map(node => ({
     ...node,
     color: pathColorMap.get(node.careerPathId) || node.color
   }));
   
-  // Step 4: Group nodes by path
+  // Step 5: Group nodes by path
   const nodesByPath = new Map<string, LayoutNode[]>();
   nodes.forEach(node => {
     if (!nodesByPath.has(node.careerPathId)) {
@@ -76,7 +105,7 @@ export function generateMetroLayout(
     nodesByPath.get(node.careerPathId)!.push(node);
   });
   
-  // Step 5: Create path objects
+  // Step 6: Create path objects
   const paths: LayoutPath[] = careerPaths.map(path => {
     const pathNodes = nodesByPath.get(path.id) || [];
     
@@ -88,7 +117,7 @@ export function generateMetroLayout(
     };
   });
   
-  // Step 6: Build lookup objects
+  // Step 7: Build lookup objects
   const nodesById: Record<string, LayoutNode> = {};
   nodes.forEach(node => {
     nodesById[node.id] = node;
@@ -99,10 +128,10 @@ export function generateMetroLayout(
     pathsById[path.id] = path;
   });
   
-  // Step 7: Calculate bounds
+  // Step 8: Calculate bounds
   const bounds = calculateBounds(nodes, config.padding);
   
-  // Step 8: Return layout data
+  // Step 9: Return layout data with same interface as before
   return {
     nodes,
     nodesById,

@@ -4,8 +4,8 @@ import type { LayoutNode, LayoutPath, Point, MetroConfig } from './types';
 import { DEFAULT_CONFIG } from './config';
 
 /**
- * Calculates which direction to move between two points,
- * constraining to allowed angles: horizontal, vertical, or 45°
+ * Determines which grid-aligned direction to move between two points
+ * Only allows horizontal, vertical, or 45° diagonal directions
  */
 export function getSegmentDirection(from: Point, to: Point): Point {
   const dx = to.x - from.x;
@@ -16,29 +16,38 @@ export function getSegmentDirection(from: Point, to: Point): Point {
     return { x: 0, y: 0 };
   }
   
-  // Determine direction based on angle
-  const angle = Math.atan2(dy, dx);
-  const octant = Math.round(8 * angle / (2 * Math.PI) + 8) % 8;
+  // Determine main movement axis
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(dy);
   
-  // Map octant to direction
-  // 0: right, 1: bottom-right, 2: bottom, 3: bottom-left, etc.
-  const directions = [
-    { x: 1, y: 0 },   // right
-    { x: 1, y: 1 },   // bottom-right
-    { x: 0, y: 1 },   // bottom
-    { x: -1, y: 1 },  // bottom-left
-    { x: -1, y: 0 },  // left
-    { x: -1, y: -1 }, // top-left
-    { x: 0, y: -1 },  // top
-    { x: 1, y: -1 }   // top-right
-  ];
+  // Calculate the direction based on the predominant axis
+  // and decide whether to move diagonally or along a single axis
+  let dirX = 0;
+  let dirY = 0;
   
-  return directions[octant];
+  // Decide if we should move diagonally
+  const ratio = absDx / (absDy + 0.0001); // Avoid division by zero
+  const shouldMoveDiagonally = ratio >= 0.5 && ratio <= 2;
+  
+  // Set direction components
+  if (shouldMoveDiagonally) {
+    // Diagonal movement
+    dirX = Math.sign(dx);
+    dirY = Math.sign(dy);
+  } else if (absDx > absDy) {
+    // Horizontal movement
+    dirX = Math.sign(dx);
+  } else {
+    // Vertical movement
+    dirY = Math.sign(dy);
+  }
+  
+  return { x: dirX, y: dirY };
 }
 
 /**
- * Generates path segments to connect nodes
- * Enforces constraints on allowed angles and consecutive segments
+ * Generates metro-style path segments between nodes
+ * Enforces orthogonal or 45° movements
  */
 export function generatePathSegments(
   nodes: LayoutNode[],
@@ -63,58 +72,80 @@ export function generatePathSegments(
   // Start with the first node
   const pathPoints: Point[] = [{ x: sortedNodes[0].x, y: sortedNodes[0].y }];
   
-  // Connect each subsequent node
-  let lastDirection = { x: 0, y: 0 };
-  let sameDirectionCount = 0;
-  
+  // Connect each subsequent node with proper metro-style segments
   for (let i = 1; i < sortedNodes.length; i++) {
     const currentNode = sortedNodes[i];
-    const lastPoint = pathPoints[pathPoints.length - 1];
+    const prevNode = sortedNodes[i-1];
+    const start = { x: prevNode.x, y: prevNode.y };
+    const end = { x: currentNode.x, y: currentNode.y };
     
-    // Get optimal direction to move
-    const targetDir = getSegmentDirection(lastPoint, currentNode);
+    // Generate intermediate points for this segment
+    const intermediatePoints = generateMetroSegment(start, end);
     
-    // If no direction needed (nodes very close), just add the target
-    if (targetDir.x === 0 && targetDir.y === 0) {
-      pathPoints.push({ x: currentNode.x, y: currentNode.y });
-      continue;
+    // Add all points except the first (which is already in the path)
+    for (const point of intermediatePoints) {
+      pathPoints.push(point);
     }
-    
-    // Check if this would be too many segments in same direction
-    const isSameDirection = 
-      (targetDir.x === lastDirection.x && targetDir.y === lastDirection.y);
-    
-    if (isSameDirection) {
-      sameDirectionCount++;
-    } else {
-      sameDirectionCount = 0;
-    }
-    
-    // If we've had too many consecutive segments in the same direction,
-    // force a change in direction
-    if (sameDirectionCount >= 2) {
-      // Try a different direction (e.g., 90° turn)
-      const alternateDir = { x: targetDir.y, y: targetDir.x };
-      
-      // Add an intermediate point with the alternate direction
-      const intermediate = {
-        x: lastPoint.x + alternateDir.x * 50,
-        y: lastPoint.y + alternateDir.y * 50
-      };
-      
-      pathPoints.push(intermediate);
-      lastDirection = alternateDir;
-      sameDirectionCount = 0;
-    } else {
-      // Continue in target direction
-      lastDirection = targetDir;
-    }
-    
-    // Add the final point (actual node)
-    pathPoints.push({ x: currentNode.x, y: currentNode.y });
   }
   
   return pathPoints;
+}
+
+/**
+ * Generates intermediate points between two nodes using metro-style routing
+ */
+function generateMetroSegment(start: Point, end: Point): Point[] {
+  const points: Point[] = [];
+  
+  // Always include the end point
+  points.push(end);
+  
+  // If points are very close, don't add intermediate segments
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  
+  if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+    return points;
+  }
+  
+  // Determine if we need intermediate points
+  // Check if already aligned with grid (horizontal, vertical or 45°)
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(dy);
+  const isHorizontal = absDy < 10;
+  const isVertical = absDx < 10;
+  const isDiagonal = Math.abs(absDx - absDy) < 10;
+  
+  if (isHorizontal || isVertical || isDiagonal) {
+    // Already aligned with grid, no intermediate points needed
+    return points;
+  }
+  
+  // Need intermediate points - calculate optimal path
+  // For simplicity, we'll use a 2-segment approach:
+  // 1) Move in primary direction (longer axis)
+  // 2) Move diagonally if needed
+  // 3) Move in secondary direction to reach target
+  
+  // Create points array with start point at beginning
+  const result = [];
+  
+  // Calculate proportions for 2-segment path
+  // The midpoint is placed at 70% along the dominant axis
+  if (absDx > absDy) {
+    // Horizontal dominant - move horizontally first
+    const midX = start.x + dx * 0.7;
+    result.push({ x: midX, y: start.y });
+  } else {
+    // Vertical dominant - move vertically first
+    const midY = start.y + dy * 0.7;
+    result.push({ x: start.x, y: midY });
+  }
+  
+  // Add the end point
+  result.push(end);
+  
+  return result;
 }
 
 /**

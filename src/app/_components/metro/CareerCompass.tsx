@@ -4,10 +4,11 @@ import DataDisplay from './ui/DataDisplay';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/components/ui/sheet';
 import { Button } from '~/components/ui/button';
 import { Database } from 'lucide-react';
-// Import the polar grid layout engine
+// Import the metro layout engine
 import { generateMetroLayout } from './engine/metroEngine';
+import { DEFAULT_CONFIG } from './engine/config';
 // Import necessary types
-import type { LayoutData, PolarGridConfig } from './engine/types';
+import type { LayoutData } from './engine/types';
 import MetroMap from './map/MetroMap';
 import type { MetroMapRef } from './map/MetroMap';
 // Import the data hook
@@ -35,7 +36,7 @@ export default function CareerCompass() {
 	// Ref for map controls
 	const mapRef = useRef<MetroMapRef>(null);
 
-	// Layout Calculation using the Polar Grid approach
+	// Layout Calculation using our improved Metro engine
 	const layout = useMemo<LayoutData | null>(() => {
 		if (loading || error || !Array.isArray(careerPaths) || !Array.isArray(positionDetails) || !Array.isArray(positions)
 			|| careerPaths.length === 0 || positionDetails.length === 0 || positions.length === 0) {
@@ -43,35 +44,19 @@ export default function CareerCompass() {
 			return null;
 		}
 
-		console.log("Calculating Polar Grid layout...");
-
-		// Define specific polar grid config options if needed
-		const polarConfig: Partial<PolarGridConfig> = {
-			midLevelRadius: 100,
-			radiusStep: 70,
-			numAngleSteps: 8, // 8 directions (45 deg steps)
-			pullInterchanges: 0.6,
-			nodeSortKey: 'level' // or 'sequence_in_path'
-		};
+		console.log("Calculating Metro layout...");
 
 		try {
-			// Use the polar grid layout generator
+			// Use the metro layout generator with the default config
+			// All config parameters can now be adjusted in config.ts
 			return generateMetroLayout(
 				careerPaths,
 				positions,
 				positionDetails,
-				{
-					midLevelRadius: polarConfig.midLevelRadius || 250,
-					radiusStep: polarConfig.radiusStep || 70,
-					minRadius: polarConfig.minRadius || 100,
-					numDirections: polarConfig.numAngleSteps || 8,
-					angleOffset: polarConfig.angleOffsetDegrees || 22.5,
-					eccentricity: 0.3, // Add a default value
-					padding: polarConfig.padding || 50
-				}
+				DEFAULT_CONFIG
 			);
 		} catch (layoutError) {
-			console.error("Error generating polar grid layout:", layoutError);
+			console.error("Error generating metro layout:", layoutError);
 			// Optionally return a fallback layout or null
 			return null;
 		}
