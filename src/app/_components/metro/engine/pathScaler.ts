@@ -1,6 +1,6 @@
 // src/app/_components/metro/engine/pathScaler.ts
 
-import type { LayoutNode, PositionDetail, Position, MetroConfig } from './types';
+import type { LayoutNode, PositionDetail, Position, MetroConfig } from '~/types/engine';
 
 /**
  * Scales node positions on paths based on actual requirements between positions

@@ -3,7 +3,7 @@
 
 import type { ReactNode } from "react";
 // Import the NEW Provider
-import { CareerCompassProvider } from "./CareerCompassProvider";
+// import { MetroMapProvider } from "./MetroMapContext";
 import { SessionProvider } from "./SessionContext";
 
 interface ProvidersProps {
@@ -17,9 +17,9 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
 	return (
 		<SessionProvider>
-			<CareerCompassProvider>
+			{/* <MetroMapProvider> */}
 				{children}
-			</CareerCompassProvider>
+			{/* </MetroMapProvider> */}
 		</SessionProvider>
 	);
 }

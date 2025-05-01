@@ -1,20 +1,20 @@
-// src/app/_components/metro/CareerCompass.tsx
-import React, { useState, useMemo, useRef } from 'react';
+// src/app/_components/metro/KonvaCareerCompass.tsx
+"use client";
+
+import React, { useMemo, useState } from 'react';
 import DataDisplay from './ui/DataDisplay';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/components/ui/sheet';
 import { Button } from '~/components/ui/button';
 import { Database } from 'lucide-react';
-// Import the metro layout engine
 import { generateMetroLayout } from './engine/metroEngine';
 import { DEFAULT_CONFIG } from './engine/config';
-// Import necessary types
-import type { LayoutData } from './engine/types';
-import MetroMap from './map/MetroMap';
-import type { MetroMapRef } from './map/MetroMap';
-// Import the data hook
+import type { LayoutData } from '~/types/engine';
+import KonvaMetroMap from './konva/KonvaMetroMap';
 import { useCareerCompassData } from './hooks/useCareerCompassData';
+import { useMetroMap } from '~/contexts/MetroMapContext';
+import type { Organization } from "~/types/compass";
 
-export default function CareerCompass() {
+export default function KonvaCareerCompass() {
 	// Use the hook to get data
 	const {
 		organization,
@@ -26,13 +26,17 @@ export default function CareerCompass() {
 	} = useCareerCompassData();
 
 	const [isDataSheetOpen, setIsDataSheetOpen] = useState(false);
-	const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-	const [targetNodeId, setTargetNodeId] = useState<string | null>(null);
-	// Default grid visibility based on environment
-	const [showGrid, setShowGrid] = useState(process.env.NODE_ENV === 'development');
 
-	// Ref for map controls
-	const mapRef = useRef<MetroMapRef>(null);
+	// Get state from MetroMapContext
+	const {
+		selectedNodeId,
+		setSelectedNodeId,
+		targetNodeId,
+		setTargetNodeId,
+		showGrid,
+		toggleGrid,
+		resetView,
+	} = useMetroMap();
 
 	// Layout Calculation using our improved Metro engine
 	const layout = useMemo<LayoutData | null>(() => {
@@ -46,7 +50,6 @@ export default function CareerCompass() {
 
 		try {
 			// Use the metro layout generator with the default config
-			// All config parameters can now be adjusted in config.ts
 			return generateMetroLayout(
 				careerPaths,
 				positions,
@@ -55,7 +58,6 @@ export default function CareerCompass() {
 			);
 		} catch (layoutError) {
 			console.error("Error generating metro layout:", layoutError);
-			// Optionally return a fallback layout or null
 			return null;
 		}
 	}, [loading, error, careerPaths, positionDetails, positions]);
@@ -65,46 +67,27 @@ export default function CareerCompass() {
 
 	// --- Error State ---
 	if (error) { return <ErrorDisplay error={error} />; }
-	if (!layout) { return <LayoutErrorDisplay />; } // Specific message if layout fails
+	if (!layout) { return <LayoutErrorDisplay />; }
 
 	// --- Event Handlers ---
 	const handleSetTarget = (nodeId: string) => {
 		setTargetNodeId(nodeId);
-		// Center the map on the target
-		mapRef.current?.centerOnNode(nodeId);
+		// Center the map will be handled by the Konva component internally
 	};
 
 	const handleRemoveTarget = () => {
 		setTargetNodeId(null);
 	};
 
-	const handleNodeSelect = (nodeId: string | null) => {
-		setSelectedNodeId(nodeId);
-		// Optionally center on selected node
-		if (nodeId) {
-			// mapRef.current?.centerOnNode(nodeId);
-		}
-	}
-
-	const handleToggleGrid = () => {
-		setShowGrid(prev => !prev);
-	};
-
 	// --- Render ---
 	return (
 		<div className="relative h-full w-full text-foreground">
-			{/* Render the MetroMap */}
+			{/* Render the Konva Metro Map */}
 			<div className="absolute inset-0">
-				<MetroMap
-					ref={mapRef}
-					layout={layout} // Layout is guaranteed non-null here
-					selectedNodeId={selectedNodeId}
-					targetNodeId={targetNodeId}
-					onNodeSelect={handleNodeSelect}
-					onSetTarget={handleSetTarget}
-					onRemoveTarget={handleRemoveTarget}
-					showGrid={showGrid}
-					onToggleGrid={handleToggleGrid}
+				<KonvaMetroMap
+					layout={layout}
+					width={window.innerWidth}
+					height={window.innerHeight}
 				/>
 			</div>
 
@@ -122,6 +105,7 @@ export default function CareerCompass() {
 							<SheetTitle>Career Framework Data</SheetTitle>
 						</SheetHeader>
 						<DataDisplay
+							organization={organization as Organization | null | undefined}
 							careerPaths={careerPaths}
 							positions={positions}
 							positionDetails={positionDetails}

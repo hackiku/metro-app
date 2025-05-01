@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { MetroMapProvider } from "~/contexts/MetroMapContext";
 // Only need the SessionProvider now
 import { SessionProvider } from "~/contexts/SessionContext";
 // Import the refactored CareerCompass component
@@ -19,7 +20,9 @@ export default function MetroPage() {
 		<div className="relative h-full w-full">
 			{isClient ? (
 				<SessionProvider>
-					<CareerCompass />
+					<MetroMapProvider >
+						<CareerCompass />
+					</MetroMapProvider>
 				</SessionProvider>
 			) : (
 				<div className="flex items-center justify-center h-full w-full">
