@@ -17,6 +17,8 @@ interface MetroMapProps {
 	targetNodeId?: string | null;
 	onSetTarget?: (nodeId: string) => void;
 	onRemoveTarget?: (nodeId?: string) => void;
+	onSetAsFavorite?: (nodeId: string) => void;
+	onViewDetails?: (nodeId: string) => void;
 	showGrid?: boolean;
 	onToggleGrid?: () => void;
 	className?: string;
@@ -37,6 +39,8 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 	targetNodeId,
 	onSetTarget,
 	onRemoveTarget,
+	onSetAsFavorite,
+	onViewDetails,
 	showGrid = false, // Default to false unless overridden
 	onToggleGrid,
 	className = ""
@@ -54,6 +58,28 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 		handleMouseUpOrLeave,
 		handleBackgroundClick
 	}] = useMetroMapInteraction({ layout, containerRef });
+
+	// Store station coordinates for player positioning
+	// This attaches coordinates to the window for access elsewhere
+	React.useEffect(() => {
+		if (!layout?.nodes) return;
+
+		// Create an object to store coordinates
+		const stationCoordinates: Record<string, { x: number, y: number }> = {};
+
+		// Transform coordinates based on current transform
+		layout.nodes.forEach(node => {
+			stationCoordinates[node.id] = {
+				x: node.x * transform.scale + transform.x,
+				y: node.y * transform.scale + transform.y
+			};
+		});
+
+		// Attach to window for global access
+		if (typeof window !== 'undefined') {
+			(window as any)._metroStationCoordinates = stationCoordinates;
+		}
+	}, [layout, transform]);
 
 	// Group nodes by path for easier rendering
 	const nodesByPath = useMemo(() => {
@@ -107,6 +133,21 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 		// If it's a background click and not initiated from dragging, deselect
 		if (!isDragging && isBackgroundClick && onNodeSelect) {
 			onNodeSelect(null);
+		}
+	};
+
+	// Handle favorite node - implementation example
+	const handleSetAsFavorite = (nodeId: string) => {
+		console.log(`Node ${nodeId} added to favorites`);
+		// Implement favorite functionality here
+		// For example, save to local storage or user preferences
+
+		// For demo, use toast notification
+		if (typeof window !== 'undefined' && (window as any).toast) {
+			(window as any).toast({
+				title: "Added to favorites",
+				description: `Position has been added to your favorites.`,
+			});
 		}
 	};
 
@@ -187,6 +228,8 @@ const MetroMap = forwardRef<MetroMapRef, MetroMapProps>(({
 							onClick={onNodeSelect ? () => onNodeSelect(node.id) : undefined}
 							onSetTarget={onSetTarget}
 							onRemoveTarget={onRemoveTarget}
+							onViewDetails={onViewDetails}
+							onSetAsFavorite={onSetAsFavorite || handleSetAsFavorite}
 						/>
 					))}
 				</g>

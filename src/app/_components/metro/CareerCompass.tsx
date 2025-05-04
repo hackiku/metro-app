@@ -8,7 +8,7 @@ import { Database } from 'lucide-react';
 import { generateMetroLayout } from './engine/metroEngine';
 import { DEFAULT_CONFIG } from './engine/config';
 // Import necessary types
-import type { LayoutData } from './engine/types';
+import type { LayoutData } from '~/types/engine';
 import MetroMap from './map/MetroMap';
 import type { MetroMapRef } from './map/MetroMap';
 // Import the updated data hook
