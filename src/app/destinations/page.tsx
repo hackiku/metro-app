@@ -1,6 +1,7 @@
 // src/app/route/destinations.tsx
 "use client";
 
+import { useEffect } from "react";
 import { useOrganization } from "~/contexts/OrganizationContext";
 import { useUser } from "~/contexts/UserContext";
 import { api } from "~/trpc/react";
@@ -10,12 +11,27 @@ export default function DestinationsPage() {
 	const { currentOrganization, organizations, loading: orgLoading } = useOrganization();
 	const { currentUser, users, loading: userLoading } = useUser();
 
+	// Get utils for invalidating queries
+	const utils = api.useUtils();
+
 	// Use the current organization ID to fetch career paths
 	const currentOrgId = currentOrganization?.id;
 	const { data: careerPaths, isLoading: pathsLoading } = api.career.getPaths.useQuery(
 		{ organizationId: currentOrgId! },
-		{ enabled: !!currentOrgId }
+		{
+			enabled: !!currentOrgId,
+			// Add a key that depends on the organization ID to ensure refetching
+			queryKey: ['careerPaths', currentOrgId]
+		}
 	);
+
+	// This effect will run whenever the organization changes
+	useEffect(() => {
+		if (currentOrgId) {
+			// Invalidate the career paths query to force a refetch
+			utils.career.getPaths.invalidate({ organizationId: currentOrgId });
+		}
+	}, [currentOrgId, utils.career.getPaths]);
 
 	// Loading state
 	if (orgLoading || userLoading || pathsLoading) {
