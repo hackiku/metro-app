@@ -1,9 +1,8 @@
 // src/app/hr/assignments/AssignmentsList.tsx
 "use client";
 
-import { useState, useEffect, useRef, use } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "~/trpc/react";
-// import { useSession } from "~/contexts/SessionContext";
 import { useOrganization } from "~/contexts/OrganizationContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
@@ -61,14 +60,17 @@ export function AssignmentsList({
 	// Get tRPC utils for cache invalidation
 	const utils = api.useUtils();
 
+	// Get only the organization ID to use in API calls
+	const organizationId = currentOrganization?.id || '';
+
 	// Fetch positions assigned to this career path
 	const pathPositionsQuery = api.position.getByCareerPath.useQuery(
 		{
-			organizationId: currentOrganization!,
+			organizationId, // Use the ID string, not the full object
 			careerPathId
 		},
 		{
-			enabled: !!currentOrganization && !!careerPathId,
+			enabled: !!organizationId && !!careerPathId,
 			refetchOnWindowFocus: false,
 			// Important: Don't refetch while we're saving changes
 			refetchOnMount: !isSaving.current
@@ -88,7 +90,7 @@ export function AssignmentsList({
 
 				// Now it's safe to invalidate the cache
 				utils.position.getByCareerPath.invalidate({
-					organizationId: currentOrganization!,
+					organizationId, // Use the ID string, not the full object
 					careerPathId
 				});
 			}
@@ -107,7 +109,7 @@ export function AssignmentsList({
 			setConfirmRemoveId(null);
 			toast.success("Position removed from path");
 			utils.position.getByCareerPath.invalidate({
-				organizationId: currentOrganization!,
+				organizationId, // Use the ID string, not the full object
 				careerPathId
 			});
 		},
@@ -169,8 +171,8 @@ export function AssignmentsList({
 			.filter((position, index) => {
 				const origPosition = originalPositions.find(p => p.id === position.id);
 				// Include if level or sequence changed from original
-				return !origPosition || 
-					position.level !== origPosition.level || 
+				return !origPosition ||
+					position.level !== origPosition.level ||
 					position.sequence_in_path !== origPosition.sequence_in_path;
 			})
 			.map(position => ({
@@ -327,6 +329,17 @@ export function AssignmentsList({
 		}
 		return "#";
 	};
+
+	// Show loading or no-org state if needed
+	if (!currentOrganization) {
+		return (
+			<div className="p-6 text-center">
+				<p className="text-muted-foreground">
+					No organization selected. Please select an organization from the dropdown.
+				</p>
+			</div>
+		);
+	}
 
 	return (
 		<>

@@ -1,4 +1,4 @@
-// src/app/hr/hooks/usePositions.tsx
+// src/hooks/usePositions.tsx
 
 "use client";
 

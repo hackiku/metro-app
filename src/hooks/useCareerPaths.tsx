@@ -1,4 +1,4 @@
-// src/app/hr/hooks/useCareerPaths.tsx
+// src/hooks/useCareerPaths.tsx
 
 "use client";
 
@@ -10,13 +10,13 @@ export function useCareerPaths() {
 	const { currentOrganization } = useOrganization();
 	const utils = api.useUtils();
 
-	const organizationId = currentOrganization?.id;
+	const organizationId = currentOrganization?.id || '';
 
 	// Query for fetching all career paths
 	const careerPathsQuery = api.career.getPaths.useQuery(
-		{ organizationId: organizationId! },
+		{ organizationId },
 		{
-			enabled: !!organizationId,
+			enabled: !!currentOrganization?.id,
 			staleTime: 1000 * 60 * 5 // 5 minutes
 		}
 	);
@@ -24,8 +24,8 @@ export function useCareerPaths() {
 	// Mutation for creating a career path
 	const createPathMutation = api.career.createPath.useMutation({
 		onSuccess: () => {
-			if (organizationId) {
-				utils.career.getPaths.invalidate({ organizationId });
+			if (currentOrganization?.id) {
+				utils.career.getPaths.invalidate({ organizationId: currentOrganization.id });
 			}
 		}
 	});
@@ -33,8 +33,8 @@ export function useCareerPaths() {
 	// Mutation for updating a career path
 	const updatePathMutation = api.career.updatePath.useMutation({
 		onSuccess: (data) => {
-			if (organizationId) {
-				utils.career.getPaths.invalidate({ organizationId });
+			if (currentOrganization?.id) {
+				utils.career.getPaths.invalidate({ organizationId: currentOrganization.id });
 			}
 			if (data.id) {
 				utils.career.getPathById.invalidate({ id: data.id });
@@ -45,8 +45,8 @@ export function useCareerPaths() {
 	// Mutation for deleting a career path
 	const deletePathMutation = api.career.deletePath.useMutation({
 		onSuccess: () => {
-			if (organizationId) {
-				utils.career.getPaths.invalidate({ organizationId });
+			if (currentOrganization?.id) {
+				utils.career.getPaths.invalidate({ organizationId: currentOrganization.id });
 			}
 		}
 	});

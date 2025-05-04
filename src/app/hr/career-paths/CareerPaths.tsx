@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { useCareerPaths } from "../hooks/useCareerPaths";
+import { useCareerPaths } from "~/hooks/useCareerPaths";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 import { CareersList } from "./CareersList";

@@ -12,7 +12,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { api } from "~/trpc/react";
-import { useSession } from "~/contexts/SessionContext";
+import { useOrganization } from "~/contexts/OrganizationContext";
 import Link from "next/link";
 
 interface Position {
@@ -36,7 +36,7 @@ export function DraggablePositions({
 	careerPathId,
 	pathColor = "#4299E1"
 }: DraggablePositionsProps) {
-	const { currentOrgId } = useSession();
+	const { currentOrganization } = useOrganization();
 	const [positions, setPositions] = useState<Position[]>([]);
 	const [draggingId, setDraggingId] = useState<string | null>(null);
 	const [originalPositions, setOriginalPositions] = useState<Position[]>([]);
@@ -53,11 +53,11 @@ export function DraggablePositions({
 	// Fetch positions assigned to this career path
 	const pathPositionsQuery = api.position.getByCareerPath.useQuery(
 		{
-			organizationId: currentOrgId!,
+			organizationId: currentOrganization?.id! || "",
 			careerPathId
 		},
 		{
-			enabled: !!currentOrgId && !!careerPathId,
+			enabled: !!currentOrganization?.id && !!careerPathId,
 			// Don't auto-refetch while we're updating positions
 			refetchOnWindowFocus: false
 		}
@@ -79,10 +79,12 @@ export function DraggablePositions({
 				toast.success("Position order updated");
 
 				// Now it's safe to invalidate the cache
-				utils.position.getByCareerPath.invalidate({
-					organizationId: currentOrgId!,
-					careerPathId
-				});
+				if (currentOrganization?.id) {
+					utils.position.getByCareerPath.invalidate({
+						organizationId: currentOrganization.id,
+						careerPathId
+					});
+				}
 			}
 		},
 		onError: (error) => {
@@ -96,10 +98,12 @@ export function DraggablePositions({
 	// Set up mutation for removing position from path
 	const removePositionMutation = api.position.removeFromPath.useMutation({
 		onSuccess: () => {
-			utils.position.getByCareerPath.invalidate({
-				organizationId: currentOrgId!,
-				careerPathId
-			});
+			if (currentOrganization?.id) {
+				utils.position.getByCareerPath.invalidate({
+					organizationId: currentOrganization.id,
+					careerPathId
+				});
+			}
 			toast.success("Position removed from path");
 		},
 		onError: (error) => {
@@ -222,6 +226,15 @@ export function DraggablePositions({
 			removePositionMutation.mutate({ id });
 		}
 	};
+
+	// No organization selected
+	if (!currentOrganization) {
+		return (
+			<div className="text-center py-2 text-sm text-muted-foreground">
+				No organization selected
+			</div>
+		);
+	}
 
 	// Loading state
 	if (pathPositionsQuery.isLoading) {

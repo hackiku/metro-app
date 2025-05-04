@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { useState, useEffect } from "react";
 import { useSession } from "~/contexts/SessionContext";
-import { useCareerPaths } from "../hooks/useCareerPaths";
+import { useCareerPaths } from "~/hooks/useCareerPaths";
 import { Button } from "~/components/ui/button";
 import { FormField } from "~/components/forms/FormField";
 import { FormWrapper } from "~/components/forms/FormWrapper";

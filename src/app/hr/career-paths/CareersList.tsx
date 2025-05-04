@@ -6,7 +6,9 @@ import { DraggablePositions } from "../components/DraggablePositions";
 import { ColorPreview } from "~/components/ui/color-preview";
 import { Badge } from "~/components/ui/badge";
 import { api } from "~/trpc/react";
-import { useSession } from "~/contexts/SessionContext";
+// import { useSession } from "~/contexts/SessionContext";
+import { useOrganization } from "~/contexts/OrganizationContext";
+
 import { useState, useEffect } from "react";
 import type { CareerPath } from "~/types/compass";
 
@@ -31,17 +33,17 @@ export function CareersList({
 	onDeletePath,
 	onAssignPosition
 }: CareersListProps) {
-	const { currentOrgId } = useSession();
+	const { currentOrganization } = useOrganization();
 	const [positionCounts, setPositionCounts] = useState<Record<string, number>>({});
 
 	// Fetch positions count for all paths
 	const allPathsPositionsQuery = api.position.getAllPathsPositions.useQuery(
 		{
-			organizationId: currentOrgId!,
+			organizationId: currentOrganization?.id || '', // Only pass the ID
 			pathIds: careerPaths.map(path => path.id)
 		},
 		{
-			enabled: !!currentOrgId && careerPaths.length > 0,
+			enabled: !!currentOrganization?.id && careerPaths.length > 0,
 			staleTime: 30000 // 30 seconds
 		}
 	);

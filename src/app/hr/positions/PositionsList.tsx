@@ -11,7 +11,7 @@ import { PositionForm } from "./PositionForm";
 import { ActionTable, type Column } from "~/components/tables/ActionTable";
 import { toast } from "sonner";
 import { Input } from "~/components/ui/input";
-import { usePositions } from "../hooks/usePositions";
+import { usePositions } from "~/hooks/usePositions";
 
 interface Position {
 	id: string;
