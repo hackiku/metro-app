@@ -2,10 +2,11 @@
 "use client";
 
 import React, { useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
-import type { LayoutData, LayoutNode } from '../engine/types';
+import type { LayoutData, LayoutNode } from '~/types/engine';
 import PolarGrid from './PolarGrid';
 import MetroLine from './MetroLine';
 import MetroStation from './MetroStation';
+import { YouAreHere } from './YouAreHere';
 import ZoomControls from '../ui/ZoomControls';
 import { useMetroMapInteraction } from '../hooks/useMetroMapInteraction'; // Assuming the hook is correctly imported
 

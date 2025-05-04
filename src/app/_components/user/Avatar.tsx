@@ -1,8 +1,6 @@
-// src/app/_components/metro/player/Avatar.tsx
+// src/app/_components/user/Avatar.tsx
 "use client"
 
-import { useState } from "react"
-// import { Award } from "lucide-react"
 import { Avatar as ShadcnAvatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar"
 import { Button } from "~/components/ui/button"
 import { cn } from "~/lib/utils"
@@ -10,7 +8,7 @@ import { cn } from "~/lib/utils"
 interface AvatarProps {
 	src?: string
 	name?: string
-	level?: number
+	level?: number | string
 	isExpanded: boolean
 	onClick: () => void
 	className?: string
@@ -54,13 +52,13 @@ export function Avatar({
 	// When expanded, show a larger avatar for the header section
 	return (
 		<div className={cn("relative", className)}>
-			<ShadcnAvatar className="h-14 w-14 border-2 border-primary/20">
+			<ShadcnAvatar className="h-16 w-16 border-2 border-primary/20">
 				<AvatarImage src={src} alt={name} />
 				<AvatarFallback>{initial}</AvatarFallback>
 			</ShadcnAvatar>
 
 			{/* Level indicator for expanded view */}
-			<div className="absolute -top-2 -right-2 rounded-full bg-primary text-primary-foreground w-6 h-6 flex items-center justify-center text-xs font-medium shadow-sm">
+			<div className="absolute -top-2 -right-2 rounded-full bg-primary text-primary-foreground w-7 h-7 flex items-center justify-center text-xs font-medium shadow-sm">
 				{level}
 			</div>
 		</div>

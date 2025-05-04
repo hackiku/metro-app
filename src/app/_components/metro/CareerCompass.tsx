@@ -1,5 +1,5 @@
 // src/app/_components/metro/CareerCompass.tsx
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import DataDisplay from './ui/DataDisplay';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '~/components/ui/sheet';
 import { Button } from '~/components/ui/button';
@@ -7,6 +7,11 @@ import { Database } from 'lucide-react';
 // Import the metro layout engine
 import { generateMetroLayout } from './engine/metroEngine';
 import { DEFAULT_CONFIG } from './engine/config';
+
+// Import user-related components
+import PlayerCard from '../user/PlayerCard';
+import { useUser } from '~/contexts/UserContext';
+
 // Import necessary types
 import type { LayoutData } from '~/types/engine';
 import MetroMap from './map/MetroMap';
@@ -25,7 +30,10 @@ export default function CareerCompass() {
 		positionDetails,
 		loading,
 		error,
+		refreshData
 	} = useCareerCompassData();
+
+	const { currentUser } = useUser();
 
 	const [isDataSheetOpen, setIsDataSheetOpen] = useState(false);
 	const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -38,6 +46,32 @@ export default function CareerCompass() {
 
 	// Ref for map controls
 	const mapRef = useRef<MetroMapRef>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
+
+	// Set current node based on user data
+	useEffect(() => {
+		// If user has a current position ID, use it
+		if (currentUser?.current_job_family_id && positionDetails) {
+			// In a real app, you'd map the job family to the position detail
+			// For now, we'll use a basic example
+			const userPosition = positionDetails.find(p =>
+				p.path_specific_description?.includes(currentUser.current_job_family_id)
+			);
+
+			if (userPosition) {
+				setCurrentNodeId(userPosition.id);
+				return;
+			}
+		}
+
+		// Fallback: set first junior position as current
+		if (positionDetails && positionDetails.length > 0) {
+			const entryPosition = positionDetails.find(p => p.level === 1);
+			if (entryPosition) {
+				setCurrentNodeId(entryPosition.id);
+			}
+		}
+	}, [currentUser, positionDetails]);
 
 	// Get the selected position details for preview
 	const selectedPositionDetail = useMemo(() => {
@@ -101,7 +135,7 @@ export default function CareerCompass() {
 
 	const handleNodeSelect = (nodeId: string | null) => {
 		setSelectedNodeId(nodeId);
-		
+
 		// Show position preview if a node is selected
 		if (nodeId) {
 			setIsPreviewOpen(true);
@@ -114,9 +148,16 @@ export default function CareerCompass() {
 		setShowGrid(prev => !prev);
 	};
 
+	// Set a user's position
+	const handleSetUserPosition = (nodeId: string) => {
+		setCurrentNodeId(nodeId);
+		// In a real app, you would persist this to the user's profile
+		console.log(`Setting user position to ${nodeId}`);
+	};
+
 	// --- Render ---
 	return (
-		<div className="relative h-full w-full text-foreground">
+		<div className="relative h-full w-full text-foreground" ref={containerRef}>
 			{/* Render the MetroMap */}
 			<div className="absolute inset-0">
 				<MetroMap
@@ -130,6 +171,15 @@ export default function CareerCompass() {
 					onRemoveTarget={handleRemoveTarget}
 					showGrid={showGrid}
 					onToggleGrid={handleToggleGrid}
+				/>
+			</div>
+
+			{/* Player Card */}
+			
+			<div className="absolute top-2 left-12 z-10">
+				<PlayerCard
+					onPositionChange={handleSetUserPosition}
+					currentPositionId={currentNodeId}
 				/>
 			</div>
 

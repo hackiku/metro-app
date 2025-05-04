@@ -1,4 +1,4 @@
-// src/app/_components/metro/player/PlayerInfo.tsx
+// src/app/_components/user/PlayerInfo.tsx
 "use client"
 
 import { Brain, Shield, Zap, Briefcase, Award, Compass } from "lucide-react"
@@ -15,7 +15,7 @@ interface Skill {
 
 interface PlayerInfoProps {
 	years: number
-	level: number
+	level: number | string
 	skills: Skill[]
 	description?: string
 }
@@ -29,9 +29,16 @@ export function PlayerInfo({ years, level, skills, description }: PlayerInfoProp
 
 	return (
 		<div className="space-y-4">
+			{/* Description */}
+			{description && (
+				<p className="text-sm text-muted-foreground italic mb-4">
+					"{description}"
+				</p>
+			)}
+
 			{/* Experience section */}
 			<div className="pb-2">
-				<div className="flex items-center justify-between text-sm mb-1">
+				<div className="flex items-center justify-between text-sm mb-2">
 					<div className="flex items-center gap-1.5">
 						<Award className="h-4 w-4 text-primary" />
 						<span className="font-medium">Level {level}</span>
@@ -44,7 +51,7 @@ export function PlayerInfo({ years, level, skills, description }: PlayerInfoProp
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div>
-								<Progress value={experienceProgress} className="h-1.5" />
+								<Progress value={experienceProgress} className="h-2" />
 							</div>
 						</TooltipTrigger>
 						<TooltipContent side="bottom">
@@ -55,13 +62,13 @@ export function PlayerInfo({ years, level, skills, description }: PlayerInfoProp
 			</div>
 
 			{/* Skills radar */}
-			<div className="space-y-3 pb-2">
+			<div className="space-y-3 pb-3">
 				<div className="flex items-center gap-2">
 					<Briefcase className="h-4 w-4 text-primary" />
 					<h4 className="text-sm font-medium">Core Skills</h4>
 				</div>
 
-				<div className="grid grid-cols-1 gap-2.5">
+				<div className="grid grid-cols-1 gap-3">
 					{skills.map((skill, index) => (
 						<div key={index} className="flex items-center gap-2">
 							<div className="text-muted-foreground">
@@ -76,8 +83,8 @@ export function PlayerInfo({ years, level, skills, description }: PlayerInfoProp
 												<div
 													key={star}
 													className={`w-1.5 h-1.5 rounded-full ${star <= Math.round(skill.value / 20)
-															? 'bg-primary'
-															: 'bg-muted'
+														? 'bg-primary'
+														: 'bg-muted'
 														}`}
 												/>
 											))}
@@ -85,7 +92,7 @@ export function PlayerInfo({ years, level, skills, description }: PlayerInfoProp
 										<span className="text-xs font-medium ml-1">{skill.value}%</span>
 									</div>
 								</div>
-								<Progress value={skill.value} className="h-1.5 mt-1" />
+								<Progress value={skill.value} className="h-1.5 mt-1.5" />
 							</div>
 						</div>
 					))}
@@ -94,11 +101,11 @@ export function PlayerInfo({ years, level, skills, description }: PlayerInfoProp
 
 			{/* Development suggestion */}
 			{nextSkillToImprove && (
-				<div className="bg-muted/50 rounded-md p-2.5 border border-muted">
-					<div className="flex items-start gap-2">
+				<div className="bg-muted/50 rounded-md p-3 border border-muted">
+					<div className="flex items-start gap-2.5">
 						<Compass className="h-4 w-4 text-primary mt-0.5" />
 						<div>
-							<h4 className="text-sm font-medium mb-0.5">Development Focus</h4>
+							<h4 className="text-sm font-medium mb-1">Development Focus</h4>
 							<p className="text-xs text-muted-foreground mb-2">
 								Consider improving your <span className="font-medium text-foreground">{nextSkillToImprove.name}</span> skills to
 								advance your career options.
@@ -111,15 +118,8 @@ export function PlayerInfo({ years, level, skills, description }: PlayerInfoProp
 				</div>
 			)}
 
-			{/* Brief description */}
-			{description && (
-				<p className="text-xs italic text-muted-foreground">
-					"{description}"
-				</p>
-			)}
-
 			{/* Quick actions */}
-			<div className="pt-1 flex items-center justify-between text-xs">
+			<div className="pt-2 flex items-center justify-between text-xs">
 				<Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary">
 					View Full Profile
 				</Button>

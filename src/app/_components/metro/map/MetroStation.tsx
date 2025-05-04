@@ -1,9 +1,10 @@
-// src/app/_components/metro/map/MetroStation.tsx
+// src/app/_components/metro/map/MetroStation.tsx (update)
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
 import type { LayoutNode } from '~/types/engine';
 import { Target, Trash2, Info, ArrowRight, Star, Briefcase, Eye } from 'lucide-react';
+import { YouAreHere } from './YouAreHere';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -197,36 +198,12 @@ export default function MetroStation({
 					</div>
 				</foreignObject>
 
-				{/* Current user position indicator */}
+				{/* Replace current user position indicator with YouAreHere component */}
 				{isCurrent && (
-					<g className="player-indicator">
-						{/* Animated pulsing circle */}
-						<circle
-							cy={-baseStationSize - 10}
-							r={7}
-							fill="rgba(79, 70, 229, 0.2)"
-							className="animate-ping"
-						/>
-						{/* Avatar circle */}
-						<circle
-							cy={-baseStationSize - 10}
-							r={6}
-							fill="#4f46e5"
-							stroke="white"
-							strokeWidth={1.5}
-						/>
-						{/* User icon or initial */}
-						<text
-							y={-baseStationSize - 10}
-							textAnchor="middle"
-							dominantBaseline="middle"
-							fill="white"
-							fontSize={8}
-							fontWeight="bold"
-						>
-							U
-						</text>
-					</g>
+					<YouAreHere
+						currentNodeId={node.id}
+						transform={{ x: 0, y: 0, scale: currentScale }}
+					/>
 				)}
 
 				{/* Target indicator */}
