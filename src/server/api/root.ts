@@ -1,9 +1,10 @@
-// src/server/api/routers/root.ts
+// src/server/api/root.ts
 
 import { postRouter } from "~/server/api/routers/post";
 import { careerRouter } from "~/server/api/routers/career";
 import { positionRouter } from "./routers/position";
 import { organizationRouter } from "./routers/organization";
+import { userRouter } from "./routers/user";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -12,10 +13,11 @@ import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
-	post: postRouter,
-	career: careerRouter,
-	position: positionRouter,
-	organization: positionRouter,
+  post: postRouter,
+  career: careerRouter,
+  position: positionRouter,
+  organization: organizationRouter,
+  user: userRouter,
 });
 
 // export type definition of API

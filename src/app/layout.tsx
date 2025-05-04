@@ -1,4 +1,6 @@
 // ~/app/layout.tsx
+// Remove the "use client" directive
+
 import "~/styles/globals.css";
 
 import type { Metadata } from "next";
@@ -6,7 +8,7 @@ import { Geist } from "next/font/google";
 
 import { TRPCReactProvider } from "~/trpc/react";
 import { ThemeProvider } from "~/components/ui/theme-provider";
-import AppLayout from "~/components/layout/AppLayout";
+import AppLayoutWithProviders from "~/components/layout/AppLayoutWithProviders";
 
 export const metadata: Metadata = {
 	title: "Metro Map - Career Development",
@@ -32,9 +34,9 @@ export default function RootLayout({
 						enableSystem
 						disableTransitionOnChange
 					>
-						<AppLayout>
+						<AppLayoutWithProviders>
 							{children}
-						</AppLayout>
+						</AppLayoutWithProviders>
 					</ThemeProvider>
 				</TRPCReactProvider>
 			</body>

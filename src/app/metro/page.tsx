@@ -3,9 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { MetroMapProvider } from "~/contexts/MetroMapContext";
-// Only need the SessionProvider now
-import { SessionProvider } from "~/contexts/SessionContext";
-// Import the refactored CareerCompass component
+// import { SessionProvider } from "~/contexts/SessionContext";
 import CareerCompass from "~/app/_components/metro/CareerCompass";
 
 export default function MetroPage() {
@@ -19,11 +17,11 @@ export default function MetroPage() {
 	return (
 		<div className="relative h-full w-full">
 			{isClient ? (
-				<SessionProvider>
+				// <SessionProvider>
 					<MetroMapProvider >
 						<CareerCompass />
 					</MetroMapProvider>
-				</SessionProvider>
+				// </SessionProvider>
 			) : (
 				<div className="flex items-center justify-center h-full w-full">
 					<div className="flex flex-col items-center">

@@ -168,8 +168,8 @@ export function AssignmentsList({
 			.filter((position, index) => {
 				const origPosition = originalPositions.find(p => p.id === position.id);
 				// Include if level or sequence changed from original
-				return !origPosition ||
-					position.level !== origPosition.level ||
+				return !origPosition || 
+					position.level !== origPosition.level || 
 					position.sequence_in_path !== origPosition.sequence_in_path;
 			})
 			.map(position => ({
