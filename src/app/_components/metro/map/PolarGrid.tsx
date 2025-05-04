@@ -152,12 +152,12 @@ export default function PolarGrid({
 
 			{/* Config Info Panel */}
 			{showLabels && (
-				<g transform={`translate(${centerX - 100}, ${centerY + maxRadius - 140})`}>
+				<g transform={`translate(${centerX - 300}, ${centerY + maxRadius - 40})`}>
 					<rect
 						x={0}
 						y={0}
-						width={200}
-						height={130}
+						width={140}
+						height={120}
 						fill="var(--background)"
 						fillOpacity={0.85}
 						rx={4}
@@ -165,7 +165,7 @@ export default function PolarGrid({
 						stroke="var(--border)"
 						strokeWidth="0.5"
 					/>
-					<text x={10} y={20} fontSize="11px" fill="var(--foreground)" fontFamily="monospace">
+					<text x={10} y={20} fontSize="9px" fill="var(--muted)" fontFamily="monospace">
 						<tspan x={10} dy={0}>Polar Grid Config:</tspan>
 						<tspan x={10} dy={16}>• Mid Radius: {midLevelRadius}</tspan>
 						<tspan x={10} dy={16}>• Radius Step: {radiusStep}</tspan>

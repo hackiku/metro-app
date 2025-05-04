@@ -11,7 +11,7 @@ import { DEFAULT_CONFIG } from './engine/config';
 import type { LayoutData } from './engine/types';
 import MetroMap from './map/MetroMap';
 import type { MetroMapRef } from './map/MetroMap';
-// Import the data hook
+// Import the updated data hook
 import { useCareerCompassData } from './hooks/useCareerCompassData';
 
 export default function CareerCompass() {
@@ -122,6 +122,7 @@ export default function CareerCompass() {
 							<SheetTitle>Career Framework Data</SheetTitle>
 						</SheetHeader>
 						<DataDisplay
+							organization={organization}
 							careerPaths={careerPaths}
 							positions={positions}
 							positionDetails={positionDetails}

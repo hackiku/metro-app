@@ -10,25 +10,28 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "~/components/ui/table"; // Adjust path if needed
+} from "~/components/ui/table"; 
 import {
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
-} from "~/components/ui/card"; // Adjust path if needed
+} from "~/components/ui/card"; 
 import type {
 	Organization,
 	CareerPath,
 	Position,
 	PositionDetail
 } from '~/types/compass';
+import type { LayoutData } from '~/types/engine';
 
 interface DataDisplayProps {
 	organization: Organization | null;
 	careerPaths: CareerPath[];
 	positions: Position[];
 	positionDetails: PositionDetail[];
+	selectedNodeId?: string | null;
+	layoutData?: LayoutData | null;
 	// Add other data arrays here later (transitions, skills) if needed
 }
 
@@ -104,7 +107,9 @@ export default function DataDisplay({
 	organization,
 	careerPaths,
 	positions,
-	positionDetails
+	positionDetails,
+	selectedNodeId,
+	layoutData
 }: DataDisplayProps) {
 	return (
 		<div className="p-4 md:p-6 lg:p-8 h-full overflow-y-auto bg-background">

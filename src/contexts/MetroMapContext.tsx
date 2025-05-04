@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { LayoutData, LayoutNode } from '~/types/engine';
+import { useOrganization } from '~/contexts/OrganizationContext';
 
 interface MetroMapContextType {
 	// View state
@@ -41,6 +42,9 @@ export function MetroMapProvider({
 	children,
 	initialViewport = { scale: 1, x: 0, y: 0 }
 }: MetroMapProviderProps) {
+	// Access organization context directly
+	const { currentOrganization } = useOrganization();
+
 	// View state
 	const [viewport, setViewport] = useState(initialViewport);
 

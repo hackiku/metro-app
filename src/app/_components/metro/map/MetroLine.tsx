@@ -2,8 +2,7 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import type { LayoutPath, LayoutNode } from '../engine/types';
-import { generatePathSegments, generateSvgPathData } from '../engine/pathDrawer';
+import type { LayoutPath, LayoutNode } from '~/types/engine';
 
 interface MetroLineProps {
 	path: LayoutPath;
@@ -15,53 +14,41 @@ interface MetroLineProps {
 
 /**
  * Renders a metro line connecting nodes of the same career path.
- * Improved with visual cues and optional highlighting.
+ * Uses direct lines between nodes without intermediate routing points.
  */
 export default function MetroLine({
 	path,
 	nodes,
-	lineWidth = 1,
+	lineWidth = 2,
 	opacity = 0.9,
 	isSelected = false
 }: MetroLineProps) {
 
-	const { pathData, markers } = useMemo(() => {
-		if (nodes.length < 2) return { pathData: '', markers: [] };
+	const pathData = useMemo(() => {
+		if (nodes.length < 2) return '';
 
-		// Generate path points using manhattan routing
-		const pathPoints = generatePathSegments(nodes);
+		// Sort nodes by level and sequence
+		const sortedNodes = [...nodes].sort((a, b) => {
+			// First sort by level
+			const levelDiff = a.level - b.level;
+			if (levelDiff !== 0) return levelDiff;
 
-		// Convert points to SVG path data
-		const pathData = generateSvgPathData(pathPoints);
-
-		// Generate markers for the path (e.g., direction indicators)
-		// For each segment longer than a certain threshold
-		const markers: Array<{ x: number, y: number, angle: number }> = [];
-
-		// Add direction indicators on longer segments
-		for (let i = 0; i < pathPoints.length - 1; i++) {
-			const current = pathPoints[i];
-			const next = pathPoints[i + 1];
-
-			// Calculate segment length
-			const dx = next.x - current.x;
-			const dy = next.y - current.y;
-			const length = Math.sqrt(dx * dx + dy * dy);
-
-			// Only add markers for longer segments
-			if (length > 70) {
-				// Calculate the midpoint of this segment
-				const midX = current.x + dx * 0.5;
-				const midY = current.y + dy * 0.5;
-
-				// Calculate angle for rotation
-				const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-
-				markers.push({ x: midX, y: midY, angle });
+			// Then by sequence if available
+			if (a.sequence_in_path != null && b.sequence_in_path != null) {
+				return a.sequence_in_path - b.sequence_in_path;
 			}
+
+			return 0;
+		});
+
+		// Generate path data as a series of connected line segments
+		let data = `M ${sortedNodes[0].x} ${sortedNodes[0].y}`;
+
+		for (let i = 1; i < sortedNodes.length; i++) {
+			data += ` L ${sortedNodes[i].x} ${sortedNodes[i].y}`;
 		}
 
-		return { pathData, markers };
+		return data;
 	}, [nodes]);
 
 	// If there are no nodes or only one node, don't render
@@ -71,8 +58,7 @@ export default function MetroLine({
 	const highlightStrokeWidth = isSelected ? lineWidth + 2 : lineWidth;
 	const pathOpacity = isSelected ? 1 : opacity;
 
-
-  return (
+	return (
 		<g className="metro-line">
 			{/* Background stroke for better visibility */}
 			<path
@@ -100,24 +86,6 @@ export default function MetroLine({
 				vectorEffect="non-scaling-stroke" // Keep stroke width consistent when zooming
 				data-path-id={path.id}
 			/>
-
-
-			{/* Optional direction markers */}
-			{markers.map((marker, index) => (
-				<g
-					key={`marker-${index}`}
-					transform={`translate(${marker.x}, ${marker.y}) rotate(${marker.angle})`}
-					className="metro-line-marker"
-				>
-					{/* Simple arrow or dot marker */}
-					<circle
-						r={lineWidth / 2}
-						fill={path.color}
-						opacity={pathOpacity}
-						className="metro-line-dot"
-					/>
-				</g>
-			))}
 		</g>
 	);
 }

@@ -1,4 +1,4 @@
-// src/app/types/engine.ts
+// src/types/engine.ts
 
 // --- Metro Layout Configuration ---
 export interface MetroConfig {
@@ -9,6 +9,7 @@ export interface MetroConfig {
   angleOffset: number;
   eccentricity: number;
   padding: number;
+  maxConsecutiveAligned?: number; // Maximum nodes in a straight line (default: 3)
 }
 
 // --- Layout Output Structures ---
@@ -23,6 +24,7 @@ export interface LayoutNode {
   color: string;
   isInterchange?: boolean;
   sequence_in_path?: number | null;
+  relatedPaths?: string[]; // IDs of all paths this position appears in
 }
 
 export interface LayoutPath {

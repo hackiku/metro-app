@@ -1,5 +1,5 @@
 // src/app/_components/metro/hooks/useCareerCompassData.ts
-import { useSession } from "~/contexts/SessionContext";
+import { useOrganization } from "~/contexts/OrganizationContext";
 import { api } from "~/trpc/react";
 import type { Organization, CareerPath, Position, PositionDetail } from "~/types/compass";
 
@@ -8,8 +8,11 @@ import type { Organization, CareerPath, Position, PositionDetail } from "~/types
  * This replaces the old context-based data fetching approach
  */
 export function useCareerCompassData() {
-	const { currentOrgId } = useSession();
+	const { currentOrganization } = useOrganization();
 	const utils = api.useUtils();
+
+	// Get the organization ID from the currentOrganization
+	const currentOrgId = currentOrganization?.id;
 
 	// Fetch all career paths
 	const careerPathsQuery = api.career.getPaths.useQuery(
@@ -55,15 +58,8 @@ export function useCareerCompassData() {
 		]);
 	};
 
-	// Organization placeholder - could be properly fetched later
-	const organization: Organization | null = currentOrgId ? {
-		id: currentOrgId,
-		name: "Current Organization",
-		created_at: new Date().toISOString()
-	} : null;
-
 	return {
-		organization,
+		organization: currentOrganization,
 		careerPaths: careerPathsQuery.data || [],
 		positions: positionsQuery.data || [],
 		positionDetails: positionDetailsQuery.data || [],

@@ -1,11 +1,11 @@
 // src/app/_components/metro/engine/nodePlacer.ts
 
-import type { CareerPath, PositionDetail, Position, LayoutNode, PolarPoint, MetroConfig } from '~/types/engine';
+import type { CareerPath, PositionDetail, Position, LayoutNode, MetroConfig } from '~/types/engine';
 import { DEFAULT_CONFIG } from './config';
 
 /**
  * Distributes career paths around a circle at different angles
- * Uses eccentricity to control asymmetry, ensures paths are separated
+ * Ensures paths are evenly separated in angular space
  */
 export function assignPathAngles(
   paths: CareerPath[],
@@ -19,23 +19,22 @@ export function assignPathAngles(
   // Sort paths for consistent ordering
   const sortedPaths = [...paths].sort((a, b) => a.id.localeCompare(b.id));
   
-  // Define primary directions based on numDirections
+  // For optimal distribution, use fixed angle steps based on config
+  // This ensures we get angles at 0°, 45°, 90°, etc.
   const angleStep = 360 / config.numDirections;
   
-  // Calculate available angles (0, 45, 90, 135, etc based on config)
-  const availableAngles: number[] = [];
-  for (let i = 0; i < config.numDirections; i++) {
-    availableAngles.push((i * angleStep + config.angleOffset) % 360);
-  }
-
-  // Assign each path to a primary direction
+  // Calculate distribution with small random variations to avoid perfect symmetry
   sortedPaths.forEach((path, index) => {
-    // If we have more paths than directions, we'll reuse directions
-    const angleIndex = index % availableAngles.length;
+    // Determine which angle to use from the available angles
+    const angleIndex = index % config.numDirections;
     
-    // Apply slight variation to avoid exact overlap when reusing angles
-    const variationFactor = Math.floor(index / availableAngles.length) * 5;
-    const finalAngle = (availableAngles[angleIndex] + variationFactor) % 360;
+    // Calculate base angle to ensure grid alignment
+    const baseAngle = angleIndex * angleStep;
+    
+    // Apply small variation only within the same general direction
+    // to maintain the grid alignment
+    const variation = (Math.random() - 0.5) * 5 * config.eccentricity;
+    const finalAngle = (baseAngle + variation + config.angleOffset) % 360;
     
     pathAngles.set(path.id, finalAngle);
   });
@@ -64,40 +63,45 @@ export function getLevelInfo(details: PositionDetail[]): {
 }
 
 /**
- * Convert angle in degrees to x,y offset for grid positioning
- * Returns normalized direction vector for grid placement
+ * Snap angle to the nearest 45° increment
  */
-function getGridDirection(angle: number): { dx: number, dy: number } {
-  // Convert to radians
-  const radians = (angle * Math.PI) / 180;
+function snapAngleToGrid(angle: number): number {
+  // Define the grid angles (0, 45, 90, 135, 180, 225, 270, 315)
+  const gridAngles = [0, 45, 90, 135, 180, 225, 270, 315];
   
-  // Calculate basic direction
-  const dx = Math.cos(radians);
-  const dy = Math.sin(radians);
+  // Find the closest grid angle
+  let closestAngle = gridAngles[0];
+  let minDifference = Math.abs(angle - closestAngle);
   
-  // Snap to nearest grid direction (0, 45, 90, etc.)
-  // First determine the octant (0-7) the angle falls in
-  const octant = Math.round(8 * radians / (2 * Math.PI) + 8) % 8;
+  for (let i = 1; i < gridAngles.length; i++) {
+    const difference = Math.abs(angle - gridAngles[i]);
+    if (difference < minDifference) {
+      minDifference = difference;
+      closestAngle = gridAngles[i];
+    }
+  }
   
-  // Map octant to normalized grid directions
-  const gridDirections = [
-    { dx: 1, dy: 0 },    // 0° - right
-    { dx: 1, dy: 1 },    // 45° - bottom-right
-    { dx: 0, dy: 1 },    // 90° - down
-    { dx: -1, dy: 1 },   // 135° - bottom-left
-    { dx: -1, dy: 0 },   // 180° - left
-    { dx: -1, dy: -1 },  // 225° - top-left
-    { dx: 0, dy: -1 },   // 270° - up
-    { dx: 1, dy: -1 }    // 315° - top-right
-  ];
-
-  return gridDirections[octant];
+  return closestAngle;
 }
 
 /**
- * Calculate node positions with metro-style constraints
+ * Convert angle in degrees to x,y vector
  */
-export function calculateNodePositions(
+function getPolarVector(angle: number): { dx: number, dy: number } {
+  // Convert to radians
+  const radians = (angle * Math.PI) / 180;
+  
+  // Return normalized vector
+  return {
+    dx: Math.cos(radians),
+    dy: Math.sin(radians)
+  };
+}
+
+/**
+ * Calculate node positions with bidirectional extension from center
+ */
+export function calculateInitialNodePositions(
   details: PositionDetail[],
   positions: Position[],
   pathAngles: Map<string, number>,
@@ -118,7 +122,7 @@ export function calculateNodePositions(
     pathDetails.get(detail.career_path_id)!.push(detail);
   });
   
-  // Pre-sort each path's details by level for consistent processing
+  // Sort each path's details by level and sequence
   pathDetails.forEach((details, pathId) => {
     details.sort((a, b) => {
       // First sort by level
@@ -142,51 +146,54 @@ export function calculateNodePositions(
     // Get this path's angle
     const pathAngle = pathAngles.get(pathId) || 0;
     
-    // Get grid-aligned direction for this path
-    const gridDir = getGridDirection(pathAngle);
+    // Ensure angle is snapped to grid (0, 45, 90, etc.)
+    const snappedAngle = snapAngleToGrid(pathAngle);
     
-    // Place nodes along the path with metro-style spacing
-    pathNodes.forEach((detail, index) => {
+    // Get vector for this path's direction
+    const pathVector = getPolarVector(snappedAngle);
+    
+    // Calculate opposite angle for senior positions (180° rotation)
+    const oppositeAngle = (snappedAngle + 180) % 360;
+    const oppositeVector = getPolarVector(oppositeAngle);
+    
+    // Place nodes along the path with bidirectional extension
+    pathNodes.forEach((detail) => {
       const position = posMap.get(detail.position_id);
       if (!position) {
         throw new Error(`Position ${detail.position_id} not found`);
       }
       
-      // Center mid-level positions, spread out others based on level difference
-      const levelDiff = detail.level - levelInfo.midLevel;
+      // Calculate normalized position in the level range (0 to 1)
+      const levelRange = levelInfo.maxLevel - levelInfo.minLevel;
+      const normalizedLevel = levelRange > 0 
+        ? (detail.level - levelInfo.minLevel) / levelRange 
+        : 0.5;
       
-      // Calculate base radius using level difference
-      const baseRadius = config.midLevelRadius + (levelDiff * config.radiusStep);
-      const radius = Math.max(config.minRadius, baseRadius);
+      // Determine which vector to use based on level
+      // Junior positions: use pathVector
+      // Senior positions: use oppositeVector
+      const useOppositeDirection = detail.level > levelInfo.midLevel;
+      const directionVector = useOppositeDirection ? oppositeVector : pathVector;
       
-      // Calculate offset from center line for visual interest
-      // Earlier nodes in path get less offset, creating a more structured look
-      const pathProgress = index / Math.max(1, pathNodes.length - 1);
-      const offsetFactor = 0.15 * (detail.level !== levelInfo.midLevel ? 1 : 0.5);
-      const perpOffset = radius * offsetFactor * Math.sin(pathProgress * Math.PI);
+      // Calculate distance from center based on how far from midLevel
+      // The further from midLevel, the greater the distance
+      const midLevelDiff = Math.abs(detail.level - levelInfo.midLevel);
+      const maxDiff = Math.max(
+        levelInfo.midLevel - levelInfo.minLevel,
+        levelInfo.maxLevel - levelInfo.midLevel
+      );
       
-      // Apply calculated positions in grid-aligned directions
-      // For mid-level nodes, pull them more towards the center
-      let x, y;
+      // Normalize the difference to get a 0-1 scale
+      const normalizedDiff = maxDiff > 0 ? midLevelDiff / maxDiff : 0;
       
-      // Midlevel nodes should be closer to center
-      if (Math.abs(detail.level - levelInfo.midLevel) < 0.5) {
-        // Pure radial positioning for midlevel
-        const angleRad = (pathAngle * Math.PI) / 180;
-        x = radius * 0.7 * Math.cos(angleRad);
-        y = radius * 0.7 * Math.sin(angleRad);
-      } else {
-        // Grid-aligned positioning for other nodes
-        // Main direction component
-        x = radius * gridDir.dx;
-        y = radius * gridDir.dy;
-        
-        // Add perpendicular offset for visual separation
-        // Calculate perpendicular direction by rotating 90°
-        const perpDir = { dx: -gridDir.dy, dy: gridDir.dx };
-        x += perpOffset * perpDir.dx;
-        y += perpOffset * perpDir.dy;
-      }
+      // Calculate radius - positions at midLevel are closest to center
+      // Positions furthest from midLevel (junior or senior) are furthest from center
+      const radius = config.midLevelRadius + 
+        (normalizedDiff * config.radiusStep * 2); // Amplify the effect
+      
+      // Calculate position using the appropriate direction vector
+      const x = directionVector.dx * radius;
+      const y = directionVector.dy * radius;
       
       // Create node with calculated position
       nodes.push({

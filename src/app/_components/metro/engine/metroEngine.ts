@@ -1,16 +1,10 @@
-
 // src/app/_components/metro/engine/metroEngine.ts
 
 import type { CareerPath, Position, PositionDetail, LayoutData, LayoutNode, LayoutPath, LayoutBounds, MetroConfig } from '~/types/engine';
 import { DEFAULT_CONFIG } from './config';
-import { assignPathAngles, calculateNodePositions } from './nodePlacer';
-import { generatePathSegments } from './pathDrawer';
-import { 
-  calculateUniformPathDistances, 
-  calculateRequirementBasedDistances,
-  applyPathDistances,
-  adjustNodeSpread
-} from './pathScaler';
+import { assignPathAngles, calculateInitialNodePositions } from './nodePlacer';
+import { enforceLineConstraints } from './pathConstraints';
+import { identifyInterchangeNodes } from './nodeUtils';
 
 /**
  * Calculates layout bounds with padding
@@ -43,78 +37,22 @@ function calculateBounds(nodes: LayoutNode[], padding: number): LayoutBounds {
 }
 
 /**
- * Identify interchange nodes (nodes that could belong to multiple paths)
- * This helps visually distinguish important stations
+ * Apply colors from career paths to nodes
  */
-function identifyInterchangeNodes(nodes: LayoutNode[]): LayoutNode[] {
-  // Find positions that appear in multiple career paths
-  const positionPaths = new Map<string, Set<string>>();
+function applyPathColors(nodes: LayoutNode[], careerPaths: CareerPath[]): LayoutNode[] {
+  const pathColorMap = new Map(careerPaths.map(p => [p.id, p.color || '#cccccc']));
   
-  // Count career paths per position
-  nodes.forEach(node => {
-    if (!positionPaths.has(node.positionId)) {
-      positionPaths.set(node.positionId, new Set());
-    }
-    positionPaths.get(node.positionId)!.add(node.careerPathId);
-  });
-  
-  // Mark nodes as interchanges if their position appears in multiple paths
-  return nodes.map(node => {
-    const pathCount = positionPaths.get(node.positionId)?.size || 0;
-    return {
-      ...node,
-      isInterchange: pathCount > 1
-    };
-  });
+  return nodes.map(node => ({
+    ...node,
+    color: pathColorMap.get(node.careerPathId) || '#cccccc'
+  }));
 }
 
 /**
- * Main function to generate metro map layout with improved spacing and scaling
+ * Sort nodes within each path by level and sequence
  */
-export function generateMetroLayout(
-  careerPaths: CareerPath[],
-  positions: Position[],
-  positionDetails: PositionDetail[],
-  config: MetroConfig = DEFAULT_CONFIG
-): LayoutData {
-  // Validate input
-  if (!careerPaths.length || !positions.length || !positionDetails.length) {
-    throw new Error('Cannot generate layout: missing required data');
-  }
-  
-  // Step 1: Assign angles to career paths
-  const pathAngles = assignPathAngles(careerPaths, config);
-  
-  // Step 2: Calculate initial node positions with metro-style grid alignment
-  let nodes = calculateNodePositions(
-    positionDetails, 
-    positions, 
-    pathAngles,
-    config
-  );
-  
-  // Step 3: Identify interchange nodes
-  nodes = identifyInterchangeNodes(nodes);
-  
-  // Step 4: Calculate path distances
-  // For now, use uniform distances, but this could be replaced with
-  // requirement-based distances when that data is available
-  const distances = calculateUniformPathDistances(nodes, config.radiusStep * 2.0);
-  
-  // Step 5: Apply calculated distances to adjust node positions
-  nodes = applyPathDistances(nodes, distances, config);
-  
-  // Step 6: Adjust node spread to prevent crowding
-  nodes = adjustNodeSpread(nodes, config, 1.3);
-  
-  // Step 7: Update nodes with path colors
-  const pathColorMap = new Map(careerPaths.map(p => [p.id, p.color || '#cccccc']));
-  nodes = nodes.map(node => ({
-    ...node,
-    color: pathColorMap.get(node.careerPathId) || node.color
-  }));
-  
-  // Step 8: Group nodes by path
+function sortPathNodes(nodes: LayoutNode[]): Map<string, LayoutNode[]> {
+  // Group nodes by path
   const nodesByPath = new Map<string, LayoutNode[]>();
   nodes.forEach(node => {
     if (!nodesByPath.has(node.careerPathId)) {
@@ -123,7 +61,85 @@ export function generateMetroLayout(
     nodesByPath.get(node.careerPathId)!.push(node);
   });
   
-  // Step 9: Create path objects
+  // Sort nodes within each path
+  nodesByPath.forEach((pathNodes, pathId) => {
+    pathNodes.sort((a, b) => {
+      // First sort by level
+      const levelDiff = a.level - b.level;
+      if (levelDiff !== 0) return levelDiff;
+      
+      // Then by sequence if available
+      if (a.sequence_in_path != null && b.sequence_in_path != null) {
+        return a.sequence_in_path - b.sequence_in_path;
+      }
+      
+      return 0;
+    });
+  });
+  
+  return nodesByPath;
+}
+
+/**
+ * Build lookup structures for efficient access
+ */
+function buildLookups(nodes: LayoutNode[], paths: LayoutPath[]): {
+  nodesById: Record<string, LayoutNode>;
+  pathsById: Record<string, LayoutPath>;
+} {
+  const nodesById: Record<string, LayoutNode> = {};
+  nodes.forEach(node => { nodesById[node.id] = node; });
+  
+  const pathsById: Record<string, LayoutPath> = {};
+  paths.forEach(path => { pathsById[path.id] = path; });
+  
+  return { nodesById, pathsById };
+}
+
+/**
+ * Main function to generate metro map layout
+ */
+export function generateMetroLayout(
+  careerPaths: CareerPath[],
+  positions: Position[],
+  positionDetails: PositionDetail[],
+  config: MetroConfig = DEFAULT_CONFIG
+): LayoutData {
+  console.log("Generating metro layout with config:", config);
+  
+  // Validate input
+  if (!careerPaths.length || !positions.length || !positionDetails.length) {
+    throw new Error('Cannot generate layout: missing required data');
+  }
+  
+  // Step 1: Assign angles to career paths
+  const pathAngles = assignPathAngles(careerPaths, config);
+  console.log("Path angles assigned:", Object.fromEntries(pathAngles.entries()));
+  
+  // Step 2: Calculate initial node positions with bidirectional extension
+  let nodes = calculateInitialNodePositions(
+    positionDetails, 
+    positions, 
+    pathAngles,
+    config
+  );
+  console.log(`Initial node positions calculated: ${nodes.length} nodes`);
+  
+  // Step 3: Enforce constraints for consecutive nodes
+  nodes = enforceLineConstraints(nodes, config);
+  console.log("Line constraints enforced");
+  
+  // Step 4: Identify interchange nodes (positions that appear in multiple paths)
+  nodes = identifyInterchangeNodes(nodes);
+  console.log("Interchange nodes identified");
+  
+  // Step 5: Apply path colors to nodes
+  nodes = applyPathColors(nodes, careerPaths);
+  
+  // Step 6: Group and sort nodes by path
+  const nodesByPath = sortPathNodes(nodes);
+  
+  // Step 7: Create path objects
   const paths: LayoutPath[] = careerPaths.map(path => {
     const pathNodes = nodesByPath.get(path.id) || [];
     
@@ -135,21 +151,14 @@ export function generateMetroLayout(
     };
   });
   
-  // Step 10: Build lookup objects
-  const nodesById: Record<string, LayoutNode> = {};
-  nodes.forEach(node => {
-    nodesById[node.id] = node;
-  });
+  // Step 8: Build lookup objects
+  const { nodesById, pathsById } = buildLookups(nodes, paths);
   
-  const pathsById: Record<string, LayoutPath> = {};
-  paths.forEach(path => {
-    pathsById[path.id] = path;
-  });
-  
-  // Step 11: Calculate bounds
+  // Step 9: Calculate bounds
   const bounds = calculateBounds(nodes, config.padding);
+  console.log("Layout bounds:", bounds);
   
-  // Step 12: Return layout data
+  // Step 10: Return layout data
   return {
     nodes,
     nodesById,

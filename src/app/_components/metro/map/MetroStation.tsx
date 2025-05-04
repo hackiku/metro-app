@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import type { LayoutNode } from '../engine/types';
+import type { LayoutNode } from '~/types/engine';
 import { Target, Trash2 } from 'lucide-react';
 import {
 	DropdownMenu,
