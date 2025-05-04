@@ -24,6 +24,9 @@ export default function HrAdminPage() {
 	// State for tracking active tab
 	const [activeTab, setActiveTab] = useState<string>("all-positions");
 
+	// State for tracking unsaved changes
+	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
 	// Get tRPC utils for cache invalidation
 	const utils = api.useUtils();
 
@@ -49,12 +52,63 @@ export default function HrAdminPage() {
 
 	// Handle selecting a different career path
 	const handleSelectPath = (id: string | null) => {
-		setSelectedCareerPathId(id);
-		if (id) {
-			setActiveTab("assigned-positions");
+		// Check for unsaved changes before changing path
+		if (hasUnsavedChanges) {
+			if (confirm("You have unsaved changes. Are you sure you want to switch paths?")) {
+				setSelectedCareerPathId(id);
+				if (id) {
+					setActiveTab("assigned-positions");
+				} else {
+					setActiveTab("all-positions");
+				}
+				setHasUnsavedChanges(false);
+			}
 		} else {
-			setActiveTab("all-positions");
+			setSelectedCareerPathId(id);
+			if (id) {
+				setActiveTab("assigned-positions");
+			} else {
+				setActiveTab("all-positions");
+			}
 		}
+	};
+
+	// Handle tab change
+	const handleTabChange = (tab: string) => {
+		// Check for unsaved changes before changing tab
+		if (hasUnsavedChanges && tab !== activeTab) {
+			if (confirm("You have unsaved changes. Are you sure you want to switch tabs?")) {
+				setActiveTab(tab);
+				if (tab === "all-positions") {
+					setSelectedCareerPathId(null);
+				}
+				setHasUnsavedChanges(false);
+			}
+		} else {
+			setActiveTab(tab);
+			if (tab === "all-positions") {
+				setSelectedCareerPathId(null);
+			}
+		}
+	};
+
+	// Handle changes notification from AssignmentsList
+	const handleChangesUpdate = (hasChanges: boolean) => {
+		setHasUnsavedChanges(hasChanges);
+	};
+
+	// Handle save changes
+	const handleSaveChanges = () => {
+		// Dispatch a custom event that will be caught by AssignmentsList
+		document.dispatchEvent(new CustomEvent('save-positions'));
+		setHasUnsavedChanges(false);
+	};
+
+	// Handle reset changes
+	const handleResetChanges = () => {
+		// Dispatch a custom event that will be caught by AssignmentsList
+		document.dispatchEvent(new CustomEvent('reset-positions'));
+		setHasUnsavedChanges(false);
 	};
 
 	return (
@@ -87,9 +141,12 @@ export default function HrAdminPage() {
 				{/* Actions Header with Tabs */}
 				<ActionsHeader
 					selectedPathId={selectedCareerPathId}
-					onTabChange={setActiveTab}
+					onTabChange={handleTabChange}
 					activeTab={activeTab}
 					onPathSelect={handleSelectPath}
+					hasChanges={hasUnsavedChanges}
+					onSaveChanges={handleSaveChanges}
+					onResetChanges={handleResetChanges}
 				/>
 
 				{/* Content based on active tab */}
@@ -99,7 +156,12 @@ export default function HrAdminPage() {
 					)}
 
 					{activeTab === "assigned-positions" && selectedCareerPathId && (
-						<AssignmentsList careerPathId={selectedCareerPathId} />
+						<AssignmentsList
+							careerPathId={selectedCareerPathId}
+							onChangesUpdate={handleChangesUpdate}
+							onSave={handleSaveChanges}
+							onReset={handleResetChanges}
+						/>
 					)}
 				</div>
 			</div>

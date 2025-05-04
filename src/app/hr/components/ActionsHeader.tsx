@@ -5,30 +5,38 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader } from "~/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Button } from "~/components/ui/button";
-import { ExternalLink, ChevronDown } from "lucide-react";
+import { ExternalLink, ChevronDown, Save, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { ColorPreview } from "~/components/ui/color-preview";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "~/components/ui/select";
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 
 interface ActionsHeaderProps {
 	selectedPathId: string | null;
 	onTabChange: (tab: string) => void;
 	activeTab: string;
-	onPathSelect?: (id: string) => void;
+	onPathSelect?: (id: string | null) => void;
+	hasChanges?: boolean;
+	onSaveChanges?: () => void;
+	onResetChanges?: () => void;
 }
 
 export function ActionsHeader({
 	selectedPathId,
 	onTabChange,
 	activeTab,
-	onPathSelect
+	onPathSelect,
+	hasChanges = false,
+	onSaveChanges,
+	onResetChanges
 }: ActionsHeaderProps) {
 	// Fetch all career paths for the dropdown
 	const { data: careerPaths, isLoading: pathsLoading } = api.career.getPaths.useQuery(
@@ -46,56 +54,70 @@ export function ActionsHeader({
 	);
 
 	// Handle path selection from dropdown
-	const handlePathChange = (value: string) => {
+	const handlePathChange = (value: string | null) => {
 		if (onPathSelect) {
 			onPathSelect(value);
 		}
 	};
 
 	return (
-		<Card>
-			<CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-				<div className="flex items-center gap-4 flex-1">
+		<>
+			<Card className="mb-3">
+				<CardHeader className="pb-0 flex flex-row items-center justify-between space-y-0">
 					<div className="flex-1 flex items-center gap-3">
 						{selectedPathId && selectedPath && !isLoading ? (
 							<>
 								<ColorPreview color={selectedPath.color || "#cccccc"} size="md" />
-								<Select value={selectedPathId} onValueChange={handlePathChange}>
-									<SelectTrigger className="text-lg font-semibold border-0 shadow-none min-w-[200px] max-w-[300px] h-auto p-0">
-										<SelectValue placeholder="Select career path">
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<Button variant="ghost" size="lg" className="text-xl font-semibold p-0 flex items-center gap-2">
 											{selectedPath.name}
-										</SelectValue>
-									</SelectTrigger>
-									<SelectContent>
+											<ChevronDown className="h-4 w-4 opacity-50" />
+										</Button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent className="w-56">
+										<DropdownMenuLabel>Career Paths</DropdownMenuLabel>
+										<DropdownMenuSeparator />
+										<DropdownMenuGroup>
+											{careerPaths?.map(path => (
+												<DropdownMenuItem key={path.id} onClick={() => handlePathChange(path.id)}>
+													<div className="flex items-center gap-2">
+														<ColorPreview color={path.color || "#cccccc"} size="xs" />
+														<span>{path.name}</span>
+													</div>
+												</DropdownMenuItem>
+											))}
+										</DropdownMenuGroup>
+										<DropdownMenuSeparator />
+										<DropdownMenuItem onClick={() => handlePathChange(null)}>
+											<span>Clear Selection</span>
+										</DropdownMenuItem>
+									</DropdownMenuContent>
+								</DropdownMenu>
+							</>
+						) : (
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button variant="ghost" size="lg" className="text-xl font-semibold p-0 flex items-center gap-2">
+										Position Management
+										<ChevronDown className="h-4 w-4 opacity-50" />
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent className="w-56">
+									<DropdownMenuLabel>Select Career Path</DropdownMenuLabel>
+									<DropdownMenuSeparator />
+									<DropdownMenuGroup>
 										{careerPaths?.map(path => (
-											<SelectItem key={path.id} value={path.id}>
+											<DropdownMenuItem key={path.id} onClick={() => handlePathChange(path.id)}>
 												<div className="flex items-center gap-2">
 													<ColorPreview color={path.color || "#cccccc"} size="xs" />
 													<span>{path.name}</span>
 												</div>
-											</SelectItem>
+											</DropdownMenuItem>
 										))}
-									</SelectContent>
-								</Select>
-							</>
-						) : (
-							<Select value="" onValueChange={handlePathChange}>
-								<SelectTrigger className="text-lg font-semibold border-0 shadow-none min-w-[200px] h-auto p-0">
-									<SelectValue placeholder="Position Management">
-										Position Management
-									</SelectValue>
-								</SelectTrigger>
-								<SelectContent>
-									{careerPaths?.map(path => (
-										<SelectItem key={path.id} value={path.id}>
-											<div className="flex items-center gap-2">
-												<ColorPreview color={path.color || "#cccccc"} size="xs" />
-												<span>{path.name}</span>
-											</div>
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+									</DropdownMenuGroup>
+								</DropdownMenuContent>
+							</DropdownMenu>
 						)}
 
 						{selectedPathId && selectedPath && (
@@ -108,25 +130,67 @@ export function ActionsHeader({
 						)}
 					</div>
 
-					{selectedPath?.description && (
-						<p className="text-sm text-muted-foreground hidden md:block">{selectedPath.description}</p>
+					<Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
+						<TabsList className="grid w-full grid-cols-2 min-w-[300px]">
+							<TabsTrigger
+								value="all-positions"
+								onClick={() => {
+									if (selectedPathId) {
+										handlePathChange(null);
+									}
+								}}
+							>
+								All Positions
+							</TabsTrigger>
+							<TabsTrigger
+								value="assigned-positions"
+								disabled={!selectedPathId}
+							>
+								Assigned Positions
+							</TabsTrigger>
+						</TabsList>
+					</Tabs>
+				</CardHeader>
+
+				<div className="py-3 px-4 flex flex-row items-center justify-between space-y-0">
+					<div className="text-sm text-muted-foreground">
+						{selectedPathId && selectedPath ? (
+							<>
+								{selectedPath.description || "Manage positions in this career path"}
+								{activeTab === "assigned-positions" && (
+									<span className="ml-2">
+										(Drag positions to reorder)
+									</span>
+								)}
+							</>
+						) : (
+							"Manage all position titles in your organization"
+						)}
+					</div>
+
+					{activeTab === "assigned-positions" && selectedPathId && (
+						<div className="flex gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={onResetChanges}
+								disabled={!hasChanges}
+							>
+								<RotateCcw className="mr-2 h-4 w-4" />
+								Reset
+							</Button>
+							<Button
+								size="sm"
+								onClick={onSaveChanges}
+								disabled={!hasChanges}
+							>
+								<Save className="mr-2 h-4 w-4" />
+								Save Changes
+							</Button>
+						</div>
 					)}
 				</div>
-
-				<Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
-					<TabsList className="grid w-full grid-cols-3 min-w-[300px]">
-						<TabsTrigger value="all-positions" disabled={!!selectedPathId}>
-							All Positions
-						</TabsTrigger>
-						<TabsTrigger value="assigned-positions" disabled={!selectedPathId}>
-							Assigned Positions
-						</TabsTrigger>
-						<TabsTrigger value="skills" disabled>
-							Skills
-						</TabsTrigger>
-					</TabsList>
-				</Tabs>
-			</CardHeader>
-		</Card>
+			</Card>
+		</>
 	);
 }

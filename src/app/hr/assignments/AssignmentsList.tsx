@@ -1,7 +1,7 @@
 // src/app/hr/assignments/AssignmentsList.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "~/trpc/react";
 import { useSession } from "~/contexts/SessionContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog";
@@ -26,12 +26,29 @@ interface PositionDetail {
 
 interface AssignmentsListProps {
 	careerPathId: string;
+	onChangesUpdate?: (hasChanges: boolean) => void;
+	onSave?: () => void;
+	onReset?: () => void;
 }
 
-export function AssignmentsList({ careerPathId }: AssignmentsListProps) {
+export function AssignmentsList({
+	careerPathId,
+	onChangesUpdate,
+	onSave,
+	onReset
+}: AssignmentsListProps) {
 	const { currentOrgId } = useSession();
 	const [isAssigning, setIsAssigning] = useState(false);
 	const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+	const [hasLocalChanges, setHasLocalChanges] = useState(false);
+	const [pendingMoves, setPendingMoves] = useState<{
+		id: string;
+		sequenceInPath: number;
+	}[]>([]);
+
+	// Store the original positions order to enable reset
+	const [originalPositions, setOriginalPositions] = useState<PositionDetail[]>([]);
+	const [currentPositions, setCurrentPositions] = useState<PositionDetail[]>([]);
 
 	// Get tRPC utils for cache invalidation
 	const utils = api.useUtils();
@@ -48,7 +65,6 @@ export function AssignmentsList({ careerPathId }: AssignmentsListProps) {
 	// Set up mutation for updating position order
 	const updatePositionMutation = api.position.updatePositionDetail.useMutation({
 		onSuccess: () => {
-			toast.success("Position order updated");
 			utils.position.getByCareerPath.invalidate({
 				organizationId: currentOrgId!,
 				careerPathId
@@ -74,30 +90,99 @@ export function AssignmentsList({ careerPathId }: AssignmentsListProps) {
 		}
 	});
 
+	// Process positions when data is loaded
+	useEffect(() => {
+		if (pathPositionsQuery.data) {
+			// Sort positions by level and sequence
+			const sortedPositions = [...pathPositionsQuery.data].sort((a, b) => {
+				const levelDiff = a.level - b.level;
+				if (levelDiff !== 0) return levelDiff;
+
+				const aSeq = a.sequence_in_path || a.level;
+				const bSeq = b.sequence_in_path || b.level;
+				return aSeq - bSeq;
+			});
+
+			setOriginalPositions(sortedPositions);
+			setCurrentPositions(sortedPositions);
+			setHasLocalChanges(false);
+			setPendingMoves([]);
+
+			// Notify parent of changes state
+			if (onChangesUpdate) {
+				onChangesUpdate(false);
+			}
+		}
+	}, [pathPositionsQuery.data, onChangesUpdate]);
+
 	// Handle row movement (reordering)
 	const handleRowMove = (sourceId: string, targetId: string) => {
 		// Find the source and target positions
-		const positions = pathPositionsQuery.data || [];
-		const sourceIdx = positions.findIndex(p => p.id === sourceId);
-		const targetIdx = positions.findIndex(p => p.id === targetId);
+		const sourceIdx = currentPositions.findIndex(p => p.id === sourceId);
+		const targetIdx = currentPositions.findIndex(p => p.id === targetId);
 
 		if (sourceIdx < 0 || targetIdx < 0) return;
 
 		// Create new array with reordered positions
-		const newOrder = [...positions];
+		const newOrder = [...currentPositions];
 		const [movedItem] = newOrder.splice(sourceIdx, 1);
 		newOrder.splice(targetIdx, 0, movedItem);
 
-		// Update sequence in path for all affected positions
-		newOrder.forEach((position, index) => {
-			// Only update if sequence changed
-			if (position.sequence_in_path !== index + 1) {
-				updatePositionMutation.mutate({
-					id: position.id,
-					sequenceInPath: index + 1
-				});
-			}
+		// Update sequence numbers
+		const updatedPositions = newOrder.map((position, index) => ({
+			...position,
+			sequence_in_path: index + 1
+		}));
+
+		// Track the pending moves
+		const newPendingMoves = updatedPositions.map(position => ({
+			id: position.id,
+			sequenceInPath: position.sequence_in_path || position.level
+		}));
+
+		// Update state
+		setCurrentPositions(updatedPositions);
+		setPendingMoves(newPendingMoves);
+		setHasLocalChanges(true);
+
+		// Notify parent of changes
+		if (onChangesUpdate) {
+			onChangesUpdate(true);
+		}
+	};
+
+	// Handle saving all changes
+	const handleSaveChanges = () => {
+		// Apply all pending moves
+		pendingMoves.forEach(move => {
+			updatePositionMutation.mutate({
+				id: move.id,
+				sequenceInPath: move.sequenceInPath
+			});
 		});
+
+		// Reset local tracking
+		setHasLocalChanges(false);
+		setPendingMoves([]);
+
+		// Notify parent
+		if (onChangesUpdate) {
+			onChangesUpdate(false);
+		}
+
+		toast.success("Position order saved");
+	};
+
+	// Handle resetting changes
+	const handleResetChanges = () => {
+		setCurrentPositions(originalPositions);
+		setHasLocalChanges(false);
+		setPendingMoves([]);
+
+		// Notify parent
+		if (onChangesUpdate) {
+			onChangesUpdate(false);
+		}
 	};
 
 	// Handle prompting to remove a position
@@ -110,16 +195,22 @@ export function AssignmentsList({ careerPathId }: AssignmentsListProps) {
 		removePositionMutation.mutate({ id });
 	};
 
-	// Sort positions by level and sequence
-	const sortedPositions = [...(pathPositionsQuery.data || [])].sort((a, b) => {
-		const levelDiff = a.level - b.level;
-		if (levelDiff !== 0) return levelDiff;
+	// Register callbacks with parent component
+	useEffect(() => {
+		if (onSave) {
+			const saveHandler = onSave;
+			document.addEventListener('save-positions', () => saveHandler());
+			return () => document.removeEventListener('save-positions', () => saveHandler());
+		}
+	}, [onSave, pendingMoves]);
 
-		// If levels are the same, sort by sequence
-		const aSeq = a.sequence_in_path || a.level;
-		const bSeq = b.sequence_in_path || b.level;
-		return aSeq - bSeq;
-	});
+	useEffect(() => {
+		if (onReset) {
+			const resetHandler = onReset;
+			document.addEventListener('reset-positions', () => resetHandler());
+			return () => document.removeEventListener('reset-positions', () => resetHandler());
+		}
+	}, [onReset]);
 
 	// Define columns for the DraggableTable
 	const columns: Column<PositionDetail>[] = [
@@ -172,7 +263,7 @@ export function AssignmentsList({ careerPathId }: AssignmentsListProps) {
 	return (
 		<>
 			<DraggableTable
-				data={sortedPositions}
+				data={currentPositions}
 				columns={columns}
 				isLoading={pathPositionsQuery.isLoading}
 				onRowMove={handleRowMove}
