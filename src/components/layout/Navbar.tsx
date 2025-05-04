@@ -28,7 +28,8 @@ export function Navbar() {
 				</div>
 
 				<Button variant="ghost" size="icon" className="text-muted-foreground" asChild>
-					<Link href="/notifications">
+					{/* <Link href="/notifications"> */}
+					<Link href="https://preview--career-compass-thierry.lovable.app/" target="blank">
 						<Bell className="h-5 w-5" />
 						<span className="sr-only">Notifications</span>
 					</Link>

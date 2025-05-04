@@ -6,13 +6,11 @@ import { useUser } from '~/contexts/UserContext';
 
 interface YouAreHereProps {
 	currentNodeId: string | null;
-	transform: { x: number; y: number; scale: number };
 }
 
-export function YouAreHere({ currentNodeId, transform }: YouAreHereProps) {
+export function YouAreHere({ currentNodeId }: YouAreHereProps) {
 	const { currentUser } = useUser();
 
-	// Don't render if no current node is selected
 	if (!currentNodeId) return null;
 
 	// Get the user's initial
@@ -20,44 +18,41 @@ export function YouAreHere({ currentNodeId, transform }: YouAreHereProps) {
 		? currentUser.full_name.charAt(0).toUpperCase()
 		: "U";
 
-	// No need to position this component based on coordinates since it will be
-	// rendered in the node's position as determined by the MetroMap
-
 	return (
-		<g
-			className="you-are-here-marker"
-			transform={`translate(0, -40)`} // Position above the station
-		>
-			{/* Outer pulsing circle */}
+		<g className="you-are-here-marker">
+			{/* Animated pulsing circle */}
 			<circle
-				r="14"
-				fill="rgba(99, 102, 241, 0.3)"
+				cy={-26}
+				r={12}
+				fill="rgba(79, 70, 229, 0.2)"
 				className="animate-ping"
 			/>
 
-			{/* Solid circle */}
+			{/* Avatar circle */}
 			<circle
-				r="10"
-				fill="rgb(99, 102, 241)"
+				cy={-26}
+				r={7}
+				fill="#4f46e5"
 				stroke="white"
-				strokeWidth="2"
+				strokeWidth={1.5}
 			/>
 
 			{/* User initial */}
 			<text
+				y={-26}
 				textAnchor="middle"
-				dominantBaseline="central"
+				dominantBaseline="middle"
 				fill="white"
-				fontSize="12"
+				fontSize={8}
 				fontWeight="bold"
 			>
 				{initial}
 			</text>
 
 			{/* "You are here" label */}
-			{/* <foreignObject x="-50" y="15" width="100" height="24">
+			{/* <foreignObject x="-40" y="-50" width="80" height="20">
 				<div className="flex justify-center">
-					<div className="bg-background text-xs font-medium px-2 py-1 rounded shadow-sm border border-border whitespace-nowrap">
+					<div className="bg-background text-xs font-medium px-1.5 py-0.5 rounded shadow-sm border border-primary/20 whitespace-nowrap text-center">
 						You are here
 					</div>
 				</div>

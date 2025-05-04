@@ -1,18 +1,11 @@
-// src/app/_components/metro/map/MetroStation.tsx (update)
+// src/app/_components/metro/map/MetroStation.tsx
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
 import type { LayoutNode } from '~/types/engine';
-import { Target, Trash2, Info, ArrowRight, Star, Briefcase, Eye } from 'lucide-react';
+import { Target } from 'lucide-react';
 import { YouAreHere } from './YouAreHere';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-	DropdownMenuSeparator,
-	DropdownMenuLabel,
-} from '~/components/ui/dropdown-menu';
+import { StationMenu } from './StationMenu';
 
 interface MetroStationProps {
 	node: LayoutNode;
@@ -64,10 +57,9 @@ export default function MetroStation({
 			}
 		};
 
-		// Update initially and when parent transform might change
 		updateScale();
 
-		// Create a MutationObserver to detect transform changes
+		// Observe for transform changes
 		const observer = new MutationObserver((mutations) => {
 			mutations.forEach((mutation) => {
 				if (mutation.type === 'attributes' &&
@@ -77,7 +69,6 @@ export default function MetroStation({
 			});
 		});
 
-		// Start observing parent elements for attribute changes
 		let element: Element | null = groupRef.current;
 		while (element && element.tagName !== 'svg') {
 			if (element.tagName === 'g') {
@@ -86,44 +77,37 @@ export default function MetroStation({
 			element = element.parentElement;
 		}
 
-		return () => {
-			observer.disconnect();
-		};
+		return () => { observer.disconnect(); };
 	}, []);
 
-	// Determine station appearance based on state - INCREASED SIZES
-	const baseStationSize = node.isInterchange ? 24 : 18; // Increased from 16/12
-
-	// Calculate inverse scale to counteract parent transformation
+	// Determine station appearance based on state
+	const baseStationSize = node.isInterchange ? 24 : 18;
 	const inverseScale = currentScale > 0 ? 1 / currentScale : 1;
-
-	// adaptive text size based on zoom level
 	const adaptiveTextSize = currentScale < 1
-		? Math.max(9, 14 * currentScale) // Scales down faster when zooming out
-		: Math.min(16, 14 + (currentScale - 1) * 2); // Scales up slower when zooming in
+		? Math.max(9, 14 * currentScale)
+		: Math.min(16, 14 + (currentScale - 1) * 2);
 
-	// Get state-based styling for the ring/stroke
+	// Get state-based styling
 	let ringColor = "var(--border)";
-	let strokeWidth = 2; // Increased from 1
+	let strokeWidth = 2;
 
 	if (isSelected) {
 		ringColor = "white";
-		strokeWidth = 3; // Increased from 2
+		strokeWidth = 3;
 	} else if (isCurrent) {
-		ringColor = "#4f46e5"; // Indigo
-		strokeWidth = 3; // Increased from 2
+		ringColor = "#4f46e5";
+		strokeWidth = 3;
 	} else if (isTarget) {
-		ringColor = "#f59e0b"; // Amber
-		strokeWidth = 3; // Increased from 2
+		ringColor = "#f59e0b";
+		strokeWidth = 3;
 	}
 
 	// Handle station click
 	const handleStationClick = (e: React.MouseEvent) => {
-		e.stopPropagation(); // Prevent map panning
-		if (onClick) onClick(node.id);
+		e.stopPropagation();
+		setIsOpen(prev => !prev);
 	};
 
-	// Build level indicator string
 	const levelIndicator = `${node.level}`;
 
 	return (
@@ -137,7 +121,7 @@ export default function MetroStation({
 			<g transform={`scale(${inverseScale})`}>
 				{/* Larger hit area for easier interaction */}
 				<circle
-					r={baseStationSize / 2 + 8} // Increased padding
+					r={baseStationSize / 2 + 8}
 					fill="transparent"
 					className="station-hit-area"
 				/>
@@ -160,29 +144,29 @@ export default function MetroStation({
 					/>
 				)}
 
-				{/* Station label with fixed size - MUCH WIDER CONTAINER */}
+				{/* Station label */}
 				<foreignObject
-					x={-baseStationSize * 2} // Wider container (250px total width)
+					x={-baseStationSize * 2}
 					y={-40}
-					width={250} // Much wider container
-					height={40} // Taller container
+					width={250}
+					height={40}
 					style={{ overflow: 'visible', pointerEvents: 'none' }}
 				>
 					<div
 						className="px-2.5 py-1.5 rounded bg-background/90 text-foreground
-                      font-medium shadow-sm mx-auto whitespace-nowrap 
-                      overflow-hidden text-ellipsis text-center"
+                    font-medium shadow-sm mx-auto whitespace-nowrap 
+                    overflow-hidden text-ellipsis text-center"
 						style={{
 							display: 'inline-block',
 							maxWidth: '100%',
-							fontSize: `${adaptiveTextSize}px` // Dynamic font size based on zoom
+							fontSize: `${adaptiveTextSize}px`
 						}}
 					>
 						{node.name}
 					</div>
 				</foreignObject>
 
-				{/* Level indicator badge below station */}
+				{/* Level indicator badge */}
 				<foreignObject
 					x={-20}
 					y={baseStationSize / 2 + 5}
@@ -191,20 +175,15 @@ export default function MetroStation({
 					style={{ overflow: 'visible', pointerEvents: 'none' }}
 				>
 					<div className="px-1.5 py-0.5 rounded bg-muted/80 text-foreground/80
-                      text-xs font-medium shadow-sm mx-auto whitespace-nowrap text-center"
+                    text-xs font-medium shadow-sm mx-auto whitespace-nowrap text-center"
 						style={{ display: 'inline-block' }}
 					>
 						{levelIndicator}
 					</div>
 				</foreignObject>
 
-				{/* Replace current user position indicator with YouAreHere component */}
-				{isCurrent && (
-					<YouAreHere
-						currentNodeId={node.id}
-						transform={{ x: 0, y: 0, scale: currentScale }}
-					/>
-				)}
+				{/* Current user indicator */}
+				{isCurrent && <YouAreHere currentNodeId={node.id} />}
 
 				{/* Target indicator */}
 				{isTarget && !isCurrent && (
@@ -220,110 +199,32 @@ export default function MetroStation({
 							transform={`translate(-6, ${-baseStationSize - 16}) scale(0.5)`}
 							color="white"
 						/>
+
+						{/* Target label */}
+						<foreignObject x="-40" y={-baseStationSize - 35} width="80" height="20">
+							<div className="flex justify-center">
+								<div className="bg-background text-xs font-medium px-1.5 py-0.5 rounded shadow-sm border border-amber-500/20 whitespace-nowrap text-center">
+									Target
+								</div>
+							</div>
+						</foreignObject>
 					</g>
 				)}
 			</g>
 
-			{/* Dropdown menu container - sized to account for scale */}
-			<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-				<DropdownMenuTrigger asChild>
-					<circle
-						r={(baseStationSize / 2 + 8) * inverseScale} // Larger hit area adjusted for scale
-						fill="transparent"
-						className="cursor-pointer"
-						onClick={(e) => {
-							e.stopPropagation();
-							// Let the DropdownMenuTrigger handle the toggle logic
-						}}
-					/>
-				</DropdownMenuTrigger>
-
-				<DropdownMenuContent align="center" sideOffset={5}>
-					<DropdownMenuLabel className="font-normal py-1 pb-2">
-						<span className="block font-medium text-sm">{node.name}</span>
-						<span className="block text-xs text-muted-foreground">{levelIndicator}</span>
-					</DropdownMenuLabel>
-
-					<DropdownMenuSeparator />
-
-					{/* View details */}
-					<DropdownMenuItem
-						className="gap-2 cursor-pointer"
-						onClick={() => {
-							onClick?.(node.id);
-							setIsOpen(false);
-						}}
-					>
-						<Eye size={16} />
-						<span>View Details</span>
-					</DropdownMenuItem>
-
-					{/* Set as target */}
-					{!isTarget && !isCurrent && (
-						<DropdownMenuItem
-							className="gap-2 cursor-pointer"
-							onClick={() => {
-								onSetTarget?.(node.id);
-								setIsOpen(false);
-							}}
-						>
-							<Target size={16} />
-							<span>Set as Target</span>
-						</DropdownMenuItem>
-					)}
-
-					{/* Current position indicator */}
-					{isCurrent && (
-						<DropdownMenuItem
-							className="gap-2 cursor-pointer opacity-75"
-							disabled
-						>
-							<Briefcase size={16} />
-							<span>Current Position</span>
-						</DropdownMenuItem>
-					)}
-
-					{/* Add to favorites */}
-					<DropdownMenuItem
-						className="gap-2 cursor-pointer"
-						onClick={() => {
-							onSetAsFavorite?.(node.id);
-							setIsOpen(false);
-						}}
-					>
-						<Star size={16} />
-						<span>Add to Favorites</span>
-					</DropdownMenuItem>
-
-					{/* Explore path */}
-					<DropdownMenuItem
-						className="gap-2 cursor-pointer"
-						onClick={() => {
-							setIsOpen(false);
-						}}
-					>
-						<ArrowRight size={16} />
-						<span>Explore Path</span>
-					</DropdownMenuItem>
-
-					{/* Remove target - shown only if this is a target */}
-					{isTarget && (
-						<>
-							<DropdownMenuSeparator />
-							<DropdownMenuItem
-								className="gap-2 cursor-pointer text-destructive"
-								onClick={() => {
-									onRemoveTarget?.(node.id);
-									setIsOpen(false);
-								}}
-							>
-								<Trash2 size={16} />
-								<span>Remove Target</span>
-							</DropdownMenuItem>
-						</>
-					)}
-				</DropdownMenuContent>
-			</DropdownMenu>
+			{/* Station menu - only for regular stations */}
+			{!isCurrent && !isTarget && onClick && onSetTarget && onSetAsFavorite && (
+				<StationMenu
+					node={node}
+					isOpen={isOpen}
+					onOpenChange={setIsOpen}
+					onNodeSelect={onClick}
+					onSetTarget={onSetTarget}
+					onSetAsFavorite={onSetAsFavorite}
+					stationSize={baseStationSize}
+					inverseScale={inverseScale}
+				/>
+			)}
 		</g>
 	);
 }
