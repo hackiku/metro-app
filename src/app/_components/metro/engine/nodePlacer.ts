@@ -4,8 +4,7 @@ import type { CareerPath, PositionDetail, Position, LayoutNode, MetroConfig } fr
 import { DEFAULT_CONFIG } from './config';
 
 /**
- * Distributes career paths around a circle at different angles
- * Ensures paths are evenly separated in angular space
+ * Distributes career paths at grid angles with controlled variation
  */
 export function assignPathAngles(
   paths: CareerPath[],
@@ -19,69 +18,89 @@ export function assignPathAngles(
   // Sort paths for consistent ordering
   const sortedPaths = [...paths].sort((a, b) => a.id.localeCompare(b.id));
   
-  // For optimal distribution, use fixed angle steps based on config
-  // This ensures we get angles at 0°, 45°, 90°, etc.
-  const angleStep = 360 / config.numDirections;
+  // Define potential angles (0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°)
+  const gridAngles = [];
+  for (let i = 0; i < config.numDirections; i++) {
+    gridAngles.push((i * (360 / config.numDirections)) % 360);
+  }
   
-  // Calculate distribution with small random variations to avoid perfect symmetry
+  // Assign angles with intentional variation
   sortedPaths.forEach((path, index) => {
-    // Determine which angle to use from the available angles
-    const angleIndex = index % config.numDirections;
-    
-    // Calculate base angle to ensure grid alignment
-    const baseAngle = angleIndex * angleStep;
-    
-    // Apply small variation only within the same general direction
-    // to maintain the grid alignment
-    const variation = (Math.random() - 0.5) * 5 * config.eccentricity;
-    const finalAngle = (baseAngle + variation + config.angleOffset) % 360;
-    
-    pathAngles.set(path.id, finalAngle);
+    // For first few paths, use grid angles directly
+    if (index < gridAngles.length) {
+      pathAngles.set(path.id, gridAngles[index]);
+    } else {
+      // For additional paths, use grid angles with small variations
+      const baseAngleIndex = index % gridAngles.length;
+      const baseAngle = gridAngles[baseAngleIndex];
+      
+      // Add slight variation based on path index and eccentricity
+      // Variation is small enough to keep the general grid-aligned feel
+      const variation = ((index * 7) % 10 - 5) * config.eccentricity;
+      const finalAngle = (baseAngle + variation + config.angleOffset) % 360;
+      
+      pathAngles.set(path.id, finalAngle);
+    }
   });
 
   return pathAngles;
 }
 
 /**
- * Calculate level information for scaling
+ * Calculate per-path level information
  */
-export function getLevelInfo(details: PositionDetail[]): { 
-  minLevel: number; 
-  maxLevel: number; 
-  midLevel: number;
+export function getPathLevelInfo(details: PositionDetail[]): { 
+  globalMinLevel: number;
+  globalMaxLevel: number;
+  globalMidLevel: number;
+  pathLevels: Map<string, {min: number, max: number, mid: number, count: number}>;
 } {
   if (details.length === 0) {
-    return { minLevel: 1, maxLevel: 1, midLevel: 1 };
+    return { 
+      globalMinLevel: 1, 
+      globalMaxLevel: 1, 
+      globalMidLevel: 1,
+      pathLevels: new Map()
+    };
   }
   
+  // Get global level range
   const levels = details.map(d => d.level);
-  const minLevel = Math.min(...levels);
-  const maxLevel = Math.max(...levels);
-  const midLevel = (minLevel + maxLevel) / 2;
+  const globalMinLevel = Math.min(...levels);
+  const globalMaxLevel = Math.max(...levels);
+  const globalMidLevel = (globalMinLevel + globalMaxLevel) / 4;
   
-  return { minLevel, maxLevel, midLevel };
-}
-
-/**
- * Snap angle to the nearest 45° increment
- */
-function snapAngleToGrid(angle: number): number {
-  // Define the grid angles (0, 45, 90, 135, 180, 225, 270, 315)
-  const gridAngles = [0, 45, 90, 135, 180, 225, 270, 315];
-  
-  // Find the closest grid angle
-  let closestAngle = gridAngles[0];
-  let minDifference = Math.abs(angle - closestAngle);
-  
-  for (let i = 1; i < gridAngles.length; i++) {
-    const difference = Math.abs(angle - gridAngles[i]);
-    if (difference < minDifference) {
-      minDifference = difference;
-      closestAngle = gridAngles[i];
+  // Group details by career path
+  const detailsByPath = new Map<string, PositionDetail[]>();
+  details.forEach(detail => {
+    if (!detailsByPath.has(detail.career_path_id)) {
+      detailsByPath.set(detail.career_path_id, []);
     }
-  }
+    detailsByPath.get(detail.career_path_id)!.push(detail);
+  });
   
-  return closestAngle;
+  // Calculate per-path level information
+  const pathLevels = new Map<string, {min: number, max: number, mid: number, count: number}>();
+  detailsByPath.forEach((pathDetails, pathId) => {
+    const pathLevelList = pathDetails.map(d => d.level);
+    const min = Math.min(...pathLevelList);
+    const max = Math.max(...pathLevelList);
+    const mid = (min + max) / 2;
+    
+    pathLevels.set(pathId, {
+      min,
+      max,
+      mid,
+      count: pathDetails.length
+    });
+  });
+  
+  return {
+    globalMinLevel,
+    globalMaxLevel,
+    globalMidLevel,
+    pathLevels
+  };
 }
 
 /**
@@ -99,7 +118,7 @@ function getPolarVector(angle: number): { dx: number, dy: number } {
 }
 
 /**
- * Calculate node positions with bidirectional extension from center
+ * Calculate node positions with flexible placement and grid angles
  */
 export function calculateInitialNodePositions(
   details: PositionDetail[],
@@ -110,10 +129,10 @@ export function calculateInitialNodePositions(
   // Create position lookup map
   const posMap = new Map(positions.map(p => [p.id, p]));
   
-  // Get level range information
-  const levelInfo = getLevelInfo(details);
+  // Get level information including per-path data
+  const levelInfo = getPathLevelInfo(details);
   
-  // Group details by career path
+  // Group and sort details by career path
   const pathDetails = new Map<string, PositionDetail[]>();
   details.forEach(detail => {
     if (!pathDetails.has(detail.career_path_id)) {
@@ -143,57 +162,96 @@ export function calculateInitialNodePositions(
   
   // Process each path to place its nodes
   pathDetails.forEach((pathNodes, pathId) => {
+    if (pathNodes.length === 0) return;
+    
     // Get this path's angle
     const pathAngle = pathAngles.get(pathId) || 0;
     
-    // Ensure angle is snapped to grid (0, 45, 90, etc.)
-    const snappedAngle = snapAngleToGrid(pathAngle);
+    // Get the path's specific level info
+    const pathLevelInfo = levelInfo.pathLevels.get(pathId);
+    if (!pathLevelInfo) return;
     
-    // Get vector for this path's direction
-    const pathVector = getPolarVector(snappedAngle);
+    // Calculate vectors for this path
+    const mainVector = getPolarVector(pathAngle);
     
-    // Calculate opposite angle for senior positions (180° rotation)
-    const oppositeAngle = (snappedAngle + 180) % 360;
+    // Calculate opposite angle - varies based on number of positions
+    // For paths with just 2 positions, don't use a perfect 180° opposite
+    // This adds visual interest and prevents long straight lines
+    let oppositeAngle;
+    if (pathLevelInfo.count <= 2) {
+      // For short paths, use a 135° offset instead of 180°
+      oppositeAngle = (pathAngle + 135) % 360;
+    } else {
+      // For longer paths, use the standard opposite direction
+      oppositeAngle = (pathAngle + 180) % 360;
+    }
+    
     const oppositeVector = getPolarVector(oppositeAngle);
     
-    // Place nodes along the path with bidirectional extension
-    pathNodes.forEach((detail) => {
+    // Place nodes along the path
+    pathNodes.forEach((detail, index) => {
       const position = posMap.get(detail.position_id);
       if (!position) {
         throw new Error(`Position ${detail.position_id} not found`);
       }
       
-      // Calculate normalized position in the level range (0 to 1)
-      const levelRange = levelInfo.maxLevel - levelInfo.minLevel;
-      const normalizedLevel = levelRange > 0 
-        ? (detail.level - levelInfo.minLevel) / levelRange 
-        : 0.5;
+      // Calculate normalized position within this path's level range
+      // Using the path's own min/max/mid, not the global values
+      const relativePosition = (detail.level - pathLevelInfo.min) / 
+        Math.max(1, pathLevelInfo.max - pathLevelInfo.min); // Avoid division by zero
       
-      // Determine which vector to use based on level
-      // Junior positions: use pathVector
-      // Senior positions: use oppositeVector
-      const useOppositeDirection = detail.level > levelInfo.midLevel;
-      const directionVector = useOppositeDirection ? oppositeVector : pathVector;
+      // Determine which vector to use based on level relative to path midpoint
+      const useOppositeDirection = detail.level > pathLevelInfo.mid;
       
-      // Calculate distance from center based on how far from midLevel
-      // The further from midLevel, the greater the distance
-      const midLevelDiff = Math.abs(detail.level - levelInfo.midLevel);
+      // For paths with only one position, place it at the mid radius
+      let directionVector = mainVector;
+      if (pathLevelInfo.count > 1) {
+        directionVector = useOppositeDirection ? oppositeVector : mainVector;
+      }
+      
+      // Calculate scaled distance from mid level
+      const levelDiff = Math.abs(detail.level - pathLevelInfo.mid);
       const maxDiff = Math.max(
-        levelInfo.midLevel - levelInfo.minLevel,
-        levelInfo.maxLevel - levelInfo.midLevel
+        pathLevelInfo.mid - pathLevelInfo.min,
+        pathLevelInfo.max - pathLevelInfo.mid
       );
       
-      // Normalize the difference to get a 0-1 scale
-      const normalizedDiff = maxDiff > 0 ? midLevelDiff / maxDiff : 0;
+      // For paths with only 2 positions, use special placement
+      let radius;
+      if (pathLevelInfo.count === 2) {
+        // Place both positions on opposite sides but not too far out
+        radius = config.midLevelRadius * 1.5;
+        
+        // Add some variation to avoid all 2-position paths looking identical
+        const pathVariation = (parseInt(pathId, 36) % 10) / 10; // Deterministic variation
+        radius *= (1 + pathVariation * 0.5); // 0-50% variation
+      } else {
+        // Normal radius calculation for paths with 3+ positions
+        const normalizedDiff = maxDiff > 0 ? levelDiff / maxDiff : 0;
+        
+        // Core calculation - positions at mid-level are closer to center
+        radius = config.midLevelRadius;
+        
+        // Add distance proportional to deviation from mid-level
+        if (levelDiff > 0) {
+          radius += normalizedDiff * config.radiusStep * 3; // Amplified effect
+        }
+        
+        // Special case for single-position paths
+        if (pathLevelInfo.count === 1) {
+          // Place single positions at varying distances based on path ID
+          const pathVariation = (parseInt(pathId, 36) % 20) / 10; // Deterministic variation
+          radius = config.midLevelRadius * (1 + pathVariation);
+        }
+      }
       
-      // Calculate radius - positions at midLevel are closest to center
-      // Positions furthest from midLevel (junior or senior) are furthest from center
-      const radius = config.midLevelRadius + 
-        (normalizedDiff * config.radiusStep * 2); // Amplify the effect
+      // Apply a small randomization factor based on position within sequence
+      // This makes nodes that would otherwise be in a perfect line have some variation
+      const sequenceOffset = 0.05 * (index % 3) * config.radiusStep;
       
-      // Calculate position using the appropriate direction vector
-      const x = directionVector.dx * radius;
-      const y = directionVector.dy * radius;
+      // Calculate final position
+      const x = directionVector.dx * (radius + sequenceOffset);
+      const y = directionVector.dy * (radius + sequenceOffset);
       
       // Create node with calculated position
       nodes.push({

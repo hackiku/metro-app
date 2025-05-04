@@ -41,6 +41,22 @@ export function calculateDistance(node1: LayoutNode, node2: LayoutNode): number 
 }
 
 /**
+ * Calculate the angle between two nodes in degrees (0-360°)
+ */
+export function calculateNodeAngle(from: LayoutNode, to: LayoutNode): number {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  
+  // Calculate angle in radians and convert to degrees
+  let angle = Math.atan2(dy, dx) * (180 / Math.PI);
+  
+  // Normalize to 0-360 range
+  if (angle < 0) angle += 360;
+  
+  return angle;
+}
+
+/**
  * Calculate the angle between three nodes in degrees
  */
 export function calculateAngleBetweenNodes(
@@ -78,33 +94,125 @@ export function calculateAngleBetweenNodes(
 }
 
 /**
- * Get the direction from one node to another (0 to 360 degrees)
+ * Check if an angle is approximately grid-aligned (0°, 45°, 90°, 135°, 180°, etc.)
+ * @param angle - The angle to check in degrees
+ * @param tolerance - Tolerance in degrees
+ * @param numDirections - Number of grid directions (8 = 45° increments)
  */
-export function getDirection(from: LayoutNode, to: LayoutNode): number {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
+export function isGridAligned(angle: number, tolerance: number = 5, numDirections: number = 8): boolean {
+  // Calculate angle step
+  const angleStep = 360 / numDirections;
   
-  // Calculate angle in radians and convert to degrees
-  let angle = Math.atan2(dy, dx) * (180 / Math.PI);
+  // Check if angle is close to any grid angle
+  for (let i = 0; i < numDirections; i++) {
+    const gridAngle = (i * angleStep) % 360;
+    
+    // Calculate minimum angle difference (handling 0/360 edge case)
+    const diff1 = Math.abs(angle - gridAngle);
+    const diff2 = Math.abs(angle - (gridAngle + 360));
+    const diff3 = Math.abs((angle + 360) - gridAngle);
+    
+    const minDiff = Math.min(diff1, diff2, diff3);
+    
+    if (minDiff <= tolerance) {
+      return true;
+    }
+  }
   
-  // Normalize to 0-360 range
-  if (angle < 0) angle += 360;
-  
-  return angle;
+  return false;
 }
 
 /**
- * Check if a direction is approximately aligned with the grid
- * (0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°)
+ * Apply a small jitter to node positions to avoid perfect overlaps
+ * This adds visual interest while maintaining the overall layout
  */
-export function isGridAligned(angle: number, tolerance: number = 10): boolean {
-  // Grid angles
-  const gridAngles = [0, 45, 90, 135, 180, 225, 270, 315];
+export function applySubtleJitter(nodes: LayoutNode[], maxJitter: number = 2): LayoutNode[] {
+  return nodes.map(node => {
+    // Create a deterministic but semi-random offset based on node ID
+    // This ensures consistent jitter between renders
+    const nodeHash = node.id.split('').reduce((a, b) => {
+      return a + b.charCodeAt(0);
+    }, 0);
+    
+    // Calculate small offset
+    // const jitterX = (((nodeHash * 13) % 100) / 100 - 0.5) * maxJitter;
+    // const jitterY = (((nodeHash * 17) % 100) / 100 - 0.5) * maxJitter;
+    const jitterX = 0;
+    const jitterY = 0;
+    
+    return {
+      ...node,
+      x: node.x + jitterX,
+      y: node.y + jitterY
+    };
+  });
+}
+
+/**
+ * Ensure minimum distance between nodes to prevent overlaps
+ */
+export function ensureMinimumDistance(
+  nodes: LayoutNode[], 
+  minDistance: number = 5
+): LayoutNode[] {
+  const adjustedNodes = [...nodes];
   
-  // Check if angle is within tolerance of any grid angle
-  return gridAngles.some(gridAngle => {
-    // Handle 0°/360° edge case
-    if (gridAngle === 0 && Math.abs(angle - 360) < tolerance) return true;
-    return Math.abs(angle - gridAngle) < tolerance;
+  // Check each pair of nodes for potential overlap
+  for (let i = 0; i < adjustedNodes.length; i++) {
+    for (let j = i + 1; j < adjustedNodes.length; j++) {
+      const distance = calculateDistance(adjustedNodes[i], adjustedNodes[j]);
+      
+      // If nodes are too close, adjust their positions
+      if (distance < minDistance) {
+        // Calculate adjustment vector
+        const dx = adjustedNodes[j].x - adjustedNodes[i].x;
+        const dy = adjustedNodes[j].y - adjustedNodes[i].y;
+        const angle = Math.atan2(dy, dx);
+        
+        // Calculate how much additional distance is needed
+        const adjustment = (minDistance - distance) / 5;
+        
+        // Move both nodes apart symmetrically
+        adjustedNodes[i] = {
+          ...adjustedNodes[i],
+          x: adjustedNodes[i].x - Math.cos(angle) * adjustment,
+          y: adjustedNodes[i].y - Math.sin(angle) * adjustment
+        };
+        
+        adjustedNodes[j] = {
+          ...adjustedNodes[j],
+          x: adjustedNodes[j].x + Math.cos(angle) * adjustment,
+          y: adjustedNodes[j].y + Math.sin(angle) * adjustment
+        };
+      }
+    }
+  }
+  
+  return adjustedNodes;
+}
+
+/**
+ * Check if there are any nodes directly on the origin
+ * and move them slightly if needed
+ */
+export function adjustOriginNodes(nodes: LayoutNode[], minDistance: number = 5): LayoutNode[] {
+  return nodes.map(node => {
+    // Check if node is very close to origin
+    const distanceFromOrigin = Math.sqrt(node.x * node.x + node.y * node.y);
+    
+    if (distanceFromOrigin < minDistance) {
+      // Use node properties to generate a consistent offset direction
+      const hash = node.id.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+      const angle = (hash % 360) * (Math.PI / 180);
+      
+      // Move the node outward from the origin
+      return {
+        ...node,
+        x: Math.cos(angle) * minDistance,
+        y: Math.sin(angle) * minDistance
+      };
+    }
+    
+    return node;
   });
 }

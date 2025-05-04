@@ -3,8 +3,8 @@
 import type { CareerPath, Position, PositionDetail, LayoutData, LayoutNode, LayoutPath, LayoutBounds, MetroConfig } from '~/types/engine';
 import { DEFAULT_CONFIG } from './config';
 import { assignPathAngles, calculateInitialNodePositions } from './nodePlacer';
-import { enforceLineConstraints } from './pathConstraints';
-import { identifyInterchangeNodes } from './nodeUtils';
+import { enforceGridAngles, enforceLineConstraints } from './pathConstraints';
+import { identifyInterchangeNodes, applySubtleJitter, ensureMinimumDistance, adjustOriginNodes } from './nodeUtils';
 
 /**
  * Calculates layout bounds with padding
@@ -97,7 +97,7 @@ function buildLookups(nodes: LayoutNode[], paths: LayoutPath[]): {
 }
 
 /**
- * Main function to generate metro map layout
+ * Main function to generate metro map layout with flexible path placement
  */
 export function generateMetroLayout(
   careerPaths: CareerPath[],
@@ -112,11 +112,11 @@ export function generateMetroLayout(
     throw new Error('Cannot generate layout: missing required data');
   }
   
-  // Step 1: Assign angles to career paths
+  // Step 1: Assign angles to career paths with controlled variation
   const pathAngles = assignPathAngles(careerPaths, config);
   console.log("Path angles assigned:", Object.fromEntries(pathAngles.entries()));
   
-  // Step 2: Calculate initial node positions with bidirectional extension
+  // Step 2: Calculate initial node positions with flexible placement
   let nodes = calculateInitialNodePositions(
     positionDetails, 
     positions, 
@@ -125,21 +125,37 @@ export function generateMetroLayout(
   );
   console.log(`Initial node positions calculated: ${nodes.length} nodes`);
   
-  // Step 3: Enforce constraints for consecutive nodes
+  // Step 3: Enforce grid-aligned angles between nodes
+  nodes = enforceGridAngles(nodes, config);
+  console.log("Grid angles enforced");
+  
+  // Step 4: Apply subtle jitter to prevent perfect overlaps
+  nodes = applySubtleJitter(nodes, 3);
+  console.log("Subtle jitter applied");
+  
+  // Step 5: Ensure nodes aren't too close to each other
+  nodes = ensureMinimumDistance(nodes, 8);
+  console.log("Minimum node distance enforced");
+  
+  // Step 6: Ensure no nodes are directly on the origin
+  nodes = adjustOriginNodes(nodes, 10);
+  console.log("Origin nodes adjusted");
+  
+  // Step 7: Enforce constraints for consecutive nodes
   nodes = enforceLineConstraints(nodes, config);
   console.log("Line constraints enforced");
   
-  // Step 4: Identify interchange nodes (positions that appear in multiple paths)
+  // Step 8: Identify interchange nodes (positions that appear in multiple paths)
   nodes = identifyInterchangeNodes(nodes);
   console.log("Interchange nodes identified");
   
-  // Step 5: Apply path colors to nodes
+  // Step 9: Apply path colors to nodes
   nodes = applyPathColors(nodes, careerPaths);
   
-  // Step 6: Group and sort nodes by path
+  // Step 10: Group and sort nodes by path
   const nodesByPath = sortPathNodes(nodes);
   
-  // Step 7: Create path objects
+  // Step 11: Create path objects
   const paths: LayoutPath[] = careerPaths.map(path => {
     const pathNodes = nodesByPath.get(path.id) || [];
     
@@ -151,14 +167,14 @@ export function generateMetroLayout(
     };
   });
   
-  // Step 8: Build lookup objects
+  // Step 12: Build lookup objects
   const { nodesById, pathsById } = buildLookups(nodes, paths);
   
-  // Step 9: Calculate bounds
+  // Step 13: Calculate bounds
   const bounds = calculateBounds(nodes, config.padding);
   console.log("Layout bounds:", bounds);
   
-  // Step 10: Return layout data
+  // Step 14: Return layout data
   return {
     nodes,
     nodesById,
