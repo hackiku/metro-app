@@ -3,7 +3,6 @@
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
-import { useSession } from "~/contexts/SessionContext";
 import { Button } from "~/components/ui/button";
 import { RefreshCw, Map } from "lucide-react";
 import { ActionsHeader } from "./components/ActionsHeader";
@@ -13,10 +12,11 @@ import { PositionsList } from "./positions/PositionsList";
 import { Toaster } from "sonner";
 import Link from "next/link";
 import { toast } from "sonner";
+import { useOrganization } from "~/contexts/OrganizationContext";
 
 export default function HrAdminPage() {
-	// Get organization ID from session context
-	const { currentOrgId } = useSession();
+	// Get organization from context
+	const { currentOrganization } = useOrganization();
 
 	// State for tracking which career path is selected
 	const [selectedCareerPathId, setSelectedCareerPathId] = useState<string | null>(null);
@@ -31,11 +31,11 @@ export default function HrAdminPage() {
 	const utils = api.useUtils();
 
 	// Basic check to ensure we have an organization ID
-	if (!currentOrgId) {
+	if (!currentOrganization) {
 		return (
 			<div className="p-6 text-center">
 				<p className="text-muted-foreground">
-					No organization selected. Please contact your administrator.
+					No organization selected. Please select an organization from the dropdown.
 				</p>
 			</div>
 		);
