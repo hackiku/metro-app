@@ -4,15 +4,12 @@
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import { useSession } from "~/contexts/SessionContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
-import { Pencil, Plus, Trash2, Save, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog";
-import { Input } from "~/components/ui/input";
-import { Textarea } from "~/components/ui/textarea";
-import { ActionTable, type Column } from "~/components/tables/ActionTable";
+import { Button } from "~/components/ui/button";
+import { Plus } from "lucide-react";
 import { AssignPositionForm } from "./AssignPositionForm";
 import { toast } from "sonner";
+import { DraggableTable, type Column } from "~/components/tables/DraggableTable";
 
 // Define our position detail type
 interface PositionDetail {
@@ -29,24 +26,12 @@ interface PositionDetail {
 
 interface AssignmentsListProps {
 	careerPathId: string;
-	pathName?: string;
 }
 
-export function AssignmentsList({
-	careerPathId,
-	pathName = "Career Path"
-}: AssignmentsListProps) {
+export function AssignmentsList({ careerPathId }: AssignmentsListProps) {
 	const { currentOrgId } = useSession();
 	const [isAssigning, setIsAssigning] = useState(false);
-	const [editingDetailId, setEditingDetailId] = useState<string | null>(null);
 	const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
-
-	// Edit form state
-	const [editedDetail, setEditedDetail] = useState<{
-		level?: number;
-		sequenceInPath?: number;
-		pathSpecificDescription?: string | null;
-	}>({});
 
 	// Get tRPC utils for cache invalidation
 	const utils = api.useUtils();
@@ -60,13 +45,10 @@ export function AssignmentsList({
 		{ enabled: !!currentOrgId && !!careerPathId }
 	);
 
-	// Set up mutations
-	const updateDetailMutation = api.position.updatePositionDetail.useMutation({
+	// Set up mutation for updating position order
+	const updatePositionMutation = api.position.updatePositionDetail.useMutation({
 		onSuccess: () => {
-			setEditingDetailId(null);
-			setEditedDetail({});
-			toast.success("Position details updated successfully");
-
+			toast.success("Position order updated");
 			utils.position.getByCareerPath.invalidate({
 				organizationId: currentOrgId!,
 				careerPathId
@@ -77,11 +59,11 @@ export function AssignmentsList({
 		}
 	});
 
+	// Set up mutation for removing position from path
 	const removePositionMutation = api.position.removeFromPath.useMutation({
 		onSuccess: () => {
 			setConfirmRemoveId(null);
-			toast.success("Position removed from path successfully");
-
+			toast.success("Position removed from path");
 			utils.position.getByCareerPath.invalidate({
 				organizationId: currentOrgId!,
 				careerPathId
@@ -92,64 +74,70 @@ export function AssignmentsList({
 		}
 	});
 
-	// Handler functions
-	const handleEditDetail = (id: string) => {
-		const detail = pathPositionsQuery.data?.find(p => p.id === id);
-		if (detail) {
-			setEditingDetailId(id);
-			setEditedDetail({
-				level: detail.level,
-				sequenceInPath: detail.sequence_in_path || detail.level,
-				pathSpecificDescription: detail.path_specific_description
-			});
-		}
-	};
+	// Handle row movement (reordering)
+	const handleRowMove = (sourceId: string, targetId: string) => {
+		// Find the source and target positions
+		const positions = pathPositionsQuery.data || [];
+		const sourceIdx = positions.findIndex(p => p.id === sourceId);
+		const targetIdx = positions.findIndex(p => p.id === targetId);
 
-	const handleSaveDetail = (id: string) => {
-		updateDetailMutation.mutate({
-			id,
-			level: editedDetail.level,
-			sequenceInPath: editedDetail.sequenceInPath,
-			pathSpecificDescription: editedDetail.pathSpecificDescription
+		if (sourceIdx < 0 || targetIdx < 0) return;
+
+		// Create new array with reordered positions
+		const newOrder = [...positions];
+		const [movedItem] = newOrder.splice(sourceIdx, 1);
+		newOrder.splice(targetIdx, 0, movedItem);
+
+		// Update sequence in path for all affected positions
+		newOrder.forEach((position, index) => {
+			// Only update if sequence changed
+			if (position.sequence_in_path !== index + 1) {
+				updatePositionMutation.mutate({
+					id: position.id,
+					sequenceInPath: index + 1
+				});
+			}
 		});
 	};
 
-	const handleCancelEdit = () => {
-		setEditingDetailId(null);
-		setEditedDetail({});
-	};
-
+	// Handle prompting to remove a position
 	const handleRemovePrompt = (id: string) => {
 		setConfirmRemoveId(id);
 	};
 
+	// Handle confirming removal
 	const handleRemovePosition = (id: string) => {
 		removePositionMutation.mutate({ id });
 	};
 
-	// Sort positions by level
+	// Sort positions by level and sequence
 	const sortedPositions = [...(pathPositionsQuery.data || [])].sort((a, b) => {
 		const levelDiff = a.level - b.level;
 		if (levelDiff !== 0) return levelDiff;
 
-		// If levels are the same, try to sort by sequence
-		if (a.sequence_in_path && b.sequence_in_path) {
-			return a.sequence_in_path - b.sequence_in_path;
-		}
-
-		return 0;
+		// If levels are the same, sort by sequence
+		const aSeq = a.sequence_in_path || a.level;
+		const bSeq = b.sequence_in_path || b.level;
+		return aSeq - bSeq;
 	});
 
-	// Define columns for the ActionTable
+	// Define columns for the DraggableTable
 	const columns: Column<PositionDetail>[] = [
 		{
 			key: "position",
 			header: "Position",
-			width: "w-[35%]",
+			width: "w-[40%]",
 			render: (detail) => (
-				<span className="font-medium">
-					{detail.positions?.name || "Unknown Position"}
-				</span>
+				<div>
+					<div className="font-medium">
+						{detail.positions?.name || "Unknown Position"}
+					</div>
+					{detail.positions?.base_description && (
+						<div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+							{detail.positions.base_description}
+						</div>
+					)}
+				</div>
 			)
 		},
 		{
@@ -157,133 +145,51 @@ export function AssignmentsList({
 			header: "Level",
 			width: "w-[15%]",
 			render: (detail) => (
-				editingDetailId === detail.id ? (
-					<Input
-						type="number"
-						min={1}
-						value={editedDetail.level}
-						onChange={(e) => setEditedDetail({
-							...editedDetail,
-							level: parseInt(e.target.value),
-							sequenceInPath: editedDetail.sequenceInPath === detail.level ? parseInt(e.target.value) : editedDetail.sequenceInPath
-						})}
-						className="w-20"
-					/>
-				) : (
-					<span className="font-medium">{detail.level}</span>
-				)
+				<div className="flex items-center">
+					<span className="font-medium text-sm bg-muted px-2 py-0.5 rounded">
+						L{detail.level}
+					</span>
+					{detail.sequence_in_path && detail.sequence_in_path !== detail.level && (
+						<span className="text-xs text-muted-foreground ml-1.5">
+							({detail.sequence_in_path})
+						</span>
+					)}
+				</div>
 			)
 		},
 		{
 			key: "description",
-			header: "Path-Specific Description",
-			width: "w-[50%]",
+			header: "Description",
+			width: "w-[45%]",
 			render: (detail) => (
-				editingDetailId === detail.id ? (
-					<Textarea
-						value={editedDetail.pathSpecificDescription || ""}
-						onChange={(e) => setEditedDetail({
-							...editedDetail,
-							pathSpecificDescription: e.target.value
-						})}
-						className="h-20"
-					/>
-				) : (
-					detail.path_specific_description ? (
-						<div className="text-sm line-clamp-2">{detail.path_specific_description}</div>
-					) : (
-						<span className="text-muted-foreground italic">
-							Using generic description
-						</span>
-					)
-				)
+				<div className="text-sm line-clamp-2">
+					{detail.path_specific_description || detail.positions?.base_description || "No description provided"}
+				</div>
 			)
 		}
 	];
 
-	// Get row actions for each row
-	const getRowActions = (id: string) => {
-		const isEditing = editingDetailId === id;
-
-		if (isEditing) {
-			return {
-				edit: {
-					label: "Save",
-					onClick: () => handleSaveDetail(id)
-				},
-				delete: {
-					label: "Cancel",
-					onClick: () => handleCancelEdit()
-				}
-			};
-		}
-
-		return {
-			edit: {
-				label: "Edit",
-				onClick: () => handleEditDetail(id)
-			},
-			delete: {
-				label: "Remove",
-				onClick: () => handleRemovePrompt(id)
-			}
-		};
-	};
-
 	return (
 		<>
-			<Card>
-				<CardHeader>
-					<div className="flex items-center justify-between">
-						<div>
-							<CardTitle className="text-xl">{pathName}</CardTitle>
-							<CardDescription>
-								Positions within this career path
-							</CardDescription>
-						</div>
-						<Button
-							onClick={() => setIsAssigning(true)}
-							disabled={pathPositionsQuery.isLoading}
-						>
-							<Plus className="mr-2 h-4 w-4" />
-							Assign Position
-						</Button>
-					</div>
-				</CardHeader>
-
-				<CardContent>
-					<ActionTable
-						data={sortedPositions}
-						columns={columns}
-						isLoading={pathPositionsQuery.isLoading}
-						rowActions={(detail) => {
-							const isEditing = editingDetailId === detail.id;
-							return {
-								edit: {
-									label: isEditing ? "Save" : "Edit",
-									onClick: (id) => isEditing ? handleSaveDetail(id) : handleEditDetail(id)
-								},
-								delete: {
-									label: isEditing ? "Cancel" : "Remove",
-									onClick: (id) => isEditing ? handleCancelEdit() : handleRemovePrompt(id)
-								}
-							};
-						}}
-						primaryAction={{
-							label: "Assign New Position",
-							onClick: () => setIsAssigning(true)
-						}}
-						emptyState={{
-							title: "No Positions Assigned",
-							description: "This career path doesn't have any positions assigned yet",
-							action: {
-								label: "Assign First Position",
-								onClick: () => setIsAssigning(true)
-							}
-						}}
-					/>
-				</CardContent>
-			</Card>
+			<DraggableTable
+				data={sortedPositions}
+				columns={columns}
+				isLoading={pathPositionsQuery.isLoading}
+				onRowMove={handleRowMove}
+				onRemove={handleRemovePrompt}
+				primaryAction={{
+					label: "Assign New Position",
+					onClick: () => setIsAssigning(true)
+				}}
+				emptyState={{
+					title: "No Positions Assigned",
+					description: "This career path doesn't have any positions assigned yet",
+					action: {
+						label: "Assign First Position",
+						onClick: () => setIsAssigning(true)
+					}
+				}}
+			/>
 
 			{/* Assign Position Dialog */}
 			<Dialog open={isAssigning} onOpenChange={setIsAssigning}>
@@ -291,7 +197,7 @@ export function AssignmentsList({
 					<DialogHeader>
 						<DialogTitle>Assign Position to Path</DialogTitle>
 						<DialogDescription>
-							Add a position to the "{pathName}" career path
+							Add a position to this career path
 						</DialogDescription>
 					</DialogHeader>
 

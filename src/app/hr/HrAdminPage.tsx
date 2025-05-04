@@ -1,4 +1,4 @@
-// src/app/hr/	
+// src/app/hr/HrAdminPage.tsx
 "use client";
 
 import { useState } from "react";
@@ -6,8 +6,10 @@ import { api } from "~/trpc/react";
 import { useSession } from "~/contexts/SessionContext";
 import { Button } from "~/components/ui/button";
 import { RefreshCw, Map } from "lucide-react";
+import { ActionsHeader } from "./components/ActionsHeader";
 import CareerPaths from "./career-paths/CareerPaths";
-import Positions from "./positions/Positions";
+import { AssignmentsList } from "./assignments/AssignmentsList";
+import { PositionsList } from "./positions/PositionsList";
 import { Toaster } from "sonner";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -18,6 +20,9 @@ export default function HrAdminPage() {
 
 	// State for tracking which career path is selected
 	const [selectedCareerPathId, setSelectedCareerPathId] = useState<string | null>(null);
+
+	// State for tracking active tab
+	const [activeTab, setActiveTab] = useState<string>("all-positions");
 
 	// Get tRPC utils for cache invalidation
 	const utils = api.useUtils();
@@ -42,6 +47,16 @@ export default function HrAdminPage() {
 		toast.success("Data refreshed");
 	};
 
+	// Handle selecting a different career path
+	const handleSelectPath = (id: string | null) => {
+		setSelectedCareerPathId(id);
+		if (id) {
+			setActiveTab("assigned-positions");
+		} else {
+			setActiveTab("all-positions");
+		}
+	};
+
 	return (
 		<div className="space-y-6 p-6">
 			{/* Actions row */}
@@ -61,18 +76,33 @@ export default function HrAdminPage() {
 				</div>
 			</div>
 
-			{/* Career Paths Table with selectable rows */}
-			<CareerPaths
-				onSelectPath={setSelectedCareerPathId}
-				selectedPathId={selectedCareerPathId}
-			/>
+			{/* Main Content Area */}
+			<div className="space-y-6">
+				{/* Career Paths Table with selectable rows */}
+				<CareerPaths
+					onSelectPath={handleSelectPath}
+					selectedPathId={selectedCareerPathId}
+				/>
 
-			{/* Position details shown based on selection */}
-			{selectedCareerPathId && (
+				{/* Actions Header with Tabs */}
+				<ActionsHeader
+					selectedPathId={selectedCareerPathId}
+					onTabChange={setActiveTab}
+					activeTab={activeTab}
+					onPathSelect={handleSelectPath}
+				/>
+
+				{/* Content based on active tab */}
 				<div className="mt-6">
-					<Positions selectedPathId={selectedCareerPathId} />
+					{activeTab === "all-positions" && (
+						<PositionsList />
+					)}
+
+					{activeTab === "assigned-positions" && selectedCareerPathId && (
+						<AssignmentsList careerPathId={selectedCareerPathId} />
+					)}
 				</div>
-			)}
+			</div>
 
 			{/* Toast container for notifications */}
 			<Toaster />
