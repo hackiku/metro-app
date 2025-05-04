@@ -1,18 +1,21 @@
 // src/app/hr/hooks/usePositions.tsx
+
 "use client";
 
-import { useSession } from "~/contexts/SessionContext";
+import { useOrganization } from "~/contexts/OrganizationContext";
 import { api } from "~/trpc/react";
 
 export function usePositions() {
-	const { currentOrgId } = useSession();
+	const { currentOrganization } = useOrganization();
 	const utils = api.useUtils();
+
+	const organizationId = currentOrganization?.id;
 
 	// Query for fetching all positions
 	const positionsQuery = api.position.getAll.useQuery(
-		{ organizationId: currentOrgId! },
+		{ organizationId: organizationId! },
 		{
-			enabled: !!currentOrgId,
+			enabled: !!organizationId,
 			staleTime: 1000 * 60 * 5 // 5 minutes
 		}
 	);
@@ -20,21 +23,27 @@ export function usePositions() {
 	// Mutation for creating a position
 	const createPositionMutation = api.position.create.useMutation({
 		onSuccess: () => {
-			utils.position.getAll.invalidate({ organizationId: currentOrgId! });
+			if (organizationId) {
+				utils.position.getAll.invalidate({ organizationId });
+			}
 		}
 	});
 
 	// Mutation for updating a position
 	const updatePositionMutation = api.position.update.useMutation({
 		onSuccess: () => {
-			utils.position.getAll.invalidate({ organizationId: currentOrgId! });
+			if (organizationId) {
+				utils.position.getAll.invalidate({ organizationId });
+			}
 		}
 	});
 
 	// Mutation for deleting a position
 	const deletePositionMutation = api.position.delete.useMutation({
 		onSuccess: () => {
-			utils.position.getAll.invalidate({ organizationId: currentOrgId! });
+			if (organizationId) {
+				utils.position.getAll.invalidate({ organizationId });
+			}
 		}
 	});
 

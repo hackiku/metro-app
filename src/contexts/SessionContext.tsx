@@ -16,7 +16,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
 	// Set a default organization ID for development
 	const [currentOrgId, setCurrentOrgId] = useState<string | null>(
-		'a73148de-90e1-4f0e-955d-9790c131e13c' // Veenie org ID
+		// 'a73148de-90e1-4f0e-955d-9790c131e13c' // Veenie org ID
+		'9e40b94e-dd8d-4679-98b9-0716cff26810' // Lehman Brothers org ID
 	);
 
 	// Simulate loading a user on mount

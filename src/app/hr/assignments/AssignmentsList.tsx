@@ -1,9 +1,10 @@
 // src/app/hr/assignments/AssignmentsList.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { api } from "~/trpc/react";
-import { useSession } from "~/contexts/SessionContext";
+// import { useSession } from "~/contexts/SessionContext";
+import { useOrganization } from "~/contexts/OrganizationContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 import { Plus } from "lucide-react";
@@ -37,7 +38,7 @@ export function AssignmentsList({
 	onSave,
 	onReset
 }: AssignmentsListProps) {
-	const { currentOrgId } = useSession();
+	const { currentOrganization } = useOrganization();
 	const [isAssigning, setIsAssigning] = useState(false);
 	const [isEditing, setIsEditing] = useState<string | null>(null);
 	const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
@@ -63,11 +64,11 @@ export function AssignmentsList({
 	// Fetch positions assigned to this career path
 	const pathPositionsQuery = api.position.getByCareerPath.useQuery(
 		{
-			organizationId: currentOrgId!,
+			organizationId: currentOrganization!,
 			careerPathId
 		},
 		{
-			enabled: !!currentOrgId && !!careerPathId,
+			enabled: !!currentOrganization && !!careerPathId,
 			refetchOnWindowFocus: false,
 			// Important: Don't refetch while we're saving changes
 			refetchOnMount: !isSaving.current
@@ -87,7 +88,7 @@ export function AssignmentsList({
 
 				// Now it's safe to invalidate the cache
 				utils.position.getByCareerPath.invalidate({
-					organizationId: currentOrgId!,
+					organizationId: currentOrganization!,
 					careerPathId
 				});
 			}
@@ -106,7 +107,7 @@ export function AssignmentsList({
 			setConfirmRemoveId(null);
 			toast.success("Position removed from path");
 			utils.position.getByCareerPath.invalidate({
-				organizationId: currentOrgId!,
+				organizationId: currentOrganization!,
 				careerPathId
 			});
 		},

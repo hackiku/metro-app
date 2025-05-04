@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import { api } from "~/trpc/react";
 
@@ -36,7 +36,7 @@ export function OrganizationProvider({
 	defaultOrgId
 }: {
 	children: ReactNode;
-	defaultOrgId?: string;
+	defaultOrgId?: string | null; // Updated to accept null
 }) {
 	// State for all organizations
 	const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -89,14 +89,14 @@ export function OrganizationProvider({
 		}
 	};
 
-	// Create context value
-	const contextValue: OrganizationContextType = {
+	// Create context value with useMemo to prevent unnecessary re-renders
+	const contextValue = useMemo<OrganizationContextType>(() => ({
 		organizations,
 		currentOrganization,
 		loading,
 		error,
 		setCurrentOrganization: handleSetCurrentOrganization,
-	};
+	}), [organizations, currentOrganization, loading, error]);
 
 	return (
 		<OrganizationContext.Provider value={contextValue}>

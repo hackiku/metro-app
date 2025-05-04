@@ -1,7 +1,7 @@
 // src/app/hr/components/ActionsHeader.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { Card, CardHeader } from "~/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Button } from "~/components/ui/button";
@@ -9,6 +9,7 @@ import { ExternalLink, ChevronDown, Save, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { ColorPreview } from "~/components/ui/color-preview";
+import { useOrganization } from "~/contexts/OrganizationContext";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -38,12 +39,15 @@ export function ActionsHeader({
 	onSaveChanges,
 	onResetChanges
 }: ActionsHeaderProps) {
+	const { currentOrganization } = useOrganization();
 	// Fetch all career paths for the dropdown
 	const { data: careerPaths, isLoading: pathsLoading } = api.career.getPaths.useQuery(
-		{ organizationId: "a73148de-90e1-4f0e-955d-9790c131e13c" }, // TODO: Get current org ID dynamically
-		{ staleTime: 1000 * 60 * 5 } // 5 minutes
+		{ organizationId: currentOrganization?.id! },
+		{
+			enabled: !!currentOrganization?.id,
+			staleTime: 1000 * 60 * 5 // 5 minutes 
+		}
 	);
-
 	// Fetch the specific career path details if one is selected
 	const { data: selectedPath, isLoading } = api.career.getPathById.useQuery(
 		{ id: selectedPathId! },

@@ -1,6 +1,8 @@
+// src/contexts/UserContext.tsx
+
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import { api } from "~/trpc/react";
 import { useOrganization } from "./OrganizationContext";
@@ -39,7 +41,7 @@ export function UserProvider({
 	defaultUserId
 }: {
 	children: ReactNode;
-	defaultUserId?: string;
+	defaultUserId?: string | null; // Updated to accept null
 }) {
 	// Get organization from context
 	const { currentOrganization } = useOrganization();
@@ -86,10 +88,12 @@ export function UserProvider({
 		}
 	}, [usersData, usersLoading, usersError, defaultUserId]);
 
-	// If organization changes, we need to reset user state
+	// Reset user selection when organization changes
 	useEffect(() => {
 		if (currentOrganization) {
 			setLoading(true);
+			// Clear the current user since we're changing organizations
+			setCurrentUser(null);
 			// The api.user.getAll query will refetch automatically
 		}
 	}, [currentOrganization]);
@@ -122,15 +126,15 @@ export function UserProvider({
 		}
 	};
 
-	// Create context value
-	const contextValue: UserContextType = {
+	// Create context value with useMemo to prevent unnecessary re-renders
+	const contextValue = useMemo<UserContextType>(() => ({
 		users,
 		currentUser,
 		loading,
 		error,
 		setCurrentUser: handleSetCurrentUser,
 		hasPermission
-	};
+	}), [users, currentUser, loading, error]);
 
 	return (
 		<UserContext.Provider value={contextValue}>
