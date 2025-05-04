@@ -94,6 +94,28 @@ export const positionRouter = createTRPCRouter({
       return data || [];
     }),
     
+		getPositionDetailById: publicProcedure
+  .input(z.object({ id: z.string() }))
+  .query(async ({ input }) => {
+    const { data, error } = await supabase
+      .from('position_details')
+      .select(`
+        id,
+        level,
+        sequence_in_path,
+        path_specific_description,
+        position_id,
+        career_path_id,
+        organization_id
+      `)
+      .eq('id', input.id)
+      .single();
+      
+    if (error) throw new Error(`Error fetching position detail: ${error.message}`);
+    return data;
+  }),
+
+
   // Get all position details for an organization
   getAllDetails: publicProcedure
     .input(z.object({ organizationId: z.string() }))

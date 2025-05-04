@@ -5,7 +5,7 @@
 import { z } from "zod";
 import { useState, useEffect } from "react";
 import { api } from "~/trpc/react";
-import { useSession } from "~/contexts/SessionContext";
+import { useOrganization } from "~/contexts/OrganizationContext";
 import { FormWrapper } from "~/components/forms/FormWrapper";
 import { FormField } from "~/components/forms/FormField";
 import { Button } from "~/components/ui/button";
@@ -30,7 +30,7 @@ export function PositionForm({
 	onComplete,
 	mode
 }: PositionFormProps) {
-	const { currentOrgId } = useSession();
+	const { currentOrganization } = useOrganization();
 	const utils = api.useUtils();
 
 	const [defaultValues, setDefaultValues] = useState<FormValues>({
@@ -40,9 +40,9 @@ export function PositionForm({
 
 	// If editing, fetch the current position data
 	const positionsQuery = api.position.getAll.useQuery(
-		{ organizationId: currentOrgId! },
+		{ organizationId: currentOrganization?.id! },
 		{
-			enabled: !!currentOrgId && mode === "edit" && !!positionId,
+			enabled: !!currentOrganization?.id && mode === "edit" && !!positionId,
 			// Don't refetch too often since this data rarely changes
 			staleTime: 1000 * 60 * 5 // 5 minutes
 		}
@@ -51,7 +51,7 @@ export function PositionForm({
 	// Set up mutations based on mode
 	const createMutation = api.position.create.useMutation({
 		onSuccess: () => {
-			utils.position.getAll.invalidate({ organizationId: currentOrgId! });
+			utils.position.getAll.invalidate({ organizationId: currentOrganization?.id! });
 			toast.success("Position created successfully");
 			onComplete();
 		},
@@ -62,7 +62,7 @@ export function PositionForm({
 
 	const updateMutation = api.position.update.useMutation({
 		onSuccess: () => {
-			utils.position.getAll.invalidate({ organizationId: currentOrgId! });
+			utils.position.getAll.invalidate({ organizationId: currentOrganization?.id! });
 			toast.success("Position updated successfully");
 			onComplete();
 		},
@@ -88,7 +88,7 @@ export function PositionForm({
 	const handleSubmit = (data: FormValues) => {
 		if (mode === "create") {
 			createMutation.mutate({
-				organizationId: currentOrgId!,
+				organizationId: currentOrganization?.id!,
 				name: data.name,
 				baseDescription: data.baseDescription || null
 			});

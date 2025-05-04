@@ -3,7 +3,8 @@
 
 import { useState, useEffect } from "react";
 import { api } from "~/trpc/react";
-import { useSession } from "~/contexts/SessionContext";
+// import { useSession } from "~/contexts/SessionContext";
+import { useOrganization } from "~/contexts/OrganizationContext";
 import { Card } from "~/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
@@ -14,14 +15,14 @@ import { AssignmentsList } from "../assignments/AssignmentsList";
 import { PositionsList } from "./PositionsList";
 import { PositionDialog } from "./PositionDialog";
 import { CareerPathPositionHeader } from "./CareerPathPositionHeader";
-import { usePositions } from "../hooks/usePositions";
+import { usePositions } from "~/hooks/usePositions";
 
 interface PositionsProps {
   selectedPathId: string | null;
 }
 
 export default function Positions({ selectedPathId }: PositionsProps) {
-  const { currentOrgId } = useSession();
+  const { currentOrganization } = useOrganization();
   const [activeTab, setActiveTab] = useState("assigned-positions");
   const [isAssigning, setIsAssigning] = useState(false);
   
@@ -41,8 +42,8 @@ export default function Positions({ selectedPathId }: PositionsProps) {
 
   // Get all career paths
   const careerPathsQuery = api.career.getPaths.useQuery(
-    { organizationId: currentOrgId! },
-    { enabled: !!currentOrgId }
+    { organizationId: currentOrganization! },
+		{ enabled: !!currentOrganization }
   );
 
   // Fetch the specific career path details if one is selected
@@ -57,10 +58,10 @@ export default function Positions({ selectedPathId }: PositionsProps) {
   // Fetch positions assigned to the selected path
   const pathPositionsQuery = api.position.getByCareerPath.useQuery(
     {
-      organizationId: currentOrgId!,
+			organizationId: currentOrganization!,
       careerPathId: selectedPathId!
     },
-    { enabled: !!currentOrgId && !!selectedPathId }
+		{ enabled: !!currentOrganization && !!selectedPathId }
   );
 
   // Handler functions

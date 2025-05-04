@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { api } from "~/trpc/react";
-import { useSession } from "~/contexts/SessionContext";
+import { useOrganization } from "~/contexts/OrganizationContext";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import { Input } from "~/components/ui/input";
@@ -21,14 +21,16 @@ import { toast } from "sonner";
 
 interface AssignPositionFormProps {
 	careerPathId: string;
+	positionDetailId?: string;
 	onComplete: () => void;
 }
 
 export function AssignPositionForm({
 	careerPathId,
+	positionDetailId,
 	onComplete
 }: AssignPositionFormProps) {
-	const { currentOrgId } = useSession();
+	const { currentOrganization } = useOrganization();
 	const [activeTab, setActiveTab] = useState<"existing" | "new">("existing");
 
 	// Form state for existing position
@@ -53,24 +55,30 @@ export function AssignPositionForm({
 
 	// Fetch available positions to assign
 	const positionsQuery = api.position.getAll.useQuery(
-		{ organizationId: currentOrgId! },
-		{ enabled: !!currentOrgId }
+		{ organizationId: currentOrganization?.id! },
+		{ enabled: !!currentOrganization?.id }
 	);
 
 	// Fetch positions already in the path to avoid duplicates
 	const pathPositionsQuery = api.position.getByCareerPath.useQuery(
 		{
-			organizationId: currentOrgId!,
+			organizationId: currentOrganization?.id!,
 			careerPathId
 		},
-		{ enabled: !!currentOrgId && !!careerPathId }
+		{ enabled: !!currentOrganization?.id && !!careerPathId }
+	);
+
+	// Fetch existing position detail if editing
+	const positionDetailQuery = api.position.getPositionDetailById.useQuery(
+		{ id: positionDetailId! },
+		{ enabled: !!positionDetailId }
 	);
 
 	// Set up mutation for assigning position
 	const assignMutation = api.position.assignToPath.useMutation({
 		onSuccess: () => {
 			utils.position.getByCareerPath.invalidate({
-				organizationId: currentOrgId!,
+				organizationId: currentOrganization?.id!,
 				careerPathId
 			});
 			toast.success("Position assigned successfully");
@@ -81,12 +89,27 @@ export function AssignPositionForm({
 		}
 	});
 
+	// Set up mutation for updating position detail
+	const updateDetailMutation = api.position.updatePositionDetail.useMutation({
+		onSuccess: () => {
+			utils.position.getByCareerPath.invalidate({
+				organizationId: currentOrganization?.id!,
+				careerPathId
+			});
+			toast.success("Position details updated successfully");
+			onComplete();
+		},
+		onError: (error) => {
+			toast.error(`Failed to update position: ${error.message}`);
+		}
+	});
+
 	// Set up mutation for creating a new position
 	const createPositionMutation = api.position.create.useMutation({
 		onSuccess: (data) => {
 			// After creating the position, assign it to the path
 			assignMutation.mutate({
-				organizationId: currentOrgId!,
+				organizationId: currentOrganization?.id!,
 				careerPathId,
 				positionId: data.id,
 				level: newPositionFormData.level,
@@ -95,7 +118,7 @@ export function AssignPositionForm({
 			});
 
 			// Invalidate positions query
-			utils.position.getAll.invalidate({ organizationId: currentOrgId! });
+			utils.position.getAll.invalidate({ organizationId: currentOrganization?.id! });
 			toast.success("New position created and assigned");
 		},
 		onError: (error) => {
@@ -105,6 +128,10 @@ export function AssignPositionForm({
 
 	// Filter out positions already assigned to this path
 	const availablePositions = positionsQuery.data?.filter(position => {
+		// When editing, include the current position
+		if (positionDetailId && positionDetailQuery.data?.position_id === position.id) {
+			return true;
+		}
 		// Check if this position is already in the path
 		return !pathPositionsQuery.data?.some(
 			detail => detail.positions?.id === position.id
@@ -120,6 +147,20 @@ export function AssignPositionForm({
 			}));
 		}
 	}, [availablePositions, existingFormData.positionId]);
+
+	// Load existing position detail data when editing
+	useEffect(() => {
+		if (positionDetailId && positionDetailQuery.data) {
+			const detail = positionDetailQuery.data;
+			setExistingFormData({
+				positionId: detail.position_id,
+				level: detail.level,
+				sequenceInPath: detail.sequence_in_path || detail.level,
+				pathSpecificDescription: detail.path_specific_description || "",
+			});
+			setActiveTab("existing");
+		}
+	}, [positionDetailId, positionDetailQuery.data]);
 
 	// Form handlers for existing position
 	const handleExistingChange = (
@@ -156,14 +197,25 @@ export function AssignPositionForm({
 			return;
 		}
 
-		assignMutation.mutate({
-			organizationId: currentOrgId!,
-			careerPathId,
-			positionId: existingFormData.positionId,
-			level: existingFormData.level,
-			sequenceInPath: existingFormData.sequenceInPath,
-			pathSpecificDescription: existingFormData.pathSpecificDescription || null
-		});
+		if (positionDetailId) {
+			// Update existing position detail
+			updateDetailMutation.mutate({
+				id: positionDetailId,
+				level: existingFormData.level,
+				sequenceInPath: existingFormData.sequenceInPath,
+				pathSpecificDescription: existingFormData.pathSpecificDescription || null
+			});
+		} else {
+			// Assign new position to path
+			assignMutation.mutate({
+				organizationId: currentOrganization?.id!,
+				careerPathId,
+				positionId: existingFormData.positionId,
+				level: existingFormData.level,
+				sequenceInPath: existingFormData.sequenceInPath,
+				pathSpecificDescription: existingFormData.pathSpecificDescription || null
+			});
+		}
 	};
 
 	// Handle form submission for new position
@@ -176,14 +228,16 @@ export function AssignPositionForm({
 		}
 
 		createPositionMutation.mutate({
-			organizationId: currentOrgId!,
+			organizationId: currentOrganization?.id!,
 			name: newPositionFormData.name,
 			baseDescription: newPositionFormData.baseDescription || null
 		});
 	};
 
 	// Loading state
-	if (positionsQuery.isLoading || pathPositionsQuery.isLoading) {
+	if ((positionDetailId && positionDetailQuery.isLoading) ||
+		positionsQuery.isLoading ||
+		pathPositionsQuery.isLoading) {
 		return (
 			<div className="flex items-center justify-center p-4">
 				<div className="animate-spin h-6 w-6 border-b-2 border-primary rounded-full mr-2" />
@@ -288,15 +342,15 @@ export function AssignPositionForm({
 							</Button>
 							<Button
 								type="submit"
-								disabled={assignMutation.isPending || availablePositions.length === 0}
+								disabled={assignMutation.isPending || updateDetailMutation.isPending || availablePositions.length === 0}
 							>
-								{assignMutation.isPending ? (
+								{assignMutation.isPending || updateDetailMutation.isPending ? (
 									<>
 										<div className="animate-spin h-4 w-4 mr-2 border-b-2 border-background rounded-full" />
-										Assigning...
+										{positionDetailId ? "Updating..." : "Assigning..."}
 									</>
 								) : (
-									'Assign Position'
+									positionDetailId ? 'Update Position' : 'Assign Position'
 								)}
 							</Button>
 						</div>

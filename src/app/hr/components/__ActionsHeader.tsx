@@ -1,6 +1,7 @@
 // src/app/hr/components/ActionsHeader.tsx
 "use client";
 
+import { useState, useEffect, use } from "react";
 import { Card, CardHeader } from "~/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Button } from "~/components/ui/button";
@@ -148,7 +149,7 @@ export function ActionsHeader({
 					</div>
 
 					<Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
-						<TabsList className="grid w-full grid-cols-3 min-w-[450px]">
+						<TabsList className="grid w-full grid-cols-2 min-w-[300px]">
 							<TabsTrigger
 								value="all-positions"
 								onClick={() => {
@@ -165,9 +166,6 @@ export function ActionsHeader({
 							>
 								Assigned Positions
 							</TabsTrigger>
-							<TabsTrigger value="positions-manager">
-								Position Manager
-							</TabsTrigger>
 						</TabsList>
 					</Tabs>
 				</CardHeader>
@@ -183,8 +181,6 @@ export function ActionsHeader({
 									</span>
 								)}
 							</>
-						) : activeTab === "positions-manager" ? (
-							"Advanced position management with filtering by career path"
 						) : (
 							"Manage all position titles in your organization"
 						)}

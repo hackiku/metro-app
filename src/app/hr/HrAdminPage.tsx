@@ -7,6 +7,9 @@ import { Button } from "~/components/ui/button";
 import { RefreshCw, Map } from "lucide-react";
 import { ActionsHeader } from "./components/ActionsHeader";
 import CareerPaths from "./career-paths/CareerPaths";
+import { PositionsManagerView } from "./positions/PositionsManagerView";
+
+
 import { AssignmentsList } from "./assignments/AssignmentsList";
 import { PositionsList } from "./positions/PositionsList";
 import { Toaster } from "sonner";
@@ -143,8 +146,8 @@ export default function HrAdminPage() {
 				{/* Actions Header with Tabs */}
 				<ActionsHeader
 					selectedPathId={selectedCareerPathId}
-					onTabChange={handleTabChange}
 					activeTab={activeTab}
+					onTabChange={handleTabChange}
 					onPathSelect={handleSelectPath}
 					hasChanges={hasUnsavedChanges}
 					onSaveChanges={handleSaveChanges}
