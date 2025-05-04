@@ -1,12 +1,9 @@
-// src/components/hr/positions/DraggablePositions.tsx
+// src/app/hr/components/DraggablePositions.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent } from "~/components/ui/card";
-import { Separator } from "~/components/ui/separator";
-import { Badge } from "~/components/ui/badge";
-import { GripVertical, MoreHorizontal, Plus, Save, X } from "lucide-react";
+import { MoreHorizontal, ExternalLink } from "lucide-react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -16,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { api } from "~/trpc/react";
 import { useSession } from "~/contexts/SessionContext";
+import Link from "next/link";
 
 interface Position {
 	id: string;
@@ -31,19 +29,16 @@ interface Position {
 
 interface DraggablePositionsProps {
 	careerPathId: string;
-	onAssignPosition: () => void;
+	pathColor?: string | null;
 }
 
 export function DraggablePositions({
 	careerPathId,
-	onAssignPosition
+	pathColor = "#4299E1"
 }: DraggablePositionsProps) {
 	const { currentOrgId } = useSession();
 	const [positions, setPositions] = useState<Position[]>([]);
-	const [groupedPositions, setGroupedPositions] = useState<Record<number, Position[]>>({});
-	const [hasChanges, setHasChanges] = useState(false);
 	const [draggingId, setDraggingId] = useState<string | null>(null);
-	const [dragOverLevel, setDragOverLevel] = useState<number | null>(null);
 
 	// Get tRPC utils for cache invalidation
 	const utils = api.useUtils();
@@ -64,8 +59,7 @@ export function DraggablePositions({
 				organizationId: currentOrgId!,
 				careerPathId
 			});
-			toast.success("Position order updated successfully");
-			setHasChanges(false);
+			toast.success("Position order updated");
 		},
 		onError: (error) => {
 			toast.error(`Failed to update: ${error.message}`);
@@ -79,7 +73,7 @@ export function DraggablePositions({
 				organizationId: currentOrgId!,
 				careerPathId
 			});
-			toast.success("Position removed from path successfully");
+			toast.success("Position removed from path");
 		},
 		onError: (error) => {
 			toast.error(`Failed to remove: ${error.message}`);
@@ -89,152 +83,69 @@ export function DraggablePositions({
 	// Process positions when data is loaded
 	useEffect(() => {
 		if (pathPositionsQuery.data) {
-			setPositions(pathPositionsQuery.data);
+			const sortedPositions = [...pathPositionsQuery.data].sort((a, b) => {
+				const levelDiff = a.level - b.level;
+				if (levelDiff !== 0) return levelDiff;
 
-			// Group positions by level
-			const grouped: Record<number, Position[]> = {};
-
-			pathPositionsQuery.data.forEach(position => {
-				const level = position.level;
-
-				if (!grouped[level]) {
-					grouped[level] = [];
-				}
-
-				grouped[level].push(position);
+				const aSeq = a.sequence_in_path || a.level;
+				const bSeq = b.sequence_in_path || b.level;
+				return aSeq - bSeq;
 			});
 
-			// Sort positions within each level by sequence
-			Object.keys(grouped).forEach(levelKey => {
-				const level = Number(levelKey);
-
-				grouped[level].sort((a, b) => {
-					const aSeq = a.sequence_in_path || a.level;
-					const bSeq = b.sequence_in_path || b.level;
-					return aSeq - bSeq;
-				});
-			});
-
-			setGroupedPositions(grouped);
+			setPositions(sortedPositions);
 		}
 	}, [pathPositionsQuery.data]);
 
 	// Drag and drop handlers
-	const handleDragStart = (event: React.DragEvent, positionId: string, level: number) => {
+	const handleDragStart = (event: React.DragEvent, positionId: string) => {
 		setDraggingId(positionId);
 		event.dataTransfer.setData("positionId", positionId);
-		event.dataTransfer.setData("fromLevel", String(level));
 	};
 
-	const handleDragOver = (event: React.DragEvent, targetLevel: number) => {
+	const handleDragOver = (event: React.DragEvent) => {
 		event.preventDefault();
-		setDragOverLevel(targetLevel);
 	};
 
-	const handleDrop = (event: React.DragEvent, targetLevel: number) => {
+	const handleDrop = (event: React.DragEvent, targetId: string) => {
 		event.preventDefault();
 
 		const positionId = event.dataTransfer.getData("positionId");
-		const fromLevel = Number(event.dataTransfer.getData("fromLevel"));
+		if (positionId === targetId) return;
 
-		// If dropping in same level, just reorder
-		if (fromLevel === targetLevel) {
-			handleReorder(positionId, targetLevel);
-		} else {
-			// If dropping in different level, change level and position
-			handleLevelChange(positionId, fromLevel, targetLevel);
+		// Get indices for reordering
+		const sourceIndex = positions.findIndex(p => p.id === positionId);
+		const targetIndex = positions.findIndex(p => p.id === targetId);
+
+		if (sourceIndex < 0 || targetIndex < 0) return;
+
+		// Create a new array with the dragged item moved to the new position
+		const newPositions = [...positions];
+		const [draggedItem] = newPositions.splice(sourceIndex, 1);
+		newPositions.splice(targetIndex, 0, draggedItem);
+
+		// Update sequence numbers
+		const updatedPositions = newPositions.map((position, index) => ({
+			...position,
+			sequence_in_path: index + 1
+		}));
+
+		// Update state and save changes
+		setPositions(updatedPositions);
+
+		// Save the new order to the database
+		const draggedPosition = updatedPositions.find(p => p.id === positionId);
+		if (draggedPosition) {
+			updatePositionMutation.mutate({
+				id: draggedPosition.id,
+				sequenceInPath: draggedPosition.sequence_in_path
+			});
 		}
 
 		setDraggingId(null);
-		setDragOverLevel(null);
 	};
 
 	const handleDragEnd = () => {
 		setDraggingId(null);
-		setDragOverLevel(null);
-	};
-
-	// Handle reordering within the same level
-	const handleReorder = (positionId: string, level: number) => {
-		if (!groupedPositions[level]) return;
-
-		const newGrouped = { ...groupedPositions };
-
-		// Find the position that was dragged
-		const draggedPosition = positions.find(p => p.id === positionId);
-		if (!draggedPosition) return;
-
-		// Update sequences
-		const updatedLevelPositions = [...newGrouped[level]];
-
-		// Reorder by assigning sequential sequence numbers
-		updatedLevelPositions.forEach((position, index) => {
-			position.sequence_in_path = index + 1;
-		});
-
-		// Update the state
-		newGrouped[level] = updatedLevelPositions;
-		setGroupedPositions(newGrouped);
-		setHasChanges(true);
-	};
-
-	// Handle level change
-	const handleLevelChange = (positionId: string, fromLevel: number, toLevel: number) => {
-		if (!groupedPositions[fromLevel] || !groupedPositions[toLevel]) return;
-
-		const newGrouped = { ...groupedPositions };
-
-		// Find the position that was dragged
-		const draggedPosition = positions.find(p => p.id === positionId);
-		if (!draggedPosition) return;
-
-		// Remove from original level
-		newGrouped[fromLevel] = newGrouped[fromLevel].filter(p => p.id !== positionId);
-
-		// Add to new level
-		const updatedPosition = { ...draggedPosition, level: toLevel };
-		newGrouped[toLevel] = [...newGrouped[toLevel], updatedPosition];
-
-		// Update sequences for both levels
-		newGrouped[fromLevel].forEach((position, index) => {
-			position.sequence_in_path = index + 1;
-		});
-
-		newGrouped[toLevel].forEach((position, index) => {
-			position.sequence_in_path = index + 1;
-		});
-
-		// Update the state
-		setGroupedPositions(newGrouped);
-		setHasChanges(true);
-	};
-
-	// Save changes to all positions
-	const saveChanges = () => {
-		// Flatten grouped positions
-		const updatedPositions: Position[] = [];
-
-		Object.keys(groupedPositions).forEach(levelKey => {
-			const level = Number(levelKey);
-
-			groupedPositions[level].forEach((position, index) => {
-				updatedPositions.push({
-					...position,
-					level: level,
-					sequence_in_path: index + 1
-				});
-			});
-		});
-
-		// Update each position
-		updatedPositions.forEach(position => {
-			updatePositionMutation.mutate({
-				id: position.id,
-				level: position.level,
-				sequenceInPath: position.sequence_in_path,
-				pathSpecificDescription: position.path_specific_description
-			});
-		});
 	};
 
 	// Remove position from path
@@ -245,178 +156,77 @@ export function DraggablePositions({
 	// Loading state
 	if (pathPositionsQuery.isLoading) {
 		return (
-			<div className="flex items-center justify-center p-4">
-				<div className="animate-spin h-6 w-6 border-b-2 border-primary rounded-full mr-2" />
-				<span>Loading positions...</span>
+			<div className="flex items-center justify-center py-4">
+				<div className="animate-spin h-4 w-4 border-b-2 border-primary rounded-full" />
 			</div>
 		);
 	}
 
 	// No positions state
-	if (pathPositionsQuery.data?.length === 0) {
+	if (positions.length === 0) {
 		return (
-			<div className="text-center py-6">
-				<p className="text-muted-foreground mb-4">No positions assigned to this career path yet.</p>
-				<Button onClick={onAssignPosition}>
-					<Plus className="mr-2 h-4 w-4" />
-					Assign Position
-				</Button>
+			<div className="text-center py-2 text-sm text-muted-foreground">
+				No positions assigned
 			</div>
 		);
 	}
 
-	// Render the draggable position groups
+	// Render the simplified position row
 	return (
-		<div className="space-y-6">
-			{hasChanges && (
-				<div className="flex items-center justify-between px-4 py-2 bg-primary/10 border border-primary/20 rounded-md">
-					<span className="text-sm">You have unsaved changes to position order</span>
-					<div className="flex gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => {
-								// Reset to original data
-								if (pathPositionsQuery.data) {
-									setPositions(pathPositionsQuery.data);
+		<div className="relative py-2">
+			{/* Path line that runs through the positions */}
+			<div
+				className="absolute left-0 right-0 h-[3px] top-1/2 transform -translate-y-1/2 z-0"
+				style={{ backgroundColor: pathColor || "#4299E1" }}
+			/>
 
-									// Regroup
-									const grouped: Record<number, Position[]> = {};
+			<div className="flex flex-wrap items-center gap-3 relative z-10">
+				{positions.map((position) => (
+					<div
+						key={position.id}
+						className={`
+              flex items-center gap-1 px-3 py-1.5 bg-card rounded-md border shadow-sm z-10
+              ${draggingId === position.id ? 'opacity-50' : ''}
+              ${!position.positions ? 'border-destructive/50 bg-destructive/10' : ''}
+            `}
+						draggable
+						onDragStart={(e) => handleDragStart(e, position.id)}
+						onDragOver={handleDragOver}
+						onDrop={(e) => handleDrop(e, position.id)}
+						onDragEnd={handleDragEnd}
+					>
+						<span className="font-medium text-sm">
+							{position.positions?.name || "Unknown Position"}
+						</span>
+						<span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+							L{position.level}
+						</span>
 
-									pathPositionsQuery.data.forEach(position => {
-										const level = position.level;
-
-										if (!grouped[level]) {
-											grouped[level] = [];
-										}
-
-										grouped[level].push(position);
-									});
-
-									Object.keys(grouped).forEach(levelKey => {
-										const level = Number(levelKey);
-
-										grouped[level].sort((a, b) => {
-											const aSeq = a.sequence_in_path || a.level;
-											const bSeq = b.sequence_in_path || b.level;
-											return aSeq - bSeq;
-										});
-									});
-
-									setGroupedPositions(grouped);
-									setHasChanges(false);
-								}
-							}}
-						>
-							<X className="mr-2 h-4 w-4" />
-							Cancel
-						</Button>
-						<Button
-							size="sm"
-							onClick={saveChanges}
-							disabled={updatePositionMutation.isPending}
-						>
-							{updatePositionMutation.isPending ? (
-								<>
-									<div className="animate-spin h-4 w-4 mr-2 border-b-2 border-background rounded-full" />
-									Saving...
-								</>
-							) : (
-								<>
-									<Save className="mr-2 h-4 w-4" />
-									Save Changes
-								</>
-							)}
-						</Button>
-					</div>
-				</div>
-			)}
-
-			<div className="space-y-6">
-				{Object.keys(groupedPositions)
-					.map(Number)
-					.sort((a, b) => a - b)
-					.map(level => (
-						<div
-							key={level}
-							className={`relative rounded-md border p-4 ${dragOverLevel === level ? 'bg-muted/50 border-primary/50' : ''}`}
-							onDragOver={(e) => handleDragOver(e, level)}
-							onDrop={(e) => handleDrop(e, level)}
-						>
-							<div className="flex items-center justify-between mb-3">
-								<h3 className="text-sm font-medium flex items-center">
-									<Badge variant="outline" className="mr-2">Level {level}</Badge>
-									<span className="text-muted-foreground text-xs">
-										{groupedPositions[level].length} position(s)
-									</span>
-								</h3>
-							</div>
-
-							<div className="flex items-center gap-2 flex-wrap">
-								{groupedPositions[level].map((position) => (
-									<div
-										key={position.id}
-										className={`
-                      flex items-center gap-1 px-3 py-2 bg-card rounded-md border shadow-sm
-                      ${draggingId === position.id ? 'opacity-50' : ''}
-                      ${!position.positions ? 'border-destructive/50 bg-destructive/10' : ''}
-                    `}
-										draggable
-										onDragStart={(e) => handleDragStart(e, position.id, level)}
-										onDragEnd={handleDragEnd}
-									>
-										<GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-										<div className="flex items-center gap-2">
-											<span className="font-medium">
-												{position.positions?.name || "Unknown Position"}
-											</span>
-											{position.sequence_in_path && position.sequence_in_path !== level && (
-												<span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-													{position.sequence_in_path}
-												</span>
-											)}
-										</div>
-
-										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
-												<Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
-													<MoreHorizontal className="h-3 w-3" />
-												</Button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end">
-												<DropdownMenuItem
-													className="text-destructive focus:text-destructive"
-													onClick={() => handleRemovePosition(position.id)}
-												>
-													Remove from Path
-												</DropdownMenuItem>
-											</DropdownMenuContent>
-										</DropdownMenu>
-									</div>
-								))}
-
-								<Button
-									variant="outline"
-									size="sm"
-									className="whitespace-nowrap"
-									onClick={onAssignPosition}
-								>
-									<Plus className="h-4 w-4 mr-1" />
-									Assign
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
+									<MoreHorizontal className="h-3 w-3" />
 								</Button>
-							</div>
-						</div>
-					))}
-			</div>
-
-			<div className="flex justify-end">
-				<Button
-					variant="outline"
-					onClick={onAssignPosition}
-				>
-					<Plus className="mr-2 h-4 w-4" />
-					Assign New Position
-				</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								{position.positions && (
+									<DropdownMenuItem asChild>
+										<Link href={`/position/${position.positions.id}`} target="_blank">
+											<ExternalLink className="h-3.5 w-3.5 mr-2" />
+											View Position Page
+										</Link>
+									</DropdownMenuItem>
+								)}
+								<DropdownMenuItem
+									className="text-destructive focus:text-destructive"
+									onClick={() => handleRemovePosition(position.id)}
+								>
+									Remove from Path
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</div>
+				))}
 			</div>
 		</div>
 	);

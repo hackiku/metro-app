@@ -1,16 +1,13 @@
 // src/app/hr/career-paths/CareersList.tsx
 "use client";
 
-import { EnhancedExpandableTable } from "~/components/tables/EnhancedExpandableTable";
+import { ExpandableTable } from "~/components/tables/ExpandableTable";
 import { DraggablePositions } from "../components/DraggablePositions";
 import { ColorPreview } from "~/components/ui/color-preview";
 import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import { ExternalLink } from "lucide-react";
-import Link from "next/link";
 import { api } from "~/trpc/react";
 import { useSession } from "~/contexts/SessionContext";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import type { CareerPath } from "~/types/compass";
 
 interface CareersListProps {
@@ -35,18 +32,37 @@ export function CareersList({
 	onAssignPosition
 }: CareersListProps) {
 	const { currentOrgId } = useSession();
+	const [positionCounts, setPositionCounts] = useState<Record<string, number>>({});
 
-	// Fetch positions count for each path
-	const pathPositionsCountQuery = api.position.getByCareerPath.useQuery(
+	// Fetch positions count for all paths
+	const allPathsPositionsQuery = api.position.getAllPathsPositions.useQuery(
 		{
 			organizationId: currentOrgId!,
-			careerPathId: selectedPathId || ''
+			pathIds: careerPaths.map(path => path.id)
 		},
 		{
-			enabled: !!currentOrgId && !!selectedPathId,
+			enabled: !!currentOrgId && careerPaths.length > 0,
 			staleTime: 30000 // 30 seconds
 		}
 	);
+
+	// Process position counts when data loads
+	useEffect(() => {
+		if (allPathsPositionsQuery.data) {
+			const counts: Record<string, number> = {};
+
+			// Count positions by path ID
+			allPathsPositionsQuery.data.forEach(position => {
+				const pathId = position.career_path_id;
+				if (!counts[pathId]) {
+					counts[pathId] = 0;
+				}
+				counts[pathId]++;
+			});
+
+			setPositionCounts(counts);
+		}
+	}, [allPathsPositionsQuery.data]);
 
 	// Set up event listener for assign position action from DraggablePositions
 	useEffect(() => {
@@ -89,16 +105,12 @@ export function CareersList({
 			header: "Positions",
 			width: "w-[20%]",
 			render: (path: CareerPath) => {
-				// Show count if this is the selected path and we have data
-				if (selectedPathId === path.id && pathPositionsCountQuery.data) {
-					const count = pathPositionsCountQuery.data.length;
-					return (
-						<Badge variant="outline" className="text-xs">
-							{count} position{count !== 1 ? 's' : ''}
-						</Badge>
-					);
-				}
-				return <span className="text-muted-foreground">—</span>;
+				const count = positionCounts[path.id] || 0;
+				return (
+					<Badge variant="outline" className="text-xs">
+						{count}
+					</Badge>
+				);
 			}
 		}
 	];
@@ -126,47 +138,16 @@ export function CareersList({
 
 	// Render the expanded content with positions
 	const renderExpandedContent = (path: CareerPath) => {
-		// Only render DraggablePositions for the selected path
-		if (path.id !== selectedPathId) {
-			return (
-				<div className="text-center p-4">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => onSelectPath(path.id)}
-					>
-						View Positions
-					</Button>
-				</div>
-			);
-		}
-
 		return (
-			<div className="space-y-3">
-				<div className="flex items-center justify-between">
-					<h3 className="text-lg font-medium">Positions in {path.name}</h3>
-					<Button asChild variant="outline" size="sm">
-						<Link href={`/career-path/${path.id}`} target="_blank">
-							<ExternalLink className="mr-2 h-4 w-4" />
-							View Career Path Page
-						</Link>
-					</Button>
-				</div>
-
-				<DraggablePositions
-					careerPathId={path.id}
-					onAssignPosition={() => {
-						if (onAssignPosition) {
-							onAssignPosition(path.id);
-						}
-					}}
-				/>
-			</div>
+			<DraggablePositions
+				careerPathId={path.id}
+				pathColor={path.color}
+			/>
 		);
 	};
 
 	return (
-		<EnhancedExpandableTable
+		<ExpandableTable
 			data={careerPaths}
 			columns={columns}
 			isLoading={isLoading}

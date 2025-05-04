@@ -234,21 +234,6 @@ export function EnhancedExpandableTable<T extends { id: string }>({
 							</>
 						);
 					})}
-
-					{/* Add new item row */}
-					{primaryAction && (
-						<TableRow
-							className="hover:bg-muted/30 cursor-pointer border-t border-dashed"
-							onClick={primaryAction.onClick}
-						>
-							<TableCell colSpan={columns.length + 2} className="h-12">
-								<div className="flex items-center justify-center text-muted-foreground">
-									<span className="mr-2">+</span>
-									<span>{primaryAction.label}</span>
-								</div>
-							</TableCell>
-						</TableRow>
-					)}
 				</TableBody>
 			</Table>
 		</div>
