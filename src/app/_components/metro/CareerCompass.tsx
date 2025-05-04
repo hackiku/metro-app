@@ -13,6 +13,8 @@ import MetroMap from './map/MetroMap';
 import type { MetroMapRef } from './map/MetroMap';
 // Import the updated data hook
 import { useCareerCompassData } from './hooks/useCareerCompassData';
+// Import PositionPreview component
+import PositionPreview from './ui/PositionPreview';
 
 export default function CareerCompass() {
 	// Use the hook to get data
@@ -26,13 +28,28 @@ export default function CareerCompass() {
 	} = useCareerCompassData();
 
 	const [isDataSheetOpen, setIsDataSheetOpen] = useState(false);
+	const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 	const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 	const [targetNodeId, setTargetNodeId] = useState<string | null>(null);
 	// Default grid visibility based on environment
 	const [showGrid, setShowGrid] = useState(process.env.NODE_ENV === 'development');
+	// Current position ID (needed for comparison in position preview)
+	const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
 
 	// Ref for map controls
 	const mapRef = useRef<MetroMapRef>(null);
+
+	// Get the selected position details for preview
+	const selectedPositionDetail = useMemo(() => {
+		if (!selectedNodeId || !positionDetails) return null;
+		return positionDetails.find(detail => detail.id === selectedNodeId);
+	}, [selectedNodeId, positionDetails]);
+
+	// Get the selected position information
+	const selectedPosition = useMemo(() => {
+		if (!selectedPositionDetail || !positions) return null;
+		return positions.find(position => position.id === selectedPositionDetail.position_id);
+	}, [selectedPositionDetail, positions]);
 
 	// Layout Calculation using our improved Metro engine
 	const layout = useMemo<LayoutData | null>(() => {
@@ -72,19 +89,26 @@ export default function CareerCompass() {
 		setTargetNodeId(nodeId);
 		// Center the map on the target
 		mapRef.current?.centerOnNode(nodeId);
+		// Close the position preview when setting target
+		setIsPreviewOpen(false);
 	};
 
 	const handleRemoveTarget = () => {
 		setTargetNodeId(null);
+		// Close the position preview when removing target
+		setIsPreviewOpen(false);
 	};
 
 	const handleNodeSelect = (nodeId: string | null) => {
 		setSelectedNodeId(nodeId);
-		// Optionally center on selected node
+		
+		// Show position preview if a node is selected
 		if (nodeId) {
-			// mapRef.current?.centerOnNode(nodeId);
+			setIsPreviewOpen(true);
+		} else {
+			setIsPreviewOpen(false);
 		}
-	}
+	};
 
 	const handleToggleGrid = () => {
 		setShowGrid(prev => !prev);
@@ -100,6 +124,7 @@ export default function CareerCompass() {
 					layout={layout} // Layout is guaranteed non-null here
 					selectedNodeId={selectedNodeId}
 					targetNodeId={targetNodeId}
+					currentNodeId={currentNodeId}
 					onNodeSelect={handleNodeSelect}
 					onSetTarget={handleSetTarget}
 					onRemoveTarget={handleRemoveTarget}
@@ -107,6 +132,19 @@ export default function CareerCompass() {
 					onToggleGrid={handleToggleGrid}
 				/>
 			</div>
+
+			{/* Position Preview Drawer */}
+			<PositionPreview
+				position={selectedPosition}
+				positionDetail={selectedPositionDetail}
+				isOpen={isPreviewOpen && !!selectedNodeId}
+				onOpenChange={setIsPreviewOpen}
+				onSetTarget={handleSetTarget}
+				onRemoveTarget={handleRemoveTarget}
+				onClose={() => setIsPreviewOpen(false)}
+				isCurrent={selectedNodeId === currentNodeId}
+				isTarget={selectedNodeId === targetNodeId}
+			/>
 
 			{/* Data Display Trigger & Sheet */}
 			<div className="absolute top-4 right-4 z-10">
