@@ -20,7 +20,7 @@ interface CareerPathsProps {
 
 export default function CareerPaths({ onSelectPath, selectedPathId }: CareerPathsProps) {
 	// View mode state - "table", "simple", or "details"
-	const [viewMode, setViewMode] = useState<"table" | "simple" | "details">("simple");
+	const [viewMode, setViewMode] = useState<"table" | "simple" | "details">("table");
 
 	// Dialog state
 	const [isCreating, setIsCreating] = useState(false);

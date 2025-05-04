@@ -1,4 +1,4 @@
-// src/app/hr/HrAdminPage.tsx
+// src/app/hr/	
 "use client";
 
 import { useState } from "react";
