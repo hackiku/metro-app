@@ -1,7 +1,7 @@
 // src/app/hr/assignments/AssignmentsList.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "~/trpc/react";
 import { useSession } from "~/contexts/SessionContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "~/components/ui/dialog";
@@ -39,16 +39,23 @@ export function AssignmentsList({
 }: AssignmentsListProps) {
 	const { currentOrgId } = useSession();
 	const [isAssigning, setIsAssigning] = useState(false);
+	const [isEditing, setIsEditing] = useState<string | null>(null);
 	const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 	const [hasLocalChanges, setHasLocalChanges] = useState(false);
 	const [pendingMoves, setPendingMoves] = useState<{
 		id: string;
+		level: number;
 		sequenceInPath: number;
 	}[]>([]);
 
 	// Store the original positions order to enable reset
 	const [originalPositions, setOriginalPositions] = useState<PositionDetail[]>([]);
 	const [currentPositions, setCurrentPositions] = useState<PositionDetail[]>([]);
+
+	// Keep track of if we're currently in a mutation to prevent refetching during updates
+	const isSaving = useRef(false);
+	const mutationCount = useRef(0);
+	const totalMutations = useRef(0);
 
 	// Get tRPC utils for cache invalidation
 	const utils = api.useUtils();
@@ -59,18 +66,36 @@ export function AssignmentsList({
 			organizationId: currentOrgId!,
 			careerPathId
 		},
-		{ enabled: !!currentOrgId && !!careerPathId }
+		{
+			enabled: !!currentOrgId && !!careerPathId,
+			refetchOnWindowFocus: false,
+			// Important: Don't refetch while we're saving changes
+			refetchOnMount: !isSaving.current
+		}
 	);
 
-	// Set up mutation for updating position order
+	// Set up mutation for updating position order with callbacks
 	const updatePositionMutation = api.position.updatePositionDetail.useMutation({
 		onSuccess: () => {
-			utils.position.getByCareerPath.invalidate({
-				organizationId: currentOrgId!,
-				careerPathId
-			});
+			mutationCount.current += 1;
+
+			// Only invalidate after all mutations are done
+			if (mutationCount.current === totalMutations.current) {
+				isSaving.current = false;
+				mutationCount.current = 0;
+				totalMutations.current = 0;
+
+				// Now it's safe to invalidate the cache
+				utils.position.getByCareerPath.invalidate({
+					organizationId: currentOrgId!,
+					careerPathId
+				});
+			}
 		},
 		onError: (error) => {
+			isSaving.current = false;
+			mutationCount.current = 0;
+			totalMutations.current = 0;
 			toast.error(`Failed to update: ${error.message}`);
 		}
 	});
@@ -92,7 +117,7 @@ export function AssignmentsList({
 
 	// Process positions when data is loaded
 	useEffect(() => {
-		if (pathPositionsQuery.data) {
+		if (pathPositionsQuery.data && !isSaving.current) {
 			// Sort positions by level and sequence
 			const sortedPositions = [...pathPositionsQuery.data].sort((a, b) => {
 				const levelDiff = a.level - b.level;
@@ -128,17 +153,30 @@ export function AssignmentsList({
 		const [movedItem] = newOrder.splice(sourceIdx, 1);
 		newOrder.splice(targetIdx, 0, movedItem);
 
-		// Update sequence numbers
-		const updatedPositions = newOrder.map((position, index) => ({
-			...position,
-			sequence_in_path: index + 1
-		}));
+		// Update BOTH level and sequence numbers for ALL positions
+		const updatedPositions = newOrder.map((position, index) => {
+			const newLevel = index + 1;
+			return {
+				...position,
+				level: newLevel,
+				sequence_in_path: newLevel
+			};
+		});
 
-		// Track the pending moves
-		const newPendingMoves = updatedPositions.map(position => ({
-			id: position.id,
-			sequenceInPath: position.sequence_in_path || position.level
-		}));
+		// Track the pending moves - include ALL positions that changed
+		const newPendingMoves = updatedPositions
+			.filter((position, index) => {
+				const origPosition = originalPositions.find(p => p.id === position.id);
+				// Include if level or sequence changed from original
+				return !origPosition ||
+					position.level !== origPosition.level ||
+					position.sequence_in_path !== origPosition.sequence_in_path;
+			})
+			.map(position => ({
+				id: position.id,
+				level: position.level,
+				sequenceInPath: position.sequence_in_path || position.level
+			}));
 
 		// Update state
 		setCurrentPositions(updatedPositions);
@@ -151,17 +189,32 @@ export function AssignmentsList({
 		}
 	};
 
-	// Handle saving all changes
+	// Handle editing a position
+	const handleEditPosition = (id: string) => {
+		setIsEditing(id);
+	};
+
+	// Perform the actual save operation
 	const handleSaveChanges = () => {
+		if (pendingMoves.length === 0) {
+			return;
+		}
+
+		// Set flag to prevent refetching during save
+		isSaving.current = true;
+		totalMutations.current = pendingMoves.length;
+		mutationCount.current = 0;
+
 		// Apply all pending moves
 		pendingMoves.forEach(move => {
 			updatePositionMutation.mutate({
 				id: move.id,
+				level: move.level,
 				sequenceInPath: move.sequenceInPath
 			});
 		});
 
-		// Reset local tracking
+		// Reset local tracking - we'll maintain currentPositions until the actual refetch
 		setHasLocalChanges(false);
 		setPendingMoves([]);
 
@@ -173,7 +226,7 @@ export function AssignmentsList({
 		toast.success("Position order saved");
 	};
 
-	// Handle resetting changes
+	// Handle reset changes
 	const handleResetChanges = () => {
 		setCurrentPositions(originalPositions);
 		setHasLocalChanges(false);
@@ -185,6 +238,26 @@ export function AssignmentsList({
 		}
 	};
 
+	// Register callbacks with parent component for save event
+	useEffect(() => {
+		const saveHandler = () => {
+			handleSaveChanges();
+		};
+
+		document.addEventListener('save-positions', saveHandler);
+		return () => document.removeEventListener('save-positions', saveHandler);
+	}, [pendingMoves]);
+
+	// Register callbacks with parent component for reset event
+	useEffect(() => {
+		const resetHandler = () => {
+			handleResetChanges();
+		};
+
+		document.addEventListener('reset-positions', resetHandler);
+		return () => document.removeEventListener('reset-positions', resetHandler);
+	}, [originalPositions, onChangesUpdate]);
+
 	// Handle prompting to remove a position
 	const handleRemovePrompt = (id: string) => {
 		setConfirmRemoveId(id);
@@ -194,23 +267,6 @@ export function AssignmentsList({
 	const handleRemovePosition = (id: string) => {
 		removePositionMutation.mutate({ id });
 	};
-
-	// Register callbacks with parent component
-	useEffect(() => {
-		if (onSave) {
-			const saveHandler = onSave;
-			document.addEventListener('save-positions', () => saveHandler());
-			return () => document.removeEventListener('save-positions', () => saveHandler());
-		}
-	}, [onSave, pendingMoves]);
-
-	useEffect(() => {
-		if (onReset) {
-			const resetHandler = onReset;
-			document.addEventListener('reset-positions', () => resetHandler());
-			return () => document.removeEventListener('reset-positions', () => resetHandler());
-		}
-	}, [onReset]);
 
 	// Define columns for the DraggableTable
 	const columns: Column<PositionDetail>[] = [
@@ -223,11 +279,6 @@ export function AssignmentsList({
 					<div className="font-medium">
 						{detail.positions?.name || "Unknown Position"}
 					</div>
-					{detail.positions?.base_description && (
-						<div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-							{detail.positions.base_description}
-						</div>
-					)}
 				</div>
 			)
 		},
@@ -253,12 +304,28 @@ export function AssignmentsList({
 			header: "Description",
 			width: "w-[45%]",
 			render: (detail) => (
-				<div className="text-sm line-clamp-2">
-					{detail.path_specific_description || detail.positions?.base_description || "No description provided"}
-				</div>
+				<>
+					<div className="text-sm line-clamp-2">
+						{detail.path_specific_description || detail.positions?.base_description || "No description provided"}
+					</div>
+					{detail.positions?.base_description && (
+						<div className="text-xs text-muted-foreground mt-0.5">
+							{detail.positions.base_description}
+						</div>
+					)}
+				</>
 			)
 		}
 	];
+
+	// Create position detail URL
+	const getPositionDetailUrl = (id: string) => {
+		const position = currentPositions.find(p => p.id === id);
+		if (position && position.positions) {
+			return `/position/${position.positions.id}`;
+		}
+		return "#";
+	};
 
 	return (
 		<>
@@ -267,7 +334,12 @@ export function AssignmentsList({
 				columns={columns}
 				isLoading={pathPositionsQuery.isLoading}
 				onRowMove={handleRowMove}
+				onEdit={handleEditPosition}
 				onRemove={handleRemovePrompt}
+				getRowUrl={getPositionDetailUrl}
+				hasChanges={hasLocalChanges}
+				onSaveChanges={handleSaveChanges}
+				onResetChanges={handleResetChanges}
 				primaryAction={{
 					label: "Assign New Position",
 					onClick: () => setIsAssigning(true)
@@ -296,6 +368,26 @@ export function AssignmentsList({
 						careerPathId={careerPathId}
 						onComplete={() => setIsAssigning(false)}
 					/>
+				</DialogContent>
+			</Dialog>
+
+			{/* Edit Position Dialog */}
+			<Dialog open={!!isEditing} onOpenChange={(open) => !open && setIsEditing(null)}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Edit Position</DialogTitle>
+						<DialogDescription>
+							Update position details
+						</DialogDescription>
+					</DialogHeader>
+
+					{isEditing && (
+						<AssignPositionForm
+							careerPathId={careerPathId}
+							positionDetailId={isEditing}
+							onComplete={() => setIsEditing(null)}
+						/>
+					)}
 				</DialogContent>
 			</Dialog>
 

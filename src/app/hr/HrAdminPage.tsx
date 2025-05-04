@@ -97,17 +97,19 @@ export default function HrAdminPage() {
 		setHasUnsavedChanges(hasChanges);
 	};
 
-	// Handle save changes
+	// Handle save changes - properly create and dispatch event
 	const handleSaveChanges = () => {
-		// Dispatch a custom event that will be caught by AssignmentsList
-		document.dispatchEvent(new CustomEvent('save-positions'));
+		// Create and dispatch a custom event that will be caught by AssignmentsList
+		const saveEvent = new CustomEvent('save-positions');
+		document.dispatchEvent(saveEvent);
 		setHasUnsavedChanges(false);
 	};
 
-	// Handle reset changes
+	// Handle reset changes - properly create and dispatch event
 	const handleResetChanges = () => {
-		// Dispatch a custom event that will be caught by AssignmentsList
-		document.dispatchEvent(new CustomEvent('reset-positions'));
+		// Create and dispatch a custom event that will be caught by AssignmentsList
+		const resetEvent = new CustomEvent('reset-positions');
+		document.dispatchEvent(resetEvent);
 		setHasUnsavedChanges(false);
 	};
 

@@ -8,12 +8,14 @@ import {
 	TableCell,
 	TableHead,
 	TableHeader,
-	TableRow
+	TableRow,
+	TableFooter
 } from "~/components/ui/table";
 import { Button } from "~/components/ui/button";
-import { Pencil, Trash2, Plus, GripVertical } from "lucide-react";
+import { Pencil, Trash2, Plus, GripVertical, ExternalLink, Save, RotateCcw } from "lucide-react";
 import { Skeleton } from "~/components/ui/skeleton";
 import { cn } from "~/lib/utils";
+import Link from "next/link";
 
 export interface Column<T> {
 	key: string;
@@ -45,6 +47,10 @@ interface DraggableTableProps<T> {
 		};
 	};
 	className?: string;
+	getRowUrl?: (id: string) => string;
+	hasChanges?: boolean;
+	onSaveChanges?: () => void;
+	onResetChanges?: () => void;
 }
 
 export function DraggableTable<T extends { id: string }>({
@@ -59,7 +65,11 @@ export function DraggableTable<T extends { id: string }>({
 	onRemove,
 	primaryAction,
 	emptyState,
-	className
+	className,
+	getRowUrl,
+	hasChanges = false,
+	onSaveChanges,
+	onResetChanges
 }: DraggableTableProps<T>) {
 	const [draggingId, setDraggingId] = useState<string | null>(null);
 
@@ -145,7 +155,7 @@ export function DraggableTable<T extends { id: string }>({
 								{column.header}
 							</TableHead>
 						))}
-						<TableHead className="w-[80px] text-right">Actions</TableHead>
+						<TableHead className="w-[100px] text-right">Actions</TableHead>
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -184,6 +194,20 @@ export function DraggableTable<T extends { id: string }>({
 
 								<TableCell className="text-right p-2">
 									<div className="flex justify-end space-x-1">
+										{getRowUrl && (
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-8 w-8"
+												asChild
+												onClick={handleButtonClick}
+											>
+												<Link href={getRowUrl(id)} target="_blank">
+													<ExternalLink className="h-4 w-4" />
+													<span className="sr-only">View</span>
+												</Link>
+											</Button>
+										)}
 										{onEdit && (
 											<Button
 												variant="ghost"
@@ -202,7 +226,7 @@ export function DraggableTable<T extends { id: string }>({
 											<Button
 												variant="ghost"
 												size="icon"
-												className="h-8 w-8 text-destructive"
+												className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10"
 												onClick={(e) => {
 													handleButtonClick(e);
 													onRemove(id);
@@ -230,6 +254,35 @@ export function DraggableTable<T extends { id: string }>({
 						</TableRow>
 					)}
 				</TableBody>
+
+				{/* Save/Reset footer - only shown when changes exist */}
+				{hasChanges && (
+					<TableFooter>
+						<TableRow>
+							<TableCell colSpan={columns.length + 2}>
+								<div className="flex justify-end space-x-2 py-2">
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={onResetChanges}
+										className="h-8"
+									>
+										<RotateCcw className="mr-2 h-4 w-4" />
+										Reset
+									</Button>
+									<Button
+										size="sm"
+										onClick={onSaveChanges}
+										className="h-8"
+									>
+										<Save className="mr-2 h-4 w-4" />
+										Save
+									</Button>
+								</div>
+							</TableCell>
+						</TableRow>
+					</TableFooter>
+				)}
 			</Table>
 		</div>
 	);

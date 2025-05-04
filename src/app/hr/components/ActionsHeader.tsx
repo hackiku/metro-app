@@ -60,6 +60,20 @@ export function ActionsHeader({
 		}
 	};
 
+	// Properly handle save changes with direct function call
+	const handleSaveClick = () => {
+		if (onSaveChanges) {
+			onSaveChanges();
+		}
+	};
+
+	// Properly handle reset changes with direct function call
+	const handleResetClick = () => {
+		if (onResetChanges) {
+			onResetChanges();
+		}
+	};
+
 	return (
 		<>
 			<Card className="mb-3">
@@ -173,7 +187,7 @@ export function ActionsHeader({
 							<Button
 								variant="outline"
 								size="sm"
-								onClick={onResetChanges}
+								onClick={handleResetClick}
 								disabled={!hasChanges}
 							>
 								<RotateCcw className="mr-2 h-4 w-4" />
@@ -181,7 +195,7 @@ export function ActionsHeader({
 							</Button>
 							<Button
 								size="sm"
-								onClick={onSaveChanges}
+								onClick={handleSaveClick}
 								disabled={!hasChanges}
 							>
 								<Save className="mr-2 h-4 w-4" />

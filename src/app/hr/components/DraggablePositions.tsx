@@ -1,9 +1,9 @@
 // src/app/hr/components/DraggablePositions.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "~/components/ui/button";
-import { MoreHorizontal, ExternalLink } from "lucide-react";
+import { MoreHorizontal, ExternalLink, Save, RotateCcw } from "lucide-react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -39,6 +39,13 @@ export function DraggablePositions({
 	const { currentOrgId } = useSession();
 	const [positions, setPositions] = useState<Position[]>([]);
 	const [draggingId, setDraggingId] = useState<string | null>(null);
+	const [originalPositions, setOriginalPositions] = useState<Position[]>([]);
+	const [hasLocalChanges, setHasLocalChanges] = useState(false);
+
+	// Keep track of whether we're in the process of updating positions
+	const isSaving = useRef(false);
+	const mutationCount = useRef(0);
+	const totalMutations = useRef(0);
 
 	// Get tRPC utils for cache invalidation
 	const utils = api.useUtils();
@@ -49,19 +56,39 @@ export function DraggablePositions({
 			organizationId: currentOrgId!,
 			careerPathId
 		},
-		{ enabled: !!currentOrgId && !!careerPathId }
+		{
+			enabled: !!currentOrgId && !!careerPathId,
+			// Don't auto-refetch while we're updating positions
+			refetchOnWindowFocus: false
+		}
 	);
 
 	// Set up mutation for updating position details
 	const updatePositionMutation = api.position.updatePositionDetail.useMutation({
 		onSuccess: () => {
-			utils.position.getByCareerPath.invalidate({
-				organizationId: currentOrgId!,
-				careerPathId
-			});
-			toast.success("Position order updated");
+			mutationCount.current += 1;
+
+			// Only invalidate after all mutations are done
+			if (mutationCount.current === totalMutations.current) {
+				// Reset state after successful updates
+				isSaving.current = false;
+				mutationCount.current = 0;
+				totalMutations.current = 0;
+
+				// Only now show the success toast
+				toast.success("Position order updated");
+
+				// Now it's safe to invalidate the cache
+				utils.position.getByCareerPath.invalidate({
+					organizationId: currentOrgId!,
+					careerPathId
+				});
+			}
 		},
 		onError: (error) => {
+			isSaving.current = false;
+			mutationCount.current = 0;
+			totalMutations.current = 0;
 			toast.error(`Failed to update: ${error.message}`);
 		}
 	});
@@ -82,7 +109,7 @@ export function DraggablePositions({
 
 	// Process positions when data is loaded
 	useEffect(() => {
-		if (pathPositionsQuery.data) {
+		if (pathPositionsQuery.data && !isSaving.current) {
 			const sortedPositions = [...pathPositionsQuery.data].sort((a, b) => {
 				const levelDiff = a.level - b.level;
 				if (levelDiff !== 0) return levelDiff;
@@ -93,6 +120,8 @@ export function DraggablePositions({
 			});
 
 			setPositions(sortedPositions);
+			setOriginalPositions(sortedPositions);
+			setHasLocalChanges(false);
 		}
 	}, [pathPositionsQuery.data]);
 
@@ -120,26 +149,24 @@ export function DraggablePositions({
 
 		// Create a new array with the dragged item moved to the new position
 		const newPositions = [...positions];
-		const [draggedItem] = newPositions.splice(sourceIndex, 1);
-		newPositions.splice(targetIndex, 0, draggedItem);
+		const [movedItem] = newPositions.splice(sourceIndex, 1);
+		newPositions.splice(targetIndex, 0, movedItem);
 
-		// Update sequence numbers
-		const updatedPositions = newPositions.map((position, index) => ({
-			...position,
-			sequence_in_path: index + 1
-		}));
+		// Update sequence numbers and levels for ALL positions based on their new order
+		// This is the key improvement - we're updating both sequence_in_path AND level
+		const updatedPositions = newPositions.map((position, index) => {
+			// Assign sequential levels based on position in the array (1-based)
+			const newLevel = index + 1;
+			return {
+				...position,
+				level: newLevel,
+				sequence_in_path: newLevel
+			};
+		});
 
-		// Update state and save changes
+		// Save the updated positions in local state immediately
 		setPositions(updatedPositions);
-
-		// Save the new order to the database
-		const draggedPosition = updatedPositions.find(p => p.id === positionId);
-		if (draggedPosition) {
-			updatePositionMutation.mutate({
-				id: draggedPosition.id,
-				sequenceInPath: draggedPosition.sequence_in_path
-			});
-		}
+		setHasLocalChanges(true);
 
 		setDraggingId(null);
 	};
@@ -148,9 +175,52 @@ export function DraggablePositions({
 		setDraggingId(null);
 	};
 
+	// Save changes to database
+	const handleSaveChanges = () => {
+		if (!hasLocalChanges) return;
+
+		// Find all positions that need to be updated in the database
+		const positionsToUpdate = positions
+			.filter(position => {
+				const origPosition = originalPositions.find(p => p.id === position.id);
+				return !origPosition ||
+					position.level !== origPosition.level ||
+					position.sequence_in_path !== origPosition.sequence_in_path;
+			});
+
+		if (positionsToUpdate.length === 0) {
+			setHasLocalChanges(false);
+			return;
+		}
+
+		// Set flags for batch update
+		isSaving.current = true;
+		totalMutations.current = positionsToUpdate.length;
+		mutationCount.current = 0;
+
+		// Save all position changes to the database
+		positionsToUpdate.forEach(position => {
+			updatePositionMutation.mutate({
+				id: position.id,
+				level: position.level,
+				sequenceInPath: position.sequence_in_path
+			});
+		});
+
+		// Updates will be applied after all mutations complete
+	};
+
+	// Reset positions to original state
+	const handleResetChanges = () => {
+		setPositions(originalPositions);
+		setHasLocalChanges(false);
+	};
+
 	// Remove position from path
 	const handleRemovePosition = (id: string) => {
-		removePositionMutation.mutate({ id });
+		if (confirm("Are you sure you want to remove this position from the path?")) {
+			removePositionMutation.mutate({ id });
+		}
 	};
 
 	// Loading state
@@ -171,62 +241,88 @@ export function DraggablePositions({
 		);
 	}
 
-	// Render the simplified position row
 	return (
-		<div className="relative py-2">
-			{/* Path line that runs through the positions */}
-			<div
-				className="absolute left-0 right-0 h-[3px] top-1/2 transform -translate-y-1/2 z-0"
-				style={{ backgroundColor: pathColor || "#4299E1" }}
-			/>
+		<div className="relative py-4">
+			<div className="flex flex-wrap items-center gap-2 relative">
+				{positions.map((position, index) => (
+					<div key={position.id} className="flex items-center">
+						{/* Position card with colored border */}
+						<div
+							className={`
+                flex items-center gap-1 px-2.5 py-1 rounded-md border shadow-sm
+                ${draggingId === position.id ? 'opacity-50' : ''}
+                ${!position.positions ? 'border-destructive/50 bg-destructive/10' : ''}
+              `}
+							style={{ borderColor: pathColor || "#4299E1" }}
+							draggable
+							onDragStart={(e) => handleDragStart(e, position.id)}
+							onDragOver={handleDragOver}
+							onDrop={(e) => handleDrop(e, position.id)}
+							onDragEnd={handleDragEnd}
+						>
+							<span className="font-medium text-xs">
+								{position.positions?.name || "Unknown Position"}
+							</span>
+							<span className="text-xs text-muted-foreground bg-muted px-1 py-0.5 rounded-full">
+								L{position.level}
+							</span>
 
-			<div className="flex flex-wrap items-center gap-3 relative z-10">
-				{positions.map((position) => (
-					<div
-						key={position.id}
-						className={`
-              flex items-center gap-1 px-3 py-1.5 bg-card rounded-md border shadow-sm z-10
-              ${draggingId === position.id ? 'opacity-50' : ''}
-              ${!position.positions ? 'border-destructive/50 bg-destructive/10' : ''}
-            `}
-						draggable
-						onDragStart={(e) => handleDragStart(e, position.id)}
-						onDragOver={handleDragOver}
-						onDrop={(e) => handleDrop(e, position.id)}
-						onDragEnd={handleDragEnd}
-					>
-						<span className="font-medium text-sm">
-							{position.positions?.name || "Unknown Position"}
-						</span>
-						<span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-							L{position.level}
-						</span>
-
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
-									<MoreHorizontal className="h-3 w-3" />
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end">
-								{position.positions && (
-									<DropdownMenuItem asChild>
-										<Link href={`/position/${position.positions.id}`} target="_blank">
-											<ExternalLink className="h-3.5 w-3.5 mr-2" />
-											View Position Page
-										</Link>
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button variant="ghost" size="icon" className="h-5 w-5 ml-0.5">
+										<MoreHorizontal className="h-3 w-3" />
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end">
+									{position.positions && (
+										<DropdownMenuItem asChild>
+											<Link href={`/position/${position.positions.id}`} target="_blank">
+												<ExternalLink className="h-3.5 w-3.5 mr-2" />
+												View Position Page
+											</Link>
+										</DropdownMenuItem>
+									)}
+									<DropdownMenuItem
+										className="text-destructive focus:text-destructive"
+										onClick={() => handleRemovePosition(position.id)}
+									>
+										Remove from Path
 									</DropdownMenuItem>
-								)}
-								<DropdownMenuItem
-									className="text-destructive focus:text-destructive"
-									onClick={() => handleRemovePosition(position.id)}
-								>
-									Remove from Path
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
+								</DropdownMenuContent>
+							</DropdownMenu>
+						</div>
+
+						{/* Connector line - only if not the last item */}
+						{index < positions.length - 1 && (
+							<div
+								className="h-[2px] w-2 mx-1"
+								style={{ backgroundColor: pathColor || "#4299E1" }}
+							/>
+						)}
 					</div>
 				))}
+
+				{/* Add save and reset buttons at the end of the line */}
+				<div className="flex items-center gap-2 ml-2">
+					<Button
+						variant="outline"
+						size="icon"
+						className="h-7 w-7"
+						onClick={handleResetChanges}
+						disabled={!hasLocalChanges}
+					>
+						<RotateCcw className="h-3.5 w-3.5" />
+					</Button>
+					<Button
+						variant="outline"
+						size="icon"
+						className="h-7 w-7"
+						onClick={handleSaveChanges}
+						disabled={!hasLocalChanges}
+					>
+						<Save className="h-3.5 w-3.5" />
+					</Button>
+				</div>
 			</div>
 		</div>
 	);
