@@ -9,7 +9,7 @@ export const DEFAULT_CONFIG: MetroConfig = {
   minRadius: 150,          // Minimum radius from center
   numDirections: 8,       // How many angle directions (8 = 45° steps)
   angleOffset: 0,         // Offset by half a step to avoid perfect horizontal/vertical
-  eccentricity: 0.0,      // Moderate asymmetry (0-1)
+  eccentricity: 1.1,      // Moderate asymmetry (0-1)
   padding: 0,            // Margin around the layout bounds
-  maxConsecutiveAligned: 1 // Maximum nodes in a straight line
+  maxConsecutiveAligned: 2 // Maximum nodes in a straight line
 };
