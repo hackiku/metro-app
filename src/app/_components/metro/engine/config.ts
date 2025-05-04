@@ -6,9 +6,9 @@ import type { MetroConfig } from '~/types/engine';
 export const DEFAULT_CONFIG: MetroConfig = {
   // --- Positioning & Scaling ---
   midLevelRadius: 50,      // Target radius for mid-level positions BEFORE scaling.
-  radiusStep: 200,          // Base distance unit per level step BEFORE scaling.
+  radiusStep: 100,          // Base distance unit per level step BEFORE scaling.
   minRadius: 50,           // Minimum radius from center BEFORE scaling.
-  globalScale: 5.0,        // Multiplier for all radii/distances. > 1 spreads out, < 1 compacts.
+  globalScale: 10.0,        // Multiplier for all radii/distances. > 1 spreads out, < 1 compacts.
 
   // --- Angular Grid & Constraints ---
   numDirections: 8,        // Target grid directions for segments (8 = 45° steps). This defines the final 'snap' angles.
