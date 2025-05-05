@@ -94,7 +94,7 @@ export function StationMenu({
 				</DropdownMenuItem>
 
 				{/* Explore path */}
-				<DropdownMenuItem
+				{/* <DropdownMenuItem
 					className="gap-2 cursor-pointer"
 					onClick={() => {
 						onOpenChange(false);
@@ -102,7 +102,8 @@ export function StationMenu({
 				>
 					<ArrowRight size={16} />
 					<span>Explore Path</span>
-				</DropdownMenuItem>
+				</DropdownMenuItem> */}
+				
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

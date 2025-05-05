@@ -2,8 +2,10 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUser, type UserRole } from "~/contexts/UserContext";
+import { useOrganization } from "~/contexts/OrganizationContext";
+import { api } from "~/trpc/react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -42,7 +44,69 @@ function getInitials(name: string): string {
 
 export function UserSelector() {
 	const { users, currentUser, loading, setCurrentUser } = useUser();
+	const { currentOrganization } = useOrganization();
 	const [isOpen, setIsOpen] = useState(false);
+	const [orgUsers, setOrgUsers] = useState<typeof users>([]);
+
+	// Query organization members (will be a fallback until we implement the API)
+	const orgMembersQuery = api.organization.getMembers.useQuery(
+		{ organizationId: currentOrganization?.id || "" },
+		{
+			enabled: !!currentOrganization?.id,
+			// Silently handle if endpoint not implemented yet
+			onError: () => console.log("Organization members endpoint not implemented yet")
+		}
+	);
+
+	// Filter users based on organization
+	useEffect(() => {
+		if (orgMembersQuery.data && orgMembersQuery.data.length > 0) {
+			// If we have organization members data, use it
+			const memberUserIds = new Set(orgMembersQuery.data.map(m => m.user_id));
+			const filteredUsers = users.filter(user => memberUserIds.has(user.id));
+			setOrgUsers(filteredUsers);
+		} else if (currentOrganization) {
+			// Fallback: Use our existing user_organizations relationship
+			// This is a simple fallback if the API isn't implemented yet
+			// In a real app with the getMembers endpoint, you would remove this
+
+			// For now, hardcode the mapping until we implement the API
+			const orgToUserMap: Record<string, string[]> = {
+				// Lehman Brothers
+				'9e40b94e-dd8d-4679-98b9-0716cff26810': [
+					'0dd0a1a3-c887-43d1-af2c-b7069b4a7940', // Alex Smith
+					'20536097-ef9a-4ef4-b586-c0747075909b', // Jamie Wong
+					'42000f98-1ea9-4e0a-9272-3b570c6d8e84', // Test Employee
+					'bc33a3be-7a6f-4416-8094-c10d602b99cb'  // Test Manager
+				],
+				// Veenie
+				'a73148de-90e1-4f0e-955d-9790c131e13c': [
+					'e7bd66c1-85a5-4d8b-9adc-acaf939f9bf2'  // Sam Taylor
+				],
+				// Gasunie
+				'91b825d7-8e4a-42e2-b762-ee230f2e5933': []
+			};
+
+			const userIds = orgToUserMap[currentOrganization.id] || [];
+			const filteredUsers = users.filter(user => userIds.includes(user.id));
+
+			// If we don't have any users for this org, just show all users
+			setOrgUsers(filteredUsers.length > 0 ? filteredUsers : users);
+		} else {
+			// If no organization is selected, show all users
+			setOrgUsers(users);
+		}
+	}, [currentOrganization, users, orgMembersQuery.data]);
+
+	// Make sure current user is in the filtered list, or select first org user
+	useEffect(() => {
+		if (orgUsers.length > 0 && currentUser) {
+			// If current user isn't in this org, switch to first user in org
+			if (!orgUsers.some(user => user.id === currentUser.id)) {
+				setCurrentUser(orgUsers[0].id);
+			}
+		}
+	}, [orgUsers, currentUser, setCurrentUser]);
 
 	// Loading state
 	if (loading) {
@@ -85,7 +149,7 @@ export function UserSelector() {
 				<DropdownMenuSeparator />
 
 				<div className="max-h-48 overflow-y-auto">
-					{users.map((user) => (
+					{orgUsers.map((user) => (
 						<DropdownMenuItem
 							key={user.id}
 							className={`cursor-pointer flex items-center gap-2 ${user.id === currentUser?.id ? "bg-accent" : ""
