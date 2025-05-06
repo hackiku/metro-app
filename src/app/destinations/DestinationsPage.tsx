@@ -2,48 +2,49 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Compass, BarChart } from "lucide-react";
-import { recommendedDestinationsData, RecommendedDestination } from "./data";
+import { Compass, BarChart, RefreshCw } from "lucide-react";
+import { recommendedDestinationsData } from "./data";
 import { DestinationCard } from "./DestinationCard";
 import { useUser } from "~/contexts/UserContext";
 import { useOrganization } from "~/contexts/OrganizationContext";
-import { api } from "~/trpc/react";
+import { useCompetences } from "~/contexts/CompetencesContext";
+import { useCareerPlan } from "~/contexts/CareerPlanContext";
+import { usePositionRecommendations } from "~/hooks/usePositionRecommendations";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
 
 export function DestinationsPage() {
 	const { currentUser } = useUser();
 	const { currentOrganization } = useOrganization();
-	const [showDemoData, setShowDemoData] = useState(true);
-	const [destinations, setDestinations] = useState<RecommendedDestination[]>([]);
+	const { userCompetences, isLoading: competencesLoading } = useCompetences();
+	const { plans, activePlan, isLoading: plansLoading } = useCareerPlan();
+	const {
+		recommendations,
+		isLoading: recommendationsLoading,
+		currentPosition
+	} = usePositionRecommendations();
 
-	// Get user's position details
-	const userPositionQuery = api.user.getUserPositionDetails.useQuery(
-		{ userId: currentUser?.id! },
-		{ enabled: !!currentUser?.id }
-	);
+	const [showDemoData, setShowDemoData] = useState(true);
 
 	// Let's log some debug info in development
 	useEffect(() => {
 		if (process.env.NODE_ENV === 'development') {
 			console.log('Current User:', currentUser);
-			console.log('User Position:', userPositionQuery.data);
+			console.log('User Position:', currentPosition);
+			console.log('User Competences:', userCompetences);
+			console.log('Career Plans:', plans);
+			console.log('Active Plan:', activePlan);
+			console.log('Recommendations:', recommendations);
 		}
-	}, [currentUser, userPositionQuery.data]);
+	}, [currentUser, currentPosition, userCompetences, plans, activePlan, recommendations]);
 
-	// Load demo data or real data
-	useEffect(() => {
-		if (showDemoData) {
-			setDestinations(recommendedDestinationsData);
-		} else {
-			// Here we'd query for real position recommendations based on user competences
-			// This would be implemented in a later iteration
-			setDestinations([]);
-		}
-	}, [showDemoData]);
+	// This text could be dynamic based on competences
+	const whyTheseMatchesText = userCompetences.length > 0
+		? `Based on your ${userCompetences[0]?.competence.name || ''} skills${userCompetences.length > 1 ? `, ${userCompetences[1]?.competence.name || ''}` : ''}, and other strengths in your profile, our AI has identified these roles as potential good fits for your next career move.`
+		: "Based on your profile, our AI has identified these roles as potential good fits for your next career move.";
 
-	// This text could also be dynamic based on AI analysis
-	const whyTheseMatchesText = "Based on your strong analytical skills, eagerness to learn, and interest in strategy, our AI has identified these roles as potential good fits for your next career move.";
+	const isLoading = competencesLoading || plansLoading || recommendationsLoading;
+	const destinations = showDemoData ? recommendedDestinationsData : recommendations;
 
 	return (
 		<div className="animate-fade-in">
@@ -71,8 +72,17 @@ export function DestinationsPage() {
 						onClick={() => setShowDemoData(!showDemoData)}
 						className="flex items-center gap-2"
 					>
-						<BarChart className="h-4 w-4" />
-						{showDemoData ? 'Using Demo Data' : 'Using Real Data'}
+						{showDemoData ? (
+							<>
+								<BarChart className="h-4 w-4" />
+								Using Demo Data
+							</>
+						) : (
+							<>
+								<RefreshCw className="h-4 w-4" />
+								Using Real Data
+							</>
+						)}
 					</Button>
 				)}
 			</div>
@@ -80,16 +90,16 @@ export function DestinationsPage() {
 			{/* Current Role */}
 			<div className="mb-6 rounded-lg border bg-card p-4 text-card-foreground">
 				<h2 className="mb-2 text-base font-medium">Your Current Role</h2>
-				{userPositionQuery.isLoading ? (
+				{isLoading ? (
 					<div className="space-y-2">
 						<Skeleton className="h-4 w-40" />
 						<Skeleton className="h-3 w-64" />
 					</div>
-				) : userPositionQuery.data ? (
+				) : currentPosition ? (
 					<div>
-						<p className="font-medium">{userPositionQuery.data.position?.name}</p>
+						<p className="font-medium">{currentPosition.position?.name}</p>
 						<p className="text-sm text-muted-foreground">
-							{userPositionQuery.data.career_path?.name} • Level {userPositionQuery.data.level}
+							{currentPosition.career_path?.name} • Level {currentPosition.level}
 						</p>
 					</div>
 				) : (
@@ -98,6 +108,31 @@ export function DestinationsPage() {
 					</p>
 				)}
 			</div>
+
+			{/* Competence Overview (if we have competence data) */}
+			{userCompetences.length > 0 && (
+				<div className="mb-6">
+					<h2 className="mb-2 text-lg font-semibold text-foreground">
+						Your Top Skills
+					</h2>
+					<div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
+						{userCompetences.slice(0, 5).map((uc) => (
+							<div key={uc.id} className="rounded-lg border bg-card p-3">
+								<h3 className="text-sm font-medium truncate">{uc.competence.name}</h3>
+								<div className="mt-2 h-2 w-full rounded-full bg-muted">
+									<div
+										className="h-2 rounded-full bg-primary"
+										style={{ width: `${uc.current_level * 20}%` }}
+									/>
+								</div>
+								<p className="mt-1 text-xs text-muted-foreground text-right">
+									Level {uc.current_level}/5
+								</p>
+							</div>
+						))}
+					</div>
+				</div>
+			)}
 
 			{/* "Why these matches?" Section */}
 			<div className="mb-8">
@@ -110,7 +145,13 @@ export function DestinationsPage() {
 			</div>
 
 			{/* Destinations Grid */}
-			{destinations.length > 0 ? (
+			{isLoading ? (
+				<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+					{[1, 2, 3].map((i) => (
+						<Skeleton key={i} className="h-64 w-full" />
+					))}
+				</div>
+			) : destinations.length > 0 ? (
 				<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
 					{destinations.map((destination) => (
 						<DestinationCard key={destination.id} destination={destination} />
