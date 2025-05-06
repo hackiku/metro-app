@@ -20,13 +20,13 @@ create table public.users (
   id uuid not null default gen_random_uuid (),
   email text not null,
   full_name text not null,
-  current_job_family_id uuid null,
   level text not null,
   years_in_role numeric(3, 1) not null,
   created_at timestamp with time zone null default now(),
+  current_position_details_id uuid null,
   constraint users_pkey primary key (id),
   constraint users_email_key unique (email),
-  constraint users_current_job_family_id_fkey foreign KEY (current_job_family_id) references job_families (id),
+  constraint fk_users_current_position_details foreign KEY (current_position_details_id) references position_details (id) on delete set null,
   constraint users_level_check check (
     (
       level = any (
@@ -40,6 +40,7 @@ create table public.users (
     )
   )
 ) TABLESPACE pg_default;
+
 
 --------------------
 
