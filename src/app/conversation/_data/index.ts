@@ -86,34 +86,43 @@ export const preparationSections = [
 export const talkingPointsSections = [
   {
     id: 'opening',
-    title: 'Opening (2-3 minutes)',
+    title: 'Opening',
+    estimatedTime: '2-3 minutes',
     description: 'Express appreciation for the time and frame the conversation.',
     scriptTemplate: "I've been thinking about my growth path at the company, and I've done some research on how I can contribute even more effectively. I'd like to share my thoughts and get your input.",
     userNotesPlaceholder: "My personalized opening..."
   },
   {
     id: 'current-assessment',
-    title: 'Current Assessment (3-4 minutes)',
+    title: 'Current Assessment',
+    estimatedTime: '3-4 minutes', 
     description: 'Briefly summarize your current role, accomplishments, and strengths.',
     scriptTemplate: "In my role as [Current Role], I've been able to [specific accomplishment]. I believe my strengths in [specific skills] have contributed to [specific team outcome].",
     userNotesPlaceholder: "My summary of current role & strengths..."
   },
   {
     id: 'growth-direction',
-    title: 'Growth Direction (4-5 minutes)',
+    title: 'Growth Direction',
+    estimatedTime: '4-5 minutes', 
     description: "Present your target role and why you believe it's a good fit.",
     scriptTemplate: "I'm interested in moving toward a [Target Role] because [reasons]. This aligns with my interests in [specific interests] and the company's focus on [specific company goals].",
     userNotesPlaceholder: "Why I want this target role..."
   },
   {
     id: 'dev-plan',
-    title: 'Development Plan (5-6 minutes)',
+    title: 'Development Plan',
+    estimatedTime: '5-6 minutes',
     description: 'Share your growth plan with specific actions and timeline.',
     scriptTemplate: "I've created a detailed plan to develop the necessary skills over the next [Timeframe, e.g., 12-18 months]. The plan includes [key elements of plan]. My first steps would be [specific first actions].",
     userNotesPlaceholder: "My development plan outline..."
   },
   // Add more sections like "Request for Support," "Next Steps," "Closing"
 ];
+
+export const countChecklistItems = (section: any): number => {
+    return section.checklist?.length || 0;
+}
+
 
 export const confidenceCheckItems = [
     { id: 'cc1', text: "I've identified clear links to company goals." },
