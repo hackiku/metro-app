@@ -11,6 +11,7 @@ import {
 	ChartColumnIncreasing,
 	FolderTree,
 	Handshake,
+	MessageSquare,
 	Factory,
 	Home,
 	Layers,
@@ -19,7 +20,8 @@ import {
 	BarChart2,
 	Users,
 	Settings,
-	HelpCircle
+	HelpCircle,
+	TrendingUp
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
@@ -44,10 +46,10 @@ const navigationConfig: NavGroupConfig[] = [
 			{ href: "/", icon: Home, text: "Dashboard" },
 			{ href: "/metro", icon: Play, text: "Metro" },
 			{ href: "/destinations", icon: Compass, text: "Destinations" },
-			{ href: "/comparison", icon: BarChart2, text: "Comparison" },
-			{ href: "/competences", icon: Briefcase, text: "Competences" },
-			// { href: "/comparison", icon: ChartColumnIncreasing, text: "Comparison" },
 			{ href: "/route", icon: Map, text: "Route Plan" },
+			{ href: "/comparison", icon: BarChart2, text: "Comparison" },
+			{ href: "/growth", icon: TrendingUp, text: "Growth" },
+			{ href: "/conversation", icon: MessageSquare, text: "Conversation" },
 		],
 		showDivider: true
 	},
@@ -56,6 +58,7 @@ const navigationConfig: NavGroupConfig[] = [
 		items: [
 			{ href: "/hr", icon: BarChart2, text: "HR Admin" },
 			{ href: "/job-family", icon: Layers, text: "Job Families" },
+			{ href: "/competences", icon: Briefcase, text: "Competences" },
 			{ href: "/company", icon: Factory, text: "Company" },
 		],
 		showDivider: true
