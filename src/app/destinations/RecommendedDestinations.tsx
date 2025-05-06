@@ -1,4 +1,4 @@
-// src/app/destinations/RecommendedDestinationsPage.tsx
+// src/app/destinations/RecommendedDestinations.tsx
 "use client";
 
 import { Compass, ArrowRight } from "lucide-react";
