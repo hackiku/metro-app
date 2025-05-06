@@ -4,7 +4,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Progress } from "~/components/ui/progress";
 import { Brain, Shield, Zap, FileText } from "lucide-react";
-import type { UserSkill } from "~/hooks/useUserData";
+
+interface UserSkill {
+	id: string;
+	name: string;
+	category: string;
+	proficiency: number;
+}
 
 interface SkillsOverviewProps {
 	skills: UserSkill[];

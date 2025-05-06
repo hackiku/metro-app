@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Map, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useUser } from "~/contexts/UserContext";
 
 interface CareerPreviewProps {
 	currentPosition: string;
@@ -17,6 +18,7 @@ export function CareerPreview({
 	nextPosition = "Senior Position",
 	isLoading = false
 }: CareerPreviewProps) {
+	const { currentUser } = useUser();
 
 	if (isLoading) {
 		return (
@@ -36,6 +38,29 @@ export function CareerPreview({
 		);
 	}
 
+	// Determine next logical level based on current level
+	let nextPositionLevel = "Senior";
+	if (currentUser?.level === "Junior") {
+		nextPositionLevel = "Medior";
+	} else if (currentUser?.level === "Medior") {
+		nextPositionLevel = "Senior";
+	} else if (currentUser?.level === "Senior") {
+		nextPositionLevel = "Lead";
+	}
+
+	// Combine with position name
+	const nextPositionName = nextPosition || `${nextPositionLevel} ${currentPosition.split(' ').pop()}`;
+
+	// Calculate level number
+	const levelMap: Record<string, number> = {
+		"Junior": 1,
+		"Medior": 2,
+		"Senior": 3,
+		"Lead": 4
+	};
+
+	const currentLevel = levelMap[currentUser?.level as string] || 2;
+
 	return (
 		<Card className="col-span-1 p-6">
 			<CardHeader className="px-0 pt-0">
@@ -53,7 +78,7 @@ export function CareerPreview({
 							<div className="relative h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
 								<span className="text-primary text-xl font-semibold">You</span>
 								<div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-medium">
-									3
+									{currentLevel}
 								</div>
 							</div>
 							<p className="mt-2 text-center font-medium">{currentPosition}</p>
@@ -67,7 +92,7 @@ export function CareerPreview({
 							<div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
 								<span className="text-muted-foreground text-xl font-semibold">→</span>
 							</div>
-							<p className="mt-2 text-center text-muted-foreground">{nextPosition}</p>
+							<p className="mt-2 text-center text-muted-foreground">{nextPositionName}</p>
 						</div>
 					</div>
 
