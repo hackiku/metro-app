@@ -1,4 +1,4 @@
-// src/components/dev/EditorTabs.tsx
+// src/components/dev/editors/EditorTabs.tsx
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";

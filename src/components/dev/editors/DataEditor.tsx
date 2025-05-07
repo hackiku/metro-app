@@ -1,4 +1,4 @@
-// src/components/dev/DataEditor.tsx
+// src/components/dev/editors/DataEditor.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,7 +6,7 @@ import { Save, RotateCcw, AlertOctagon, X } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { toast } from "sonner";
 import { api } from "~/trpc/react";
-import { CopyJsonButton } from "./CopyJsonButton";
+import { CopyJsonButton } from "../buttons/CopyJsonButton";
 import { DataCardEditor } from "./DataCardEditor";
 import { JsonEditor } from "./JsonEditor";
 import { EditorTabs } from "./EditorTabs";
@@ -96,6 +96,14 @@ export function DataEditor({
 						});
 						utils.user.getAll.invalidate();
 						utils.user.getById.invalidate({ id: editedData.id });
+						break;
+
+					case "organization":
+						await api.organization.update.mutate({
+							id: editedData.id,
+							...editedData
+						});
+						utils.organization.getAll.invalidate();
 						break;
 
 					case "position":

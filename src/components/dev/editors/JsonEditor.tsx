@@ -1,4 +1,4 @@
-// src/components/dev/JsonEditor.tsx
+// src/components/dev/editors/JsonEditor.tsx
 "use client";
 
 import { useState, useEffect } from "react";

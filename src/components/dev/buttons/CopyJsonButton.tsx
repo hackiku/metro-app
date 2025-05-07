@@ -1,4 +1,4 @@
-// src/app/destinations/components/CopyJsonButton.tsx
+// src/components/dev/buttons/CopyJsonButton.tsx
 "use client";
 
 import { useState } from 'react';

@@ -1,10 +1,10 @@
-// src/components/dev/NavDataButton.tsx
+// src/components/dev/buttons/NavDataButton.tsx
 "use client";
 
 import { useState, useRef, useEffect } from "react";
 import { Database } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import { DataEditor } from "./DataEditor";
+import { DataEditor } from "../editors/DataEditor";
 
 interface NavDataButtonProps {
 	data?: Record<string, any>;
