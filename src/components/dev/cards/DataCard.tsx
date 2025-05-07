@@ -3,13 +3,13 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "~/components/ui/card";
-import { EditableField } from "./EditableField";
-import { EditToggleButton } from "../buttons/EditToggleButton";
-import { CopyJsonButton } from "../buttons/CopyJsonButton";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import { Button } from "~/components/ui/button";
-import { Save, RotateCcw } from "lucide-react";
+import { Save, RotateCcw, Edit, Eye } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { toast } from "sonner";
+import { CopyJsonButton } from "../buttons/CopyJsonButton";
 
 interface DataCardProps {
 	title: string;
@@ -33,9 +33,14 @@ export function DataCard({
 	const [isEditing, setIsEditing] = useState(false);
 	const [hasChanges, setHasChanges] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
+	const [editedData, setEditedData] = useState<Record<string, any>>({ ...data });
 
 	// Handle field change
 	const handleFieldChange = (field: string, value: any) => {
+		setEditedData(prev => ({
+			...prev,
+			[field]: value
+		}));
 		onChange(field, value);
 		setHasChanges(true);
 	};
@@ -58,9 +63,67 @@ export function DataCard({
 
 	// Handle reset
 	const handleReset = () => {
-		// This will trigger a re-render with original data
-		window.location.reload();
+		setEditedData({ ...data });
 		setHasChanges(false);
+	};
+
+	// Format field name for display
+	const formatFieldName = (field: string) => {
+		return field
+			.split('_')
+			.map(word => word.charAt(0).toUpperCase() + word.slice(1))
+			.join(' ');
+	};
+
+	// Render field based on its type
+	const renderField = (field: string) => {
+		const value = editedData[field];
+
+		if (isEditing) {
+			if (typeof value === 'boolean') {
+				return (
+					<select
+						value={value ? 'true' : 'false'}
+						onChange={(e) => handleFieldChange(field, e.target.value === 'true')}
+						className="p-2 bg-muted/30 rounded-md text-sm w-full"
+					>
+						<option value="true">True</option>
+						<option value="false">False</option>
+					</select>
+				);
+			}
+
+			if (typeof value === 'number') {
+				return (
+					<Input
+						type="number"
+						value={value}
+						onChange={(e) => handleFieldChange(field, Number(e.target.value))}
+						className="h-8 text-sm"
+					/>
+				);
+			}
+
+			return (
+				<Input
+					value={value !== null && value !== undefined ? String(value) : ''}
+					onChange={(e) => handleFieldChange(field, e.target.value)}
+					className="h-8 text-sm"
+				/>
+			);
+		}
+
+		return (
+			<div className="p-2 bg-muted/30 rounded-md text-sm break-all">
+				{value === null || value === undefined ? (
+					<span className="text-muted-foreground italic">null</span>
+				) : typeof value === 'object' ? (
+					JSON.stringify(value)
+				) : (
+					String(value)
+				)}
+			</div>
+		);
 	};
 
 	// Get background color based on category
@@ -90,20 +153,30 @@ export function DataCard({
 						)}
 						tooltipText={`Copy ${title} as JSON`}
 					/>
-					<EditToggleButton isEditing={isEditing} onChange={setIsEditing} />
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8"
+						onClick={() => setIsEditing(!isEditing)}
+					>
+						{isEditing ? (
+							<Eye className="h-4 w-4" />
+						) : (
+							<Edit className="h-4 w-4" />
+						)}
+					</Button>
 				</div>
 			</CardHeader>
 
 			<CardContent className="p-3">
 				<div className="space-y-2">
 					{fields.map(field => (
-						<EditableField
-							key={field}
-							field={field}
-							value={data[field]}
-							isEditing={isEditing}
-							onChange={(value) => handleFieldChange(field, value)}
-						/>
+						<div key={field} className="space-y-1">
+							<Label className="text-xs font-medium text-muted-foreground">
+								{formatFieldName(field)}
+							</Label>
+							{renderField(field)}
+						</div>
 					))}
 
 					{fields.length === 0 && (
@@ -143,4 +216,3 @@ export function DataCard({
 		</Card>
 	);
 }
-
