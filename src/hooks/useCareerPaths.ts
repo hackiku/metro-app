@@ -1,4 +1,4 @@
-// src/hooks/useCareerPaths.tsx
+// src/hooks/useCareerPaths.ts
 
 "use client";
 
