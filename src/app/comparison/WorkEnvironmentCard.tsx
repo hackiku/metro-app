@@ -12,22 +12,22 @@ interface WorkEnvironmentDifference {
 }
 
 interface WorkEnvironmentCardProps {
-	currentPosition: any;
-	targetPosition: any;
+	currentPositionDetail: any;
+	targetPositionDetail: any;
 }
 
 export function WorkEnvironmentCard({
-	currentPosition,
-	targetPosition
+	currentPositionDetail,
+	targetPositionDetail
 }: WorkEnvironmentCardProps) {
 	// Improved check for valid data
 	const hasValidData = !!(
-		currentPosition &&
-		targetPosition &&
-		currentPosition.position &&
-		targetPosition.position &&
-		Object.keys(currentPosition).length > 0 &&
-		Object.keys(targetPosition).length > 0
+		currentPositionDetail &&
+		targetPositionDetail &&
+		currentPositionDetail.position &&
+		targetPositionDetail.position &&
+		Object.keys(currentPositionDetail).length > 0 &&
+		Object.keys(targetPositionDetail).length > 0
 	);
 
 	if (!hasValidData) {
@@ -45,26 +45,26 @@ export function WorkEnvironmentCard({
 		);
 	}
 
-	const currentRole = currentPosition?.position?.name || "Current Role";
-	const targetRole = targetPosition?.position?.name || "Target Role";
+	const currentRole = currentPositionDetail?.position?.name || "Current Role";
+	const targetRole = targetPositionDetail?.position?.name || "Target Role";
 
 	// Generate work environment differences based on position data
 	const workEnvironmentDifferences = useMemo<WorkEnvironmentDifference[]>(() => {
 		try {
 			// Get values from position details if available
-			const currentWorkFocus = currentPosition?.work_focus;
-			const targetWorkFocus = targetPosition?.work_focus;
+			const currentWorkFocus = currentPositionDetail?.work_focus;
+			const targetWorkFocus = targetPositionDetail?.work_focus;
 
-			const currentTeamInteraction = currentPosition?.team_interaction;
-			const targetTeamInteraction = targetPosition?.team_interaction;
+			const currentTeamInteraction = currentPositionDetail?.team_interaction;
+			const targetTeamInteraction = targetPositionDetail?.team_interaction;
 
-			const currentWorkStyle = currentPosition?.work_style;
-			const targetWorkStyle = targetPosition?.work_style;
+			const currentWorkStyle = currentPositionDetail?.work_style;
+			const targetWorkStyle = targetPositionDetail?.work_style;
 
 			// Safely parse level values with fallbacks
 			const getCurrentLevel = () => {
 				try {
-					return parseInt(String(currentPosition?.level)) || 1;
+					return parseInt(String(currentPositionDetail?.level)) || 1;
 				} catch (e) {
 					return 1;
 				}
@@ -72,7 +72,7 @@ export function WorkEnvironmentCard({
 
 			const getTargetLevel = () => {
 				try {
-					return parseInt(String(targetPosition?.level)) || 1;
+					return parseInt(String(targetPositionDetail?.level)) || 1;
 				} catch (e) {
 					return 1;
 				}
@@ -175,7 +175,7 @@ export function WorkEnvironmentCard({
 				}
 			];
 		}
-	}, [currentPosition, targetPosition]);
+	}, [currentPositionDetail, targetPositionDetail]);
 
 	return (
 		<Card className="shadow-sm dark:bg-card">

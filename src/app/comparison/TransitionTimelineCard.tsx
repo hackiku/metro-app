@@ -9,18 +9,18 @@ import { useCareerPlan } from "~/contexts/CareerPlanContext";
 import { Skeleton } from "~/components/ui/skeleton";
 
 interface TransitionTimelineCardProps {
-	currentPosition: any;
-	targetPosition: any;
+	currentPositionDetail: any;
+	targetPositionDetail: any;
 }
 
 export function TransitionTimelineCard({
-	currentPosition,
-	targetPosition
+	currentPositionDetail,
+	targetPositionDetail
 }: TransitionTimelineCardProps) {
 	const { createPlan } = useCareerPlan();
 
 	// Check if we have valid data
-	if (!currentPosition || !targetPosition) {
+	if (!currentPositionDetail || !targetPositionDetail) {
 		return (
 			<Card className="shadow-sm dark:bg-card">
 				<CardHeader>
@@ -51,8 +51,8 @@ export function TransitionTimelineCard({
 	// Generate transition timeline based on position data
 	const transitionTimeline = useMemo(() => {
 		// Calculate estimated duration based on level difference
-		const currentLevel = parseInt(currentPosition?.level) || 1;
-		const targetLevel = parseInt(targetPosition?.level) || 1;
+		const currentLevel = parseInt(currentPositionDetail?.level) || 1;
+		const targetLevel = parseInt(targetPositionDetail?.level) || 1;
 		const levelDiff = Math.abs(targetLevel - currentLevel);
 
 		// Base duration on level difference
@@ -77,7 +77,7 @@ export function TransitionTimelineCard({
 			keyDevelopmentAreas.push('Leadership skills and strategic thinking');
 			keyDevelopmentAreas.push('Stakeholder management with higher-level teams');
 		} else if (targetLevel < currentLevel) {
-			keyDevelopmentAreas.push('Technical specialization in ' + (targetPosition?.position?.name || 'this domain'));
+			keyDevelopmentAreas.push('Technical specialization in ' + (targetPositionDetail?.position?.name || 'this domain'));
 			keyDevelopmentAreas.push('Hands-on execution and delivery focus');
 		} else {
 			keyDevelopmentAreas.push('Cross-functional collaboration skills');
@@ -85,12 +85,12 @@ export function TransitionTimelineCard({
 		}
 
 		// Add path-specific skills if they have different paths
-		const currentPathId = currentPosition?.career_path?.id;
-		const targetPathId = targetPosition?.career_path?.id;
+		const currentPathId = currentPositionDetail?.career_path?.id;
+		const targetPathId = targetPositionDetail?.career_path?.id;
 
 		if (currentPathId && targetPathId && currentPathId !== targetPathId) {
 			keyDevelopmentAreas.push(
-				`${targetPosition?.career_path?.name || 'New path'} specific knowledge and skills`
+				`${targetPositionDetail?.career_path?.name || 'New path'} specific knowledge and skills`
 			);
 		}
 
@@ -103,16 +103,16 @@ export function TransitionTimelineCard({
 			description,
 			keyDevelopmentAreas
 		};
-	}, [currentPosition, targetPosition]);
+	}, [currentPositionDetail, targetPositionDetail]);
 
 	// Handle the button click
 	const handleGoHereClick = () => {
-		if (targetPosition?.id) {
-			const currentName = currentPosition?.position?.name || "Current Role";
-			const targetName = targetPosition?.position?.name || "Target Role";
+		if (targetPositionDetail?.id) {
+			const currentName = currentPositionDetail?.position?.name || "Current Role";
+			const targetName = targetPositionDetail?.position?.name || "Target Role";
 
 			createPlan(
-				targetPosition.id,
+				targetPositionDetail.id,
 				`Transition plan from ${currentName} to ${targetName}`,
 				transitionTimeline.duration
 			);

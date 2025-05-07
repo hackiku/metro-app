@@ -10,22 +10,24 @@ import { Skeleton } from "~/components/ui/skeleton";
 import type { ComparisonSkill, GapType, LegendItem } from "./types";
 
 interface SkillComparisonChartProps {
-	currentPosition: any;
-	targetPosition: any;
+	currentPositionDetail: any;
+	targetPositionDetail: any;
 	userCompetences: any[];
+	targetPositionCompetences: any[];
 }
 
 export function SkillComparisonChart({
-	currentPosition,
-	targetPosition,
-	userCompetences
+	currentPositionDetail,
+	targetPositionDetail,
+	userCompetences,
+	targetPositionCompetences
 }: SkillComparisonChartProps) {
-	// Check if we have valid data - this check is now more robust
+	// Check if we have valid data
 	const hasValidData = !!(
-		currentPosition &&
-		targetPosition &&
-		Object.keys(currentPosition).length > 0 &&
-		Object.keys(targetPosition).length > 0
+		currentPositionDetail &&
+		targetPositionDetail &&
+		userCompetences &&
+		targetPositionCompetences
 	);
 
 	if (!hasValidData) {
@@ -47,75 +49,61 @@ export function SkillComparisonChart({
 					<Skeleton className="h-8 w-full" />
 					<Skeleton className="h-8 w-full" />
 					<Skeleton className="h-8 w-full" />
-					<Skeleton className="h-8 w-full" />
-					<Skeleton className="h-8 w-full" />
-					<div className="mt-8 border-t pt-6">
-						<Skeleton className="h-6 w-1/3 mb-3" />
-						<div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
-							<div>
-								<Skeleton className="h-4 w-full mb-2" />
-								<Skeleton className="h-4 w-full mb-2" />
-								<Skeleton className="h-4 w-full mb-2" />
-							</div>
-							<div>
-								<Skeleton className="h-4 w-full mb-2" />
-								<Skeleton className="h-4 w-full mb-2" />
-								<Skeleton className="h-4 w-full mb-2" />
-							</div>
-						</div>
-					</div>
 				</CardContent>
 			</Card>
 		);
 	}
 
 	// Prepare the comparison data from real data
-	const currentRole = currentPosition?.position?.name || "Current Role";
-	const targetRole = targetPosition?.position?.name || "Target Role";
+	const currentRole = currentPositionDetail?.position?.name || currentPositionDetail?.positions?.name || "Current Role";
+	const targetRole = targetPositionDetail?.position?.name || targetPositionDetail?.positions?.name || "Target Role";
 
-	// Create skill comparison data based on user competences and position requirements
+	// Create skill comparison data based on user competences and target position requirements
 	const skills = useMemo(() => {
 		const result: ComparisonSkill[] = [];
 
 		try {
-			// Process each user competence
-			if (userCompetences && Array.isArray(userCompetences) && userCompetences.length > 0) {
-				userCompetences.forEach(uc => {
-					// Skip if not a valid competence object
-					if (!uc || !uc.competence) {
-						return;
+			// Create a map of target competence requirements
+			const targetCompMap = new Map();
+			if (targetPositionCompetences && Array.isArray(targetPositionCompetences)) {
+				targetPositionCompetences.forEach(tc => {
+					if (tc.competence && tc.competence.id) {
+						targetCompMap.set(tc.competence.id, {
+							requiredLevel: tc.required_level || 0,
+							name: tc.competence.name,
+							category: tc.competence.category
+						});
 					}
+				});
+			}
 
-					// Get competence name
-					const name = uc.competence?.name || "Unknown Skill";
+			// Process each user competence
+			if (userCompetences && Array.isArray(userCompetences)) {
+				userCompetences.forEach(uc => {
+					if (!uc.competence) return;
+
+					const competenceId = uc.competence.id;
+					const name = uc.competence.name || "Unknown Skill";
 					const currentLevel = uc.current_level || 0;
 
-					// For demo purposes, we'll generate target levels
-					// In a real app, these would come from position_detail_competences
+					// Get target level from requirements if available
+					const targetInfo = targetCompMap.get(competenceId);
+					const targetLevel = targetInfo ? targetInfo.requiredLevel : Math.min(5, currentLevel + 1);
 
-					// Simple algorithm: if target position has higher level, skill needs higher level
-					const targetPositionLevel = parseInt(String(targetPosition.level)) || 1;
-					const currentPositionLevel = parseInt(String(currentPosition.level)) || 1;
-					const levelDiff = targetPositionLevel - currentPositionLevel;
-					let targetLevel = Math.min(5, currentLevel + (levelDiff > 0 ? 1 : 0));
+					// Remove from map so we know we've processed it
+					targetCompMap.delete(competenceId);
 
-					// Determine gap type based on difference
+					// Determine gap type
 					let gapType: GapType = 'no-gap';
 					const gap = targetLevel - currentLevel;
 
-					if (gap === 0) {
-						gapType = 'no-gap';
-					} else if (gap === 1) {
-						gapType = 'small-gap';
-					} else if (gap === 2) {
-						gapType = 'medium-gap';
-					} else if (gap > 2) {
-						gapType = 'large-gap';
-					}
+					if (gap <= 0) gapType = 'no-gap';
+					else if (gap === 1) gapType = 'small-gap';
+					else if (gap === 2) gapType = 'medium-gap';
+					else if (gap > 2) gapType = 'large-gap';
 
-					// Add to results
 					result.push({
-						id: `skill-${uc.id || Math.random().toString(36).substr(2, 9)}`,
+						id: `skill-${uc.id}`,
 						name,
 						currentLevel,
 						targetLevel,
@@ -123,13 +111,23 @@ export function SkillComparisonChart({
 					});
 				});
 			}
+
+			// Add any remaining target competences that user doesn't have yet
+			targetCompMap.forEach((info, id) => {
+				result.push({
+					id: `skill-target-${id}`,
+					name: info.name || "Required Skill",
+					currentLevel: 0, // User doesn't have this skill yet
+					targetLevel: info.requiredLevel,
+					gapType: info.requiredLevel > 2 ? 'large-gap' : 'medium-gap'
+				});
+			});
 		} catch (error) {
 			console.error("Error processing competences:", error);
 		}
 
-		// If no competences, add placeholder skills
+		// If no competences found, add placeholder skills
 		if (result.length === 0) {
-			// Sample skills that make sense for most roles
 			const genericSkills = [
 				{ name: "Communication", currentLevel: 3, targetLevel: 4 },
 				{ name: "Teamwork", currentLevel: 3, targetLevel: 3 },
@@ -141,7 +139,7 @@ export function SkillComparisonChart({
 				const gap = skill.targetLevel - skill.currentLevel;
 				let gapType: GapType = 'no-gap';
 
-				if (gap === 0) gapType = 'no-gap';
+				if (gap <= 0) gapType = 'no-gap';
 				else if (gap === 1) gapType = 'small-gap';
 				else if (gap === 2) gapType = 'medium-gap';
 				else if (gap > 2) gapType = 'large-gap';
@@ -157,7 +155,7 @@ export function SkillComparisonChart({
 		}
 
 		return result;
-	}, [userCompetences, currentPosition, targetPosition]);
+	}, [userCompetences, targetPositionCompetences]);
 
 	// Define legends
 	const gapLegend: LegendItem[] = [
