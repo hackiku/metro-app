@@ -6,7 +6,7 @@ import { CareerPlanProvider } from "~/contexts/CareerPlanContext";
 import { DestinationsPage } from "./DestinationsPage";
 import { useUser } from "~/contexts/UserContext";
 import { useOrganization } from "~/contexts/OrganizationContext";
-import { DataEditorButton } from "~/components/dev/DataEditorButton";
+import { NavDataButton } from "~/components/dev/NavDataButton";
 import { Separator } from "~/components/ui/separator";
 
 export default function DestinationsRoutePage() {
@@ -23,26 +23,21 @@ export default function DestinationsRoutePage() {
 			<CompetencesProvider>
 				<CareerPlanProvider>
 					{isDev && (
-						<div className="mb-4 bg-muted/20 p-2 rounded-md">
-							<div className="flex items-center justify-between">
-								<h3 className="text-sm font-medium text-muted-foreground">Development Tools</h3>
-								<div className="flex items-center gap-2">
-									{currentUser && (
-										<DataEditorButton
-											data={currentUser}
-											title="Edit Current User"
-											entityType="user"
-										/>
-									)}
-									{currentOrganization && (
-										<DataEditorButton
-											data={currentOrganization}
-											title="Edit Organization"
-											entityType="organization"
-										/>
-									)}
-								</div>
-							</div>
+						<div className="fixed z-50 top-5 right-96 mr-18 flex items-center gap-2">
+							{currentUser && (
+								<NavDataButton
+									data={currentUser}
+									title="Edit Current User"
+									entityType="user"
+								/>
+							)}
+							{currentOrganization && (
+								<NavDataButton
+									data={currentOrganization}
+									title="Edit Organization"
+									entityType="organization"
+								/>
+							)}
 						</div>
 					)}
 					<DestinationsPage />

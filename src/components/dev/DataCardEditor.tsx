@@ -1,4 +1,4 @@
-// src/components/dev/DataCardEditor.tsx
+// src/components/dev/DataCardEditor.tsx (Enhanced version)
 "use client";
 
 import { useState } from "react";
@@ -7,8 +7,6 @@ import {
 	CardContent,
 	CardHeader,
 	CardTitle,
-	CardDescription,
-	CardFooter
 } from "~/components/ui/card";
 import {
 	Accordion,
@@ -28,7 +26,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
-import { Edit, ChevronRight, Eye, EyeOff } from "lucide-react";
+import { Edit, Eye, EyeOff } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { CopyJsonButton } from "./CopyJsonButton";
 
@@ -141,7 +139,7 @@ export function DataCardEditor({ data, onFieldChange, entityType }: DataCardEdit
 
 		// Render appropriate input based on field configuration
 		return (
-			<div key={fullPath} className="flex items-start space-x-2 mb-2">
+			<div key={fullPath} className="flex items-start space-x-2 mb-2 group">
 				<div className="flex-1">
 					<div className="flex items-center mb-1">
 						<Label className="text-xs font-medium text-muted-foreground">
@@ -227,7 +225,7 @@ export function DataCardEditor({ data, onFieldChange, entityType }: DataCardEdit
 					<Button
 						variant="ghost"
 						size="icon"
-						className="h-8 w-8 mt-6"
+						className="h-8 w-8 mt-6 opacity-0 group-hover:opacity-100 transition-opacity"
 						onClick={() => toggleEditable(fullPath)}
 					>
 						{isEditable ? (
@@ -406,9 +404,17 @@ export function DataCardEditor({ data, onFieldChange, entityType }: DataCardEdit
 					if (fieldsInCategory.length === 0) return null;
 
 					return (
-						<Card key={categoryKey} className="bg-card/50">
-							<CardHeader className="px-4 py-2">
+						<Card key={categoryKey} className="bg-card/50 hover:bg-card transition-colors">
+							<CardHeader className="px-4 py-2 flex flex-row items-center justify-between">
 								<CardTitle className="text-md font-medium">{category.title}</CardTitle>
+
+								{/* Add copy button for each category */}
+								<CopyJsonButton
+									jsonData={Object.fromEntries(
+										fieldsInCategory.map(field => [field, data[field]])
+									)}
+									tooltipText={`Copy ${category.title} as JSON`}
+								/>
 							</CardHeader>
 							<CardContent className="px-4 py-2 space-y-1">
 								{fieldsInCategory.map(field =>

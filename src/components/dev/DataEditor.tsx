@@ -1,41 +1,32 @@
-// src/components/dev/DataEditor.tsx - Tabs issue fixed
+// src/components/dev/DataEditor.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogFooter
-} from "~/components/ui/dialog";
+import { Save, RotateCcw, AlertOctagon, X } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { Save, RotateCcw, AlertOctagon } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "~/trpc/react";
 import { CopyJsonButton } from "./CopyJsonButton";
 import { DataCardEditor } from "./DataCardEditor";
 import { JsonEditor } from "./JsonEditor";
+import { EditorTabs } from "./EditorTabs";
 
 interface DataEditorProps {
 	data?: Record<string, any>;
 	title: string;
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
 	onSave?: (updatedData: any) => void;
 	saveToApi?: boolean;
 	entityType?: string;
+	onClose?: () => void;
 }
 
 export function DataEditor({
-	data = {}, // Provide default empty object
+	data = {},
 	title,
-	open,
-	onOpenChange,
 	onSave,
 	saveToApi = true,
-	entityType
+	entityType,
+	onClose
 }: DataEditorProps) {
 	const [editedData, setEditedData] = useState<Record<string, any>>(data || {});
 	const [activeTab, setActiveTab] = useState<string>("card");
@@ -45,13 +36,11 @@ export function DataEditor({
 	// tRPC utils for cache invalidation and mutations
 	const utils = api.useUtils();
 
-	// Reset edited data when the input data changes or dialog opens
+	// Reset edited data when the input data changes
 	useEffect(() => {
-		if (open) {
-			setEditedData(data || {});
-			setHasChanges(false);
-		}
-	}, [data, open]);
+		setEditedData(data || {});
+		setHasChanges(false);
+	}, [data]);
 
 	// Handle field change from card editor
 	const handleFieldChange = (fieldPath: string[], value: any) => {
@@ -133,8 +122,6 @@ export function DataEditor({
 						utils.career.getPaths.invalidate();
 						break;
 
-					// Add more entity types as needed
-
 					default:
 						console.warn(`No API handler for entity type: ${entityType}`);
 						// Fall back to custom save handler
@@ -149,7 +136,6 @@ export function DataEditor({
 
 			toast.success("Changes saved successfully");
 			setHasChanges(false);
-			onOpenChange(false);
 		} catch (error) {
 			console.error("Failed to save changes:", error);
 			toast.error("Failed to save changes");
@@ -162,86 +148,84 @@ export function DataEditor({
 		// Confirm if there are unsaved changes
 		if (hasChanges) {
 			if (confirm("You have unsaved changes. Are you sure you want to close?")) {
-				onOpenChange(false);
+				if (onClose) onClose();
 			}
 		} else {
-			onOpenChange(false);
+			if (onClose) onClose();
 		}
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={handleClose}>
-			<DialogContent className="max-w-4xl h-[80vh] max-h-[80vh] flex flex-col">
-				<DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-					<div className="flex items-center gap-2">
-						<DialogTitle>{title}</DialogTitle>
-						<CopyJsonButton jsonData={editedData} tooltipText="Copy data as JSON" />
-					</div>
-					<div className="flex items-center gap-1">
-						{hasChanges && (
-							<AlertOctagon className="h-4 w-4 text-amber-500" />
+		<div className="p-4 flex flex-col h-full">
+			<div className="flex items-center justify-between mb-4">
+				<div className="flex items-center gap-2">
+					<h2 className="text-xl font-semibold">{title}</h2>
+					<CopyJsonButton jsonData={editedData} tooltipText="Copy data as JSON" />
+					{hasChanges && (
+						<div className="flex items-center">
+							<AlertOctagon className="h-4 w-4 text-amber-500 mr-1" />
+							<span className="text-xs text-amber-500">Unsaved changes</span>
+						</div>
+					)}
+				</div>
+
+				{onClose && (
+					<Button variant="ghost" size="icon" onClick={handleClose}>
+						<X className="h-4 w-4" />
+					</Button>
+				)}
+			</div>
+
+			<EditorTabs
+				activeTab={activeTab}
+				onTabChange={setActiveTab}
+				cardView={
+					<DataCardEditor
+						data={editedData}
+						onFieldChange={handleFieldChange}
+						entityType={entityType}
+					/>
+				}
+				jsonView={
+					<JsonEditor
+						data={editedData}
+						onChange={handleJsonChange}
+					/>
+				}
+			/>
+
+			<div className="flex justify-between items-center mt-4">
+				<div className="text-xs text-muted-foreground">
+					{entityType && <span className="font-mono">Entity: {entityType}</span>}
+					{editedData && editedData.id && <span className="ml-2 font-mono">ID: {editedData.id}</span>}
+				</div>
+
+				<div className="flex gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={handleReset}
+						disabled={!hasChanges || isUpdating}
+					>
+						<RotateCcw className="mr-2 h-3.5 w-3.5" />
+						Reset
+					</Button>
+
+					<Button
+						variant="default"
+						size="sm"
+						onClick={handleSave}
+						disabled={!hasChanges || isUpdating}
+					>
+						{isUpdating ? (
+							<div className="h-3.5 w-3.5 border-2 border-t-transparent border-white rounded-full animate-spin mr-2" />
+						) : (
+							<Save className="mr-2 h-3.5 w-3.5" />
 						)}
-						{/* Tabs component wrapping all TabsContent elements */}
-						<Tabs value={activeTab} onValueChange={setActiveTab} className="w-[200px]">
-							<TabsList>
-								<TabsTrigger value="card">Card View</TabsTrigger>
-								<TabsTrigger value="json">JSON View</TabsTrigger>
-							</TabsList>
-
-							{/* Move the content inside the Tabs component */}
-							<div className="mt-2 flex-1 overflow-auto border rounded-md p-1">
-								<TabsContent value="card" className="h-full m-0 p-2 data-[state=active]:block">
-									<DataCardEditor
-										data={editedData}
-										onFieldChange={handleFieldChange}
-										entityType={entityType}
-									/>
-								</TabsContent>
-
-								<TabsContent value="json" className="h-full m-0 p-2 data-[state=active]:block">
-									<JsonEditor
-										data={editedData}
-										onChange={handleJsonChange}
-									/>
-								</TabsContent>
-							</div>
-						</Tabs>
-					</div>
-				</DialogHeader>
-
-				<DialogFooter className="flex justify-between items-center pt-2">
-					<div className="text-xs text-muted-foreground">
-						{entityType && <span className="font-mono">Entity: {entityType}</span>}
-						{editedData && editedData.id && <span className="ml-2 font-mono">ID: {editedData.id}</span>}
-					</div>
-
-					<div className="flex gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={handleReset}
-							disabled={!hasChanges || isUpdating}
-						>
-							<RotateCcw className="mr-2 h-3.5 w-3.5" />
-							Reset
-						</Button>
-
-						<Button
-							variant="default"
-							size="sm"
-							onClick={handleSave}
-							disabled={!hasChanges || isUpdating}
-						>
-							{isUpdating ? (
-								<div className="h-3.5 w-3.5 border-2 border-t-transparent border-white rounded-full animate-spin mr-2" />
-							) : (
-								<Save className="mr-2 h-3.5 w-3.5" />
-							)}
-							Save Changes
-						</Button>
-					</div>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+						Save Changes
+					</Button>
+				</div>
+			</div>
+		</div>
 	);
 }

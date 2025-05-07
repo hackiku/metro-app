@@ -7,8 +7,8 @@ import { ModeToggle } from "~/components/ui/mode-toggle";
 import { Search, Bell } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { OrganizationSelector } from "./OrganizationSelector";
-import { UserSelector } from "./UserSelector";
+import { OrganizationSelector } from "./actions/OrganizationSelector";
+import { UserSelector } from "./actions/UserSelector";
 
 export function Navbar() {
 	return (
