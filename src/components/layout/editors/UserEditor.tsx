@@ -135,14 +135,15 @@ export function UserEditor({ currentOrganizationId }: UserEditorProps) {
 	}
 
 	const handleCreateUser = () => {
-		// Make sure to match the API schema and include organization context
 		createUserMutation.mutate({
 			full_name: newUser.full_name,
 			email: newUser.email,
 			level: newUser.level,
 			years_in_role: Number(newUser.years_in_role),
 			current_position_details_id: newUser.current_position_details_id,
-			organization_id: orgId
+			organization_id: orgId,
+			add_to_organization: true,  // Add this flag
+			is_primary: true           // Make it the primary org
 		})
 	}
 

@@ -2,6 +2,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useOrganization } from "~/contexts/OrganizationContext"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { Checkbox } from "~/components/ui/checkbox"
@@ -17,7 +18,7 @@ import {
 import { ScrollArea } from "~/components/ui/scroll-area"
 import { toast } from "sonner"
 import { api } from "~/trpc/react"
-import { User, Building, Check } from "lucide-react"
+import { Building, Check } from "lucide-react"
 
 interface UserOrganizationManagerProps {
 	userId: string
@@ -25,6 +26,7 @@ interface UserOrganizationManagerProps {
 }
 
 export function UserOrganizationManager({ userId, trigger }: UserOrganizationManagerProps) {
+	const { currentOrganization } = useOrganization()
 	const [open, setOpen] = useState(false)
 	const [userOrgs, setUserOrgs] = useState<Array<{ id: string, name: string, is_member: boolean, is_primary: boolean }>>([])
 	const [loading, setLoading] = useState(true)
@@ -44,7 +46,14 @@ export function UserOrganizationManager({ userId, trigger }: UserOrganizationMan
 	const addToOrgMutation = api.user.addToOrganization.useMutation({
 		onSuccess: () => {
 			toast.success("Organization membership updated")
+			// Invalidate more queries to ensure UI consistency
 			utils.user.getUserOrganizations.invalidate({ userId })
+			utils.user.getById.invalidate({ id: userId })
+			utils.user.getAll.invalidate()
+			// Also refresh organization members data
+			if (currentOrganization?.id) {
+				utils.organization.getMembers.invalidate({ organizationId: currentOrganization.id })
+			}
 		},
 		onError: (error) => {
 			toast.error(`Failed to update organization membership: ${error.message}`)
@@ -55,6 +64,11 @@ export function UserOrganizationManager({ userId, trigger }: UserOrganizationMan
 		onSuccess: () => {
 			toast.success("User removed from organization")
 			utils.user.getUserOrganizations.invalidate({ userId })
+			utils.user.getById.invalidate({ id: userId })
+			utils.user.getAll.invalidate()
+			if (currentOrganization?.id) {
+				utils.organization.getMembers.invalidate({ organizationId: currentOrganization.id })
+			}
 		},
 		onError: (error) => {
 			toast.error(`Failed to remove from organization: ${error.message}`)
@@ -65,6 +79,11 @@ export function UserOrganizationManager({ userId, trigger }: UserOrganizationMan
 		onSuccess: () => {
 			toast.success("Primary organization updated")
 			utils.user.getUserOrganizations.invalidate({ userId })
+			utils.user.getById.invalidate({ id: userId })
+			utils.user.getAll.invalidate()
+			if (currentOrganization?.id) {
+				utils.organization.getMembers.invalidate({ organizationId: currentOrganization.id })
+			}
 		},
 		onError: (error) => {
 			toast.error(`Failed to update primary organization: ${error.message}`)
