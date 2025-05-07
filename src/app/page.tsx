@@ -16,6 +16,7 @@ export default function Home() {
 		<div className="space-y-6 p-6">
 			{isClient ? (
 				<Dashboard />
+				
 			) : (
 				<div className="animate-pulse">
 					<div className="h-8 w-64 bg-muted rounded mb-2"></div>

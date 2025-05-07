@@ -10,7 +10,6 @@ import { SkillsOverview } from "./SkillsOverview";
 import { CareerPreview } from "./CareerPreview";
 import { ActionItems } from "./ActionItems";
 import { useUser } from "~/contexts/UserContext";
-import { api } from "~/trpc/react";
 import { Avatar } from "~/components/ui/avatar";
 import { AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 
@@ -28,35 +27,18 @@ export function Dashboard() {
 	const { currentUser } = useUser();
 	const [activeTab, setActiveTab] = useState("overview");
 
-	// Fetch user skills (competences) using our new endpoint
-	const userCompetencesQuery = api.user.getUserCompetences.useQuery(
-		{ userId: currentUser?.id || "" },
-		{
-			enabled: !!currentUser?.id,
-			// Fallback silently if the endpoint doesn't exist
-			onError: () => console.log("User competences query not implemented yet")
-		}
-	);
+	// Hardcoded mock data (skip tRPC for now)
+	const isLoading = false;
 
-	// Determine if we're loading
-	const isLoading = !currentUser || userCompetencesQuery.isLoading;
+	// Mock skills data
+	const skills = [
+		{ id: '1', name: 'Technical Expertise', category: 'technical', proficiency: 75 },
+		{ id: '2', name: 'Leadership', category: 'leadership', proficiency: 58 },
+		{ id: '3', name: 'Communication', category: 'soft', proficiency: 82 },
+		{ id: '4', name: 'Domain Knowledge', category: 'domain', proficiency: 68 },
+	];
 
-	// Process competences or use fallback skills
-	const skills = userCompetencesQuery.data ?
-		userCompetencesQuery.data.map(comp => ({
-			id: comp.id,
-			name: comp.name,
-			category: comp.category,
-			proficiency: comp.current_level
-		})) :
-		[
-			{ id: '1', name: 'Technical Expertise', category: 'technical', proficiency: 75 },
-			{ id: '2', name: 'Leadership', category: 'leadership', proficiency: 58 },
-			{ id: '3', name: 'Communication', category: 'soft', proficiency: 82 },
-			{ id: '4', name: 'Domain Knowledge', category: 'domain', proficiency: 68 },
-		];
-
-	// Mock action items data (keeping as is since no DB items yet)
+	// Mock action items data
 	const actionItems = [
 		{
 			id: "1",
@@ -93,25 +75,31 @@ export function Dashboard() {
 		},
 	];
 
-	// Get current position (hardcoded mapping for now)
-	const positionMap: Record<string, { name: string, level: string }> = {
+	// Mock user data (fallback if context is empty)
+	const mockUser = {
+		id: "12345",
+		full_name: "Demo User",
+		level: "Senior",
+		years_in_role: 3,
+		current_job_family_id: '37c45168-6536-4cc2-b8d4-ceb3685b10d6'
+	};
+
+	// Use context data or fallback to mock
+	const userData = currentUser || mockUser;
+
+	// Mock position data
+	const positionMap = {
 		'37c45168-6536-4cc2-b8d4-ceb3685b10d6': { name: 'Frontend Developer', level: 'Medior' },
 		'b7138a53-f8ff-4592-af20-cc4d910e5e28': { name: 'Project Manager', level: 'Senior' },
 		'1bc43ea4-be76-49a4-b84a-38f93de2221e': { name: 'UX Designer', level: 'Junior' }
 	};
 
-	const currentPosition = currentUser?.current_job_family_id
-		? positionMap[currentUser.current_job_family_id]?.name || 'Unknown Position'
-		: 'Position not set';
+	const currentPosition = userData.current_job_family_id
+		? positionMap[userData.current_job_family_id]?.name || 'Frontend Developer'
+		: 'Frontend Developer';
 
 	// Calculate average skill proficiency
-	const avgProficiency = skills.length > 0
-		? Math.round(skills.reduce((sum, skill) => sum + skill.proficiency, 0) / skills.length)
-		: 0;
-
-	if (userCompetencesQuery.error) {
-		console.log("Error fetching competences:", userCompetencesQuery.error);
-	}
+	const avgProficiency = Math.round(skills.reduce((sum, skill) => sum + skill.proficiency, 0) / skills.length);
 
 	return (
 		<div className="space-y-6">
@@ -119,21 +107,21 @@ export function Dashboard() {
 			<div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 				<div className="flex items-center gap-4">
 					<Avatar className="h-16 w-16 border-2 border-primary/20">
-						<AvatarImage src={`https://avatars.dicebear.com/api/initials/${currentUser?.full_name.replace(/\s+/g, '_')}.svg`} />
-						<AvatarFallback>{currentUser ? getInitials(currentUser.full_name) : 'U'}</AvatarFallback>
+						<AvatarImage src={`https://avatars.dicebear.com/api/initials/${userData.full_name.replace(/\s+/g, '_')}.svg`} />
+						<AvatarFallback>{getInitials(userData.full_name)}</AvatarFallback>
 					</Avatar>
 
 					<div>
 						<h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-							{currentUser?.full_name || 'Welcome'}
-							{currentUser?.level && (
+							{userData.full_name}
+							{userData.level && (
 								<span className="text-sm font-normal bg-primary/10 text-primary px-2 py-0.5 rounded">
-									{currentUser.level}
+									{userData.level}
 								</span>
 							)}
 						</h1>
 						<p className="text-muted-foreground">
-							{currentPosition} • {currentUser?.years_in_role} years experience
+							{currentPosition} • {userData.years_in_role} years experience
 						</p>
 					</div>
 				</div>
@@ -166,7 +154,7 @@ export function Dashboard() {
 						<SummaryCard
 							title="Your Position"
 							value={currentPosition}
-							description={currentUser?.level || ""}
+							description={userData.level || ""}
 							icon={Briefcase}
 							isLoading={isLoading}
 						/>
