@@ -12,9 +12,8 @@ import { useOrganization } from "~/contexts/OrganizationContext";
 import { useCompetences } from "~/contexts/CompetencesContext";
 import { useCareerPlan } from "~/contexts/CareerPlanContext";
 import { usePositionRecommendations } from "~/hooks/usePositionRecommendations";
-
-// Import entity card
 import { EntityCard } from "./cards/EntityCard";
+import { entityFieldCategories } from "./utils/entityHandler";
 
 interface DataDevToolsProps {
 	position?: 'top-right' | 'bottom-right' | 'custom';
@@ -64,171 +63,62 @@ export function DataDevTools({
 		'custom': ''
 	};
 
-	// Content for the All tab
-	const renderAllTabContent = () => (
-		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-			{/* User Card */}
-			{currentUser && (
-				<EntityCard
-					entity="user"
-					data={currentUser}
-					category="primary"
-				/>
-			)}
+	// Render entity cards for a given entity type and category
+	const renderEntityCards = (
+		entity: 'user' | 'organization' | 'position' | 'competence' | 'career_path',
+		dataArray: any[],
+		category: string,
+		titleFn?: (item: any, index: number) => string
+	) => {
+		if (!dataArray || dataArray.length === 0) {
+			return <div className="text-sm text-muted-foreground italic">No data available</div>;
+		}
 
-			{/* Organization Card */}
-			{currentOrganization && (
-				<EntityCard
-					entity="organization"
-					data={currentOrganization}
-					category="primary"
-				/>
-			)}
+		return dataArray.map((item, index) => (
+			<EntityCard
+				key={`${entity}-${item.id || index}`}
+				entity={entity}
+				data={item}
+				title={titleFn ? titleFn(item, index) : `${entity} ${category}`}
+				category={category}
+			/>
+		));
+	};
 
-			{/* Position Card */}
-			{currentPosition && (
-				<EntityCard
-					entity="position"
-					data={currentPosition}
-					title="Current Position"
-					category="details"
-				/>
-			)}
+	// Create tabs content based on entity type
+	const renderTabContent = (entityType: 'user' | 'organization' | 'position' | 'competence' | 'career_path') => {
+		const categories = Object.keys(entityFieldCategories[entityType] || {});
+		const data = {
+			user: currentUser ? [currentUser] : [],
+			organization: currentOrganization ? [currentOrganization] : [],
+			position: currentPosition ? [currentPosition] : [],
+			competence: userCompetences || [],
+			career_path: plans || []
+		};
 
-			{/* Competence Cards */}
-			{userCompetences && userCompetences.length > 0 && (
-				<EntityCard
-					entity="competence"
-					data={userCompetences[0]}
-					title="User Competence"
-					category="details"
-				/>
-			)}
-
-			{/* Career Plan Card */}
-			{activePlan && (
-				<EntityCard
-					entity="career_path"
-					data={activePlan}
-					title="Active Career Plan"
-					category="relations"
-				/>
-			)}
-		</div>
-	);
-
-	// Content for the User tab
-	const renderUserTabContent = () => (
-		<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-			{currentUser && (
-				<>
-					<EntityCard
-						entity="user"
-						data={currentUser}
-						category="primary"
-					/>
-					<EntityCard
-						entity="user"
-						data={currentUser}
-						category="details"
-					/>
-					<EntityCard
-						entity="user"
-						data={currentUser}
-						category="relations"
-					/>
-					<EntityCard
-						entity="user"
-						data={currentUser}
-						category="metadata"
-					/>
-				</>
-			)}
-		</div>
-	);
-
-	// Content for the Organization tab
-	const renderOrganizationTabContent = () => (
-		<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-			{currentOrganization && (
-				<>
-					<EntityCard
-						entity="organization"
-						data={currentOrganization}
-						category="primary"
-					/>
-					<EntityCard
-						entity="organization"
-						data={currentOrganization}
-						category="details"
-					/>
-					<EntityCard
-						entity="organization"
-						data={currentOrganization}
-						category="metadata"
-					/>
-				</>
-			)}
-		</div>
-	);
-
-	// Content for the Competences tab
-	const renderCompetencesTabContent = () => (
-		<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-			{userCompetences && userCompetences.map((competence, index) => (
-				<EntityCard
-					key={competence.id}
-					entity="competence"
-					data={competence}
-					title={`Competence: ${competence.competence?.name || index + 1}`}
-					category="details"
-				/>
-			))}
-		</div>
-	);
-
-	// Content for the Position tab
-	const renderPositionTabContent = () => (
-		<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-			{currentPosition && (
-				<>
-					<EntityCard
-						entity="position"
-						data={currentPosition}
-						title="Current Position"
-						category="primary"
-					/>
-					<EntityCard
-						entity="position"
-						data={currentPosition}
-						title="Position Details"
-						category="details"
-					/>
-					<EntityCard
-						entity="position"
-						data={currentPosition}
-						title="Position Relations"
-						category="relations"
-					/>
-				</>
-			)}
-		</div>
-	);
-
-	// Content for the Plans tab
-	const renderPlansTabContent = () => (
-		<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-			{plans && plans.map(plan => (
-				<EntityCard
-					key={plan.id}
-					entity="career_path"
-					data={plan}
-					title={`Plan ${plan.id === activePlan?.id ? '(Active)' : ''}`}
-					category="details"
-				/>
-			))}
-		</div>
-	);
+		return (
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+				{categories.map(category => (
+					<div key={category}>
+						{renderEntityCards(
+							entityType,
+							data[entityType],
+							category,
+							(item, index) => {
+								if (entityType === 'competence') {
+									return `Competence: ${item.competence?.name || `#${index + 1}`}`;
+								}
+								if (entityType === 'career_path') {
+									return `Plan${item.id === activePlan?.id ? ' (Active)' : ''}`;
+								}
+								return `${entityType} ${category}`;
+							}
+						)}
+					</div>
+				))}
+			</div>
+		);
+	};
 
 	return (
 		<>
@@ -269,27 +159,97 @@ export function DataDevTools({
 
 								<div className="py-4">
 									<TabsContent value="all">
-										{renderAllTabContent()}
+										<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+											{/* User Card */}
+											{currentUser && (
+												<EntityCard
+													entity="user"
+													data={currentUser}
+													title="User"
+													category="primary"
+												/>
+											)}
+
+											{/* Organization Card */}
+											{currentOrganization && (
+												<EntityCard
+													entity="organization"
+													data={currentOrganization}
+													title="Organization"
+													category="primary"
+												/>
+											)}
+
+											{/* Position Card */}
+											{currentPosition && (
+												<EntityCard
+													entity="position"
+													data={currentPosition}
+													title="Current Position"
+													category="primary"
+												/>
+											)}
+
+											{/* Competence Card */}
+											{userCompetences && userCompetences.length > 0 && (
+												<EntityCard
+													entity="competence"
+													data={userCompetences[0]}
+													title="Top Competence"
+													category="primary"
+												/>
+											)}
+
+											{/* Career Plan Card */}
+											{activePlan && (
+												<EntityCard
+													entity="career_path"
+													data={activePlan}
+													title="Active Career Plan"
+													category="primary"
+												/>
+											)}
+										</div>
 									</TabsContent>
 
 									<TabsContent value="user">
-										{renderUserTabContent()}
+										{renderTabContent('user')}
 									</TabsContent>
 
 									<TabsContent value="organization">
-										{renderOrganizationTabContent()}
+										{renderTabContent('organization')}
 									</TabsContent>
 
 									<TabsContent value="competences">
-										{renderCompetencesTabContent()}
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											{userCompetences && userCompetences.map((competence, index) => (
+												<EntityCard
+													key={competence.id}
+													entity="competence"
+													data={competence}
+													title={`Competence: ${competence.competence?.name || index + 1}`}
+													category="primary"
+												/>
+											))}
+										</div>
 									</TabsContent>
 
 									<TabsContent value="position">
-										{renderPositionTabContent()}
+										{renderTabContent('position')}
 									</TabsContent>
 
 									<TabsContent value="plans">
-										{renderPlansTabContent()}
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											{plans && plans.map(plan => (
+												<EntityCard
+													key={plan.id}
+													entity="career_path"
+													data={plan}
+													title={`Plan${plan.id === activePlan?.id ? ' (Active)' : ''}`}
+													category="primary"
+												/>
+											))}
+										</div>
 									</TabsContent>
 								</div>
 							</Tabs>
