@@ -13,7 +13,7 @@ export interface User {
 	id: string;
 	email: string;
 	full_name: string;
-	current_job_family_id?: string | null;
+	current_position_details_id?: string | null;
 	level: string;
 	years_in_role: number;
 	role: UserRole; // This would come from a user_roles table in a real app
@@ -24,6 +24,7 @@ interface UserContextType {
 	// Data
 	users: User[];
 	currentUser: User | null;
+	currentPosition: any | null; // Add the position data
 
 	// Loading states
 	loading: boolean;
@@ -49,6 +50,7 @@ export function UserProvider({
 	// State for all users and current user
 	const [users, setUsers] = useState<User[]>([]);
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
+	const [currentPosition, setCurrentPosition] = useState<any>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
@@ -65,7 +67,6 @@ export function UserProvider({
 	useEffect(() => {
 		if (!usersLoading && usersData) {
 			setUsers(usersData);
-			setLoading(false);
 
 			// Set default user
 			if (usersData.length > 0) {
@@ -84,9 +85,31 @@ export function UserProvider({
 
 		if (usersError) {
 			setError("Failed to load users");
-			setLoading(false);
 		}
 	}, [usersData, usersLoading, usersError, defaultUserId]);
+
+	// Fetch position details once we have a user
+	const { data: positionData, isLoading: positionLoading } = api.user.getUserPositionDetails.useQuery(
+		{ userId: currentUser?.id || "" },
+		{
+			enabled: !!currentUser?.id,
+			staleTime: 1000 * 60 * 5, // 5 minutes
+			retry: 3
+		}
+	);
+
+	// Set position data when it loads
+	useEffect(() => {
+		if (positionData) {
+			setCurrentPosition(positionData);
+		}
+	}, [positionData]);
+
+	// Update overall loading state
+	useEffect(() => {
+		const isPositionLoadingNeeded = !!currentUser?.id;
+		setLoading(usersLoading || (isPositionLoadingNeeded && positionLoading));
+	}, [usersLoading, positionLoading, currentUser]);
 
 	// Reset user selection when organization changes
 	useEffect(() => {
@@ -94,6 +117,7 @@ export function UserProvider({
 			setLoading(true);
 			// Clear the current user since we're changing organizations
 			setCurrentUser(null);
+			setCurrentPosition(null);
 			// The api.user.getAll query will refetch automatically
 		}
 	}, [currentOrganization]);
@@ -103,6 +127,7 @@ export function UserProvider({
 		const user = users.find(user => user.id === id);
 		if (user) {
 			setCurrentUser(user);
+			setCurrentPosition(null); // Reset position when user changes
 			localStorage.setItem('currentUserId', id);
 		} else {
 			console.error(`User with ID ${id} not found`);
@@ -130,11 +155,26 @@ export function UserProvider({
 	const contextValue = useMemo<UserContextType>(() => ({
 		users,
 		currentUser,
+		currentPosition,
 		loading,
-		error,
+		error: error || usersError?.message || null,
 		setCurrentUser: handleSetCurrentUser,
 		hasPermission
-	}), [users, currentUser, loading, error]);
+	}), [
+		users,
+		currentUser,
+		currentPosition,
+		loading,
+		error,
+		usersError
+	]);
+
+	// Debug logging
+	useEffect(() => {
+		console.log("UserContext - Current User:", currentUser);
+		console.log("UserContext - Current Position:", currentPosition);
+		console.log("UserContext - Loading State:", loading);
+	}, [currentUser, currentPosition, loading]);
 
 	return (
 		<UserContext.Provider value={contextValue}>

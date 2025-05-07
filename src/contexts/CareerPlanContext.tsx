@@ -8,7 +8,7 @@ import { useOrganization } from "./OrganizationContext";
 import { useUser } from "./UserContext";
 
 // Define the types for our context
-interface PositionDetail {
+export interface PositionDetail {
 	id: string;
 	position?: {
 		id: string;
@@ -21,7 +21,7 @@ interface PositionDetail {
 	};
 }
 
-interface CareerPlan {
+export  interface CareerPlan {
 	id: string;
 	status: 'active' | 'completed' | 'archived';
 	estimated_total_duration: string | null;
@@ -31,7 +31,7 @@ interface CareerPlan {
 	target_position_details: PositionDetail;
 }
 
-interface PlanPhase {
+export interface PlanPhase {
 	id: string;
 	title: string;
 	description: string | null;
@@ -41,7 +41,7 @@ interface PlanPhase {
 	actions?: PlanAction[];
 }
 
-interface PlanAction {
+export interface PlanAction {
 	id: string;
 	title: string;
 	description: string | null;
@@ -56,7 +56,7 @@ interface CareerPlanWithDetails extends CareerPlan {
 	phases?: PlanPhase[];
 }
 
-interface CareerPlanContextType {
+export interface CareerPlanContextType {
 	// Data
 	plans: CareerPlan[];
 	activePlan: CareerPlanWithDetails | null;

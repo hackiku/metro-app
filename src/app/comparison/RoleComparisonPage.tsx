@@ -1,168 +1,184 @@
 // src/app/comparison/RoleComparisonPage.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { BarChartBig } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { BarChartBig, ChevronDown } from "lucide-react";
 import { useUser } from "~/contexts/UserContext";
 import { useCompetences } from "~/contexts/CompetencesContext";
 import { Skeleton } from "~/components/ui/skeleton";
 import { SkillComparisonChart } from "./SkillComparisonChart";
 import { WorkEnvironmentCard } from "./WorkEnvironmentCard";
 import { TransitionTimelineCard } from "./TransitionTimelineCard";
-import { usePositionRecommendations } from "~/hooks/usePositionRecommendations";
+import { api } from "~/trpc/react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select"; // For target selection
+import { useOrganization } from "~/contexts/OrganizationContext"; // Need org ID for positions
 
 export function RoleComparisonPage() {
 	// Get data from contexts
-	const { currentUser } = useUser();
-	const { userCompetences } = useCompetences();
+	const { currentUser, currentPosition, loading: userLoading } = useUser(); // Get current position directly
+	const { userCompetences, isLoading: userCompetencesLoading } = useCompetences();
+	const { currentOrganization } = useOrganization();
 
-	// Initialize the custom hook directly
-	const {
-		currentPosition,
-		recommendations,
-		isLoading
-	} = usePositionRecommendations();
+	// State for the selected target position ID
+	const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
 
-	// Improvement: Cache recommendations in state so we don't lose them
-	const [firstRecommendation, setFirstRecommendation] = useState<any>(null);
-
-	// Update the recommendations when they change
-	useEffect(() => {
-		if (recommendations && recommendations.length > 0) {
-			// We assume recommendations[0].position_detail exists based on hook implementation
-			if (recommendations[0].position_detail) {
-				setFirstRecommendation(recommendations[0].position_detail);
-			}
+	// Fetch all available position details for the org to populate the selector
+	const availablePositionsQuery = api.position.getAllDetails.useQuery(
+		{ organizationId: currentOrganization?.id! },
+		{
+			enabled: !!currentOrganization?.id,
+			staleTime: 1000 * 60 * 15 // Cache for 15 mins
 		}
-	}, [recommendations]);
+	);
 
-	// Enhanced logging for debugging
-	useEffect(() => {
-		console.log("🔍 Current User:", currentUser);
-		console.log("🔍 Current Position:", currentPosition);
-		console.log("🔍 User Competences:", userCompetences);
-		console.log("🔍 Recommendations:", recommendations);
-		console.log("🔍 First Recommendation:", firstRecommendation);
-		console.log("🔍 Loading State:", isLoading);
-	}, [currentUser, currentPosition, userCompetences, recommendations, firstRecommendation, isLoading]);
+	// Fetch details for the *selected* target position
+	const targetPositionQuery = api.position.getPositionDetailById.useQuery(
+		{ id: selectedTargetId! },
+		{
+			enabled: !!selectedTargetId,
+			staleTime: 1000 * 60 * 5
+		}
+	);
+
+	// Fetch required competences for the *selected* target position
+	const targetCompetencesQuery = api.position.getPositionCompetences.useQuery(
+		{ positionDetailId: selectedTargetId! },
+		{
+			enabled: !!selectedTargetId,
+			staleTime: 1000 * 60 * 10
+		}
+	);
+
+	// Determine overall loading state
+	const isLoading =
+		userLoading || // Waiting for user and their current position
+		userCompetencesLoading || // Waiting for user's competences
+		availablePositionsQuery.isLoading || // Waiting for list of roles to select from
+		(!!selectedTargetId && targetPositionQuery.isLoading) || // Waiting for selected target details
+		(!!selectedTargetId && targetCompetencesQuery.isLoading); // Waiting for selected target competences
+
+	// Check if we have the essential data pieces
+	const currentPositionDetail = currentPosition; // Alias for clarity
+	const targetPositionDetail = targetPositionQuery.data;
+	const hasRequiredData = !!currentPositionDetail && !!targetPositionDetail && !!userCompetences && !!targetCompetencesQuery.data;
 
 	// Get role names for display
-	const currentRoleName = currentPosition?.position?.name || "Current Role";
-	const targetRoleName = firstRecommendation?.position?.name || "Target Role";
+	const currentRoleName = currentPositionDetail?.position?.name ?? "Your Role";
+	const targetRoleName = targetPositionDetail?.position?.name ?? "Target Role";
+	const pageSubtitle = `See what's needed to transition from ${currentRoleName} to ${targetRoleName}`;
 
-	// Create subtitle
-	const pageSubtitle = `See what's needed for this career transition`;
+	// Handle target selection change
+	const handleTargetChange = (value: string) => {
+		setSelectedTargetId(value);
+	};
 
-	// Only show loading state if data is still being fetched
-	const showLoading = isLoading;
+	// --- Loading / Error / No Selection States ---
+	if (userLoading || availablePositionsQuery.isLoading) {
+		// Initial loading for user/positions list
+		return <ComparisonSkeleton title="Loading Comparison..." />;
+	}
 
-	// Force render after a timeout
-	const [forceShow, setForceShow] = useState(false);
-	useEffect(() => {
-		const timer = setTimeout(() => {
-			setForceShow(true);
-		}, 3000);
-		return () => clearTimeout(timer);
-	}, []);
+	if (!currentPositionDetail) {
+		return <div className="p-6 text-center text-muted-foreground">Please ensure your current position is set in your profile.</div>;
+	}
 
-	// Show loading skeleton while data is being fetched
-	if (showLoading && !forceShow) {
+	if (availablePositionsQuery.error) {
+		return <div className="p-4 text-red-600">Error loading available positions: {availablePositionsQuery.error.message}</div>;
+	}
+
+	if (!selectedTargetId && availablePositionsQuery.data && availablePositionsQuery.data.length > 0) {
+		// Prompt user to select a target if none is selected yet
 		return (
-			<div className="animate-fade-in">
-				<div className="mb-8 flex items-start gap-4">
-					<Skeleton className="h-12 w-12 rounded-lg" />
-					<div>
-						<Skeleton className="h-8 w-64 mb-2" />
-						<Skeleton className="h-4 w-48" />
-					</div>
-				</div>
-				<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-					<div className="lg:col-span-2">
-						<Skeleton className="h-96 w-full" />
-					</div>
-					<div>
-						<Skeleton className="h-64 w-full" />
-					</div>
-				</div>
-				<div className="mt-6">
-					<Skeleton className="h-64 w-full" />
+			<div className="animate-fade-in space-y-6">
+				<ComparisonHeaderSkeleton currentRoleName={currentRoleName} />
+				<div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-8 text-center">
+					<h2 className="text-xl font-semibold">Select a Target Role</h2>
+					<p className="text-muted-foreground">Choose a role from the dropdown to compare it with your current position.</p>
+					<Select onValueChange={handleTargetChange}>
+						<SelectTrigger className="w-[280px]">
+							<SelectValue placeholder="Select target role..." />
+						</SelectTrigger>
+						<SelectContent>
+							{availablePositionsQuery.data
+								.filter(pos => pos.id !== currentPositionDetail.id) // Don't compare to self
+								.map((pos) => (
+									<SelectItem key={pos.id} value={pos.id}>
+										{pos.positions?.name} (Level {pos.level}) - {pos.career_paths?.name}
+									</SelectItem>
+								))}
+						</SelectContent>
+					</Select>
 				</div>
 			</div>
 		);
 	}
 
-	// Check if we have the required data
-	const hasRequiredData = currentPosition && (firstRecommendation || (recommendations && recommendations.length > 0));
+	// Loading state AFTER a target is selected
+	if (isLoading || !hasRequiredData) {
+		if (targetPositionQuery.error) {
+			return <div className="p-4 text-red-600">Error loading target role details: {targetPositionQuery.error.message}</div>;
+		}
+		if (targetCompetencesQuery.error) {
+			return <div className="p-4 text-red-600">Error loading target skills: {targetCompetencesQuery.error.message}</div>;
+		}
+		return <ComparisonSkeleton title={`Comparing ${currentRoleName} vs ${targetPositionDetail?.position?.name ?? '...'}`} />;
+	}
 
-	// If data is missing but we've waited, show a message
-	if (!hasRequiredData && forceShow) {
-		return (
-			<div className="p-8 space-y-6">
-				<div className="mb-8 flex items-start gap-4">
+	// --- Render actual content ---
+	return (
+		<div className="animate-fade-in">
+			{/* Page Header */}
+			<div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				{/* Left Title Part */}
+				<div className="flex items-start gap-4">
 					<div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
 						<BarChartBig className="h-6 w-6" />
 					</div>
 					<div>
 						<h1 className="mb-1 text-2xl font-bold tracking-tight text-foreground">
-							Role Comparison
+							Compare Roles
 						</h1>
-						<p className="text-muted-foreground">
-							Compare your current role with potential next steps
-						</p>
+						<p className="text-muted-foreground">{pageSubtitle}</p>
 					</div>
 				</div>
-
-				<div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-md dark:bg-amber-950 dark:border-amber-800 dark:text-amber-200">
-					<h2 className="text-lg font-semibold mb-2">Data Not Available</h2>
-					<p className="mb-2">We couldn't load the necessary data for this comparison. This could be because:</p>
-					<ul className="list-disc pl-5 mb-3 space-y-1">
-						{!currentUser && <li>You are not currently logged in</li>}
-						{!currentPosition && <li>Your profile doesn't have a current position assigned</li>}
-						{(!recommendations || recommendations.length === 0) && <li>No career recommendations are available for your profile</li>}
-						<li>There was an error loading the data from the server</li>
-					</ul>
-					<p>You can try refreshing the page or navigating to another section and coming back.</p>
+				{/* Right Target Selector */}
+				<div className="w-full sm:w-auto">
+					<label htmlFor="target-role-select" className="mb-1 block text-xs font-medium text-muted-foreground">Compare with:</label>
+					<Select value={selectedTargetId ?? undefined} onValueChange={handleTargetChange}>
+						<SelectTrigger id="target-role-select" className="w-full sm:w-[280px]">
+							<SelectValue placeholder="Select target role..." />
+						</SelectTrigger>
+						<SelectContent>
+							{availablePositionsQuery.data
+								?.filter(pos => pos.id !== currentPositionDetail.id) // Don't compare to self
+								.map((pos) => (
+									<SelectItem key={pos.id} value={pos.id}>
+										{pos.positions?.name} (Lvl {pos.level}) {/* Shortened Level */}
+									</SelectItem>
+								))}
+						</SelectContent>
+					</Select>
 				</div>
 			</div>
-		);
-	}
 
-	// Get the target position from recommendations
-	const targetPosition = firstRecommendation ||
-		(recommendations && recommendations.length > 0 ?
-			recommendations[0].position_detail : null);
-
-	return (
-		<div className="animate-fade-in">
-			{/* Page Header */}
-			<div className="mb-8 flex items-start gap-4">
-				<div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-					<BarChartBig className="h-6 w-6" />
-				</div>
-				<div>
-					<h1 className="mb-1 text-2xl font-bold tracking-tight text-foreground">
-						Compare: {currentRoleName} vs. {targetRoleName}
-					</h1>
-					<p className="text-muted-foreground">{pageSubtitle}</p>
-				</div>
-			</div>
 
 			{/* Main Content Grid */}
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 				{/* Left Column (Skill Comparison) */}
 				<div className="lg:col-span-2">
 					<SkillComparisonChart
-						currentPosition={currentPosition}
-						targetPosition={targetPosition}
-						userCompetences={userCompetences || []}
+						currentPositionDetail={currentPositionDetail}
+						targetPositionDetail={targetPositionDetail}
+						userCompetences={userCompetences}
+						targetPositionCompetences={targetCompetencesQuery.data}
 					/>
 				</div>
 
 				{/* Right Column (Work Environment) */}
 				<div>
 					<WorkEnvironmentCard
-						currentPosition={currentPosition}
-						targetPosition={targetPosition}
+						currentPositionDetail={currentPositionDetail}
+						targetPositionDetail={targetPositionDetail}
 					/>
 				</div>
 			</div>
@@ -170,9 +186,54 @@ export function RoleComparisonPage() {
 			{/* Full Width Timeline Card */}
 			<div className="mt-6">
 				<TransitionTimelineCard
-					currentPosition={currentPosition}
-					targetPosition={targetPosition}
+					currentPositionDetail={currentPositionDetail}
+					targetPositionDetail={targetPositionDetail}
 				/>
+			</div>
+		</div>
+	);
+}
+
+
+// --- Helper Skeleton Component ---
+function ComparisonSkeleton({ title }: { title: string }) {
+	return (
+		<div className="animate-pulse space-y-6">
+			<div className="flex items-start gap-4">
+				<Skeleton className="h-12 w-12 rounded-lg flex-shrink-0" />
+				<div className="flex-1">
+					<Skeleton className="h-8 w-1/2 mb-2" />
+					<Skeleton className="h-4 w-3/4" />
+				</div>
+			</div>
+			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+				<div className="lg:col-span-2">
+					<Skeleton className="h-96 w-full rounded-lg" />
+				</div>
+				<div className="space-y-6">
+					<Skeleton className="h-64 w-full rounded-lg" />
+				</div>
+			</div>
+			<Skeleton className="h-48 w-full rounded-lg" />
+		</div>
+	);
+}
+
+// --- Helper Header Skeleton Component (for when target is not selected) ---
+function ComparisonHeaderSkeleton({ currentRoleName }: { currentRoleName: string }) {
+	return (
+		<div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+			<div className="flex items-start gap-4">
+				<Skeleton className="h-12 w-12 rounded-lg flex-shrink-0" />
+				<div className="flex-1">
+					<h1 className="mb-1 text-2xl font-bold tracking-tight text-foreground">
+						Compare Roles
+					</h1>
+					<p className="text-muted-foreground">Select a target role to compare with {currentRoleName}</p>
+				</div>
+			</div>
+			<div className="w-full sm:w-auto">
+				<Skeleton className="h-10 w-full sm:w-[280px]" />
 			</div>
 		</div>
 	);

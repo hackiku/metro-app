@@ -20,8 +20,15 @@ export function SkillComparisonChart({
 	targetPosition,
 	userCompetences
 }: SkillComparisonChartProps) {
-	// Check if we have valid data
-	if (!currentPosition || !targetPosition) {
+	// Check if we have valid data - this check is now more robust
+	const hasValidData = !!(
+		currentPosition &&
+		targetPosition &&
+		Object.keys(currentPosition).length > 0 &&
+		Object.keys(targetPosition).length > 0
+	);
+
+	if (!hasValidData) {
 		return (
 			<Card className="shadow-sm dark:bg-card">
 				<CardHeader className="p-6">
@@ -72,7 +79,7 @@ export function SkillComparisonChart({
 
 		try {
 			// Process each user competence
-			if (userCompetences && Array.isArray(userCompetences)) {
+			if (userCompetences && Array.isArray(userCompetences) && userCompetences.length > 0) {
 				userCompetences.forEach(uc => {
 					// Skip if not a valid competence object
 					if (!uc || !uc.competence) {
@@ -85,11 +92,10 @@ export function SkillComparisonChart({
 
 					// For demo purposes, we'll generate target levels
 					// In a real app, these would come from position_detail_competences
-					// We're mocking this until we have the real data relationships
 
 					// Simple algorithm: if target position has higher level, skill needs higher level
-					const targetPositionLevel = parseInt(targetPosition.level) || 1;
-					const currentPositionLevel = parseInt(currentPosition.level) || 1;
+					const targetPositionLevel = parseInt(String(targetPosition.level)) || 1;
+					const currentPositionLevel = parseInt(String(currentPosition.level)) || 1;
 					const levelDiff = targetPositionLevel - currentPositionLevel;
 					let targetLevel = Math.min(5, currentLevel + (levelDiff > 0 ? 1 : 0));
 
@@ -121,8 +127,8 @@ export function SkillComparisonChart({
 			console.error("Error processing competences:", error);
 		}
 
-		// If no competences, add a placeholder if possible
-		if (result.length === 0 && currentPosition && targetPosition) {
+		// If no competences, add placeholder skills
+		if (result.length === 0) {
 			// Sample skills that make sense for most roles
 			const genericSkills = [
 				{ name: "Communication", currentLevel: 3, targetLevel: 4 },
@@ -177,9 +183,12 @@ export function SkillComparisonChart({
 	// Component to render gap icon
 	const GapIcon = ({ type, className }: { type: string | undefined, className?: string }) => {
 		if (!type) return <LucideIcons.Circle className={cn("h-4 w-4", className)} />;
-		const IconComponent = type in LucideIcons ?
-			LucideIcons[type as keyof typeof LucideIcons] as React.ElementType :
-			LucideIcons.Circle;
+
+		// Safely check if the icon exists in LucideIcons
+		const IconComponent = (type in LucideIcons)
+			? LucideIcons[type as keyof typeof LucideIcons] as React.ElementType
+			: LucideIcons.Circle;
+
 		return <IconComponent className={cn("h-4 w-4", className)} />;
 	};
 
@@ -259,7 +268,7 @@ export function SkillComparisonChart({
 					);
 				})}
 
-				{/* Legends (remains the same) */}
+				{/* Legends */}
 				<div className="mt-8 grid grid-cols-1 gap-6 border-t pt-6 md:grid-cols-2 md:gap-8">
 					<div>
 						<h4 className="mb-3 text-sm font-medium text-foreground">Gap Legend</h4>

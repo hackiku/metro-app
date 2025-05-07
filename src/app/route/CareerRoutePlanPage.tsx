@@ -1,47 +1,110 @@
 // src/app/route/CareerRoutePlanPage.tsx
 "use client";
 
-import { useState } from "react";
-import { MapPinned, Download, PlusSquare } from "lucide-react"; // MapPinned is a bit more "route" like
+// Remove useState import if not needed for other things
+import { useState, useEffect, useMemo } from "react";
+import { MapPinned, Download, PlusSquare } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "~/components/ui/card";
-import { ColoredProgress } from "~/components/ui/colored-progress"; // Using our custom progress
-import { careerRoutePlanData, type ActionItem, type RoutePhase } from "./data";
+import { ColoredProgress } from "~/components/ui/colored-progress";
+// Remove import of static data: import { careerRoutePlanData } from "./data";
 import { PhaseStepItem } from "./PhaseStepItem";
 import { ActionListItem } from "./ActionListItem";
 import { cn } from "~/lib/utils";
+import { useCareerPlan } from "~/contexts/CareerPlanContext"; // Import the context hook
+import { Skeleton } from "~/components/ui/skeleton"; // Import Skeleton
+import { type ActionItem, type RoutePhase } from "./types"; // Import types locally if needed
 
 export function CareerRoutePlanPage() {
-	const [planData, setPlanData] = useState(careerRoutePlanData);
-	const [activePhaseId, setActivePhaseId] = useState<string>(
-		planData.phases[0]?.id ?? ""
-	);
+	// Get the active plan and actions from the context
+	const { activePlan, updatePlanAction, isLoading, error } = useCareerPlan();
+	const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
 
-	const activePhase = planData.phases.find(p => p.id === activePhaseId) || planData.phases[0];
+	// Effect to set the initial active phase when the plan loads
+	useEffect(() => {
+		if (activePlan?.phases && activePlan.phases.length > 0 && !activePhaseId) {
+			setActivePhaseId(activePlan.phases[0].id);
+		}
+		// Reset active phase if activePlan changes (e.g., becomes null)
+		else if (!activePlan && activePhaseId) {
+			setActivePhaseId(null);
+		}
+	}, [activePlan, activePhaseId]);
+
+	// Find the currently selected phase object
+	const activePhase = useMemo(() => {
+		return activePlan?.phases?.find(p => p.id === activePhaseId);
+	}, [activePlan, activePhaseId]);
+
+	// Calculate progress for the active phase (example)
+	const calculatePhaseProgress = (phase: RoutePhase | undefined): number => {
+		if (!phase?.actions || phase.actions.length === 0) return 0;
+		const completedActions = phase.actions.filter(a => a.status === 'completed').length;
+		return Math.round((completedActions / phase.actions.length) * 100);
+	};
+
+	const currentPhaseProgress = calculatePhaseProgress(activePhase);
 
 	const handlePhaseClick = (phaseId: string) => {
 		setActivePhaseId(phaseId);
 	};
 
+	// Use the action update function from the context
 	const handleActionToggle = (actionId: string, newStatus: ActionItem['status']) => {
-		setPlanData(prevData => {
-			const newPhases = prevData.phases.map(phase => {
-				if (phase.id === activePhaseId) {
-					const newActions = phase.actions.map(action =>
-						action.id === actionId ? { ...action, status: newStatus } : action
-					);
-					// Recalculate phase progress
-					const completedActions = newActions.filter(a => a.status === 'completed').length;
-					const totalActions = newActions.length;
-					const newProgress = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
-					return { ...phase, actions: newActions, progress: newProgress };
-				}
-				return phase;
-			});
-			return { ...prevData, phases: newPhases };
-		});
+		updatePlanAction(actionId, newStatus);
+		// Note: Progress calculation now happens based on updated activePlan data from context
 	};
 
+	// --- Loading and Error States ---
+	if (isLoading) {
+		return (
+			<div className="animate-pulse space-y-6">
+				{/* Header Skeleton */}
+				<div className="mb-6 flex items-start gap-4">
+					<Skeleton className="h-12 w-12 rounded-lg flex-shrink-0" />
+					<div className="flex-1">
+						<Skeleton className="h-8 w-1/3 mb-2" />
+						<Skeleton className="h-4 w-2/3" />
+					</div>
+				</div>
+				<Skeleton className="h-6 w-full mb-8" /> {/* Subtitle Skeleton */}
+
+				{/* Card Skeleton */}
+				<Card className="shadow-sm">
+					<CardHeader className="p-6">
+						<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+							<Skeleton className="h-10 w-48" />
+							<Skeleton className="h-10 w-32" />
+						</div>
+					</CardHeader>
+					<CardContent className="p-6 space-y-8">
+						<Skeleton className="h-24 w-full" /> {/* Stepper Skeleton */}
+						<Skeleton className="h-32 w-full" /> {/* Active Phase Details Skeleton */}
+						<Skeleton className="h-48 w-full" /> {/* Actions Skeleton */}
+					</CardContent>
+					<CardFooter className="p-6">
+						<Skeleton className="h-10 w-full" />
+					</CardFooter>
+				</Card>
+			</div>
+		);
+	}
+
+	if (error) {
+		return <div className="p-4 text-red-600">Error loading career plan: {error}</div>;
+	}
+
+	if (!activePlan) {
+		return <div className="p-6 text-center text-muted-foreground">No active career plan found for this user.</div>;
+	}
+
+	// --- Render actual content ---
+	// Extract data from activePlan for clarity
+	const planTitle = "Career Route Plan"; // Or derive if needed
+	const planSubtitle = `Your personalized development path to become ${activePlan.target_position_details?.positions?.name || 'your target role'}`;
+	const planDescription = activePlan.notes || "Follow the phases and actions below to achieve your career goal."; // Use plan notes or default
+	const targetRoleName = activePlan.target_position_details?.positions?.name || 'Target Role';
+	const totalDuration = activePlan.estimated_total_duration || 'N/A';
 
 	return (
 		<div className="animate-fade-in">
@@ -52,16 +115,16 @@ export function CareerRoutePlanPage() {
 				</div>
 				<div>
 					<h1 className="mb-1 text-2xl font-bold tracking-tight text-foreground">
-						{planData.title}
+						{planTitle}
 					</h1>
 					<p className="text-muted-foreground">
-						{planData.subtitle.replace("Product Analyst", planData.targetRole)}
+						{planSubtitle}
 					</p>
 				</div>
 			</div>
 
 			<p className="mb-8 text-muted-foreground">
-				{planData.description}
+				{planDescription}
 			</p>
 
 			<Card className="shadow-sm dark:bg-card">
@@ -70,13 +133,13 @@ export function CareerRoutePlanPage() {
 						<div>
 							<h3 className="text-sm text-muted-foreground">Destination</h3>
 							<h2 className="text-xl font-semibold text-foreground">
-								{planData.targetRole}
+								{targetRoleName}
 							</h2>
 						</div>
 						<div className="text-left sm:text-right">
-							<h3 className="text-sm text-muted-foreground">Total Duration</h3>
+							<h3 className="text-sm text-muted-foreground">Est. Total Duration</h3>
 							<p className="text-lg font-medium text-foreground">
-								{planData.totalDuration}
+								{totalDuration}
 							</p>
 						</div>
 					</div>
@@ -85,17 +148,17 @@ export function CareerRoutePlanPage() {
 				<CardContent className="p-6">
 					{/* Phase Stepper */}
 					<div className="mb-8 flex items-start overflow-x-auto pb-2">
-						{planData.phases.map((phase, index) => (
+						{activePlan.phases && activePlan.phases.map((phase, index) => (
 							<div key={phase.id} className="flex items-start">
 								<PhaseStepItem
-									number={phase.number}
+									number={phase.sequence} // Use sequence for numbering
 									title={phase.title}
-									duration={phase.duration}
+									duration={phase.duration ?? ""}
 									isActive={phase.id === activePhaseId}
 									onClick={() => handlePhaseClick(phase.id)}
-								// isCompleted={phase.progress === 100} // Example for completed visual
+									isCompleted={calculatePhaseProgress(phase) === 100} // Optional: mark completed phases
 								/>
-								{index < planData.phases.length - 1 && (
+								{index < activePlan.phases!.length - 1 && (
 									<div className="mx-1 h-0.5 min-w-[20px] flex-1 self-center bg-border md:mx-2 md:mt-[-18px] lg:min-w-[40px]" />
 								)}
 							</div>
@@ -112,11 +175,11 @@ export function CareerRoutePlanPage() {
 								{activePhase.description}
 							</p>
 							<div className="mb-1 flex items-center justify-between text-sm">
-								<span className="font-medium text-foreground">Progress</span>
-								<span className="font-medium text-primary">{activePhase.progress}%</span>
+								<span className="font-medium text-foreground">Phase Progress</span>
+								<span className="font-medium text-primary">{currentPhaseProgress}%</span>
 							</div>
 							<ColoredProgress
-								value={activePhase.progress}
+								value={currentPhaseProgress}
 								indicatorColorClassName="bg-primary"
 								className="h-2"
 							/>
@@ -129,9 +192,14 @@ export function CareerRoutePlanPage() {
 							<h3 className="text-md font-semibold text-foreground">
 								Actions to complete
 							</h3>
-							{activePhase.actions.length > 0 ? (
+							{activePhase.actions && activePhase.actions.length > 0 ? (
 								activePhase.actions.map((action) => (
-									<ActionListItem key={action.id} action={action} onToggleStatus={handleActionToggle} />
+									// Ensure ActionListItem receives the correct type
+									<ActionListItem
+										key={action.id}
+										action={action as ActionItem} // Cast if types mismatch slightly
+										onToggleStatus={handleActionToggle}
+									/>
 								))
 							) : (
 								<p className="text-sm text-muted-foreground">No actions defined for this phase yet.</p>
@@ -141,10 +209,10 @@ export function CareerRoutePlanPage() {
 				</CardContent>
 
 				<CardFooter className="flex flex-col gap-2 border-t bg-muted/50 p-6 dark:bg-card/30 sm:flex-row sm:justify-between">
-					<Button variant="outline">
+					<Button variant="outline" disabled> {/* Disable buttons for now */}
 						<Download className="mr-2 h-4 w-4" /> Download Plan
 					</Button>
-					<Button className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+					<Button className="w-full sm:w-auto" disabled> {/* Disable buttons for now */}
 						<PlusSquare className="mr-2 h-4 w-4" /> Add to Dashboard
 					</Button>
 				</CardFooter>
