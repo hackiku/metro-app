@@ -12,6 +12,7 @@ import { useCareerPlan } from "~/contexts/CareerPlanContext";
 import { usePositionRecommendations } from "~/hooks/usePositionRecommendations";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
+import { ContextDataDisplay } from "./components/ContextDataDisplay";
 
 export function DestinationsPage() {
 	const { currentUser } = useUser();
@@ -86,6 +87,19 @@ export function DestinationsPage() {
 					</Button>
 				)}
 			</div>
+
+			{/* Development Context Data Display */}
+			{process.env.NODE_ENV === 'development' && (
+				<ContextDataDisplay
+					user={currentUser}
+					organization={currentOrganization}
+					userCompetences={userCompetences}
+					currentPosition={currentPosition}
+					plans={plans}
+					activePlan={activePlan}
+					recommendations={recommendations}
+				/>
+			)}
 
 			{/* Current Role */}
 			<div className="mb-6 rounded-lg border bg-card p-4 text-card-foreground">
