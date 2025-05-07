@@ -116,6 +116,8 @@ export const userRouter = createTRPCRouter({
       }
     }),
 
+
+
   // Delete a user competence
   deleteUserCompetence: publicProcedure
     .input(z.object({ id: z.string() }))
@@ -259,20 +261,150 @@ export const userRouter = createTRPCRouter({
         }
       };
     }),
+// Add these procedures to src/server/api/routers/user.ts
+
+  // Get organizations for a user
+  getUserOrganizations: publicProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ input }) => {
+      const { data, error } = await supabase
+        .from('user_organizations')
+        .select('organization_id, role, is_primary')
+        .eq('user_id', input.userId);
+        
+      if (error) throw new Error(`Error fetching user organizations: ${error.message}`);
+      return data || [];
+    }),
+
+  // Add user to organization
+  addToOrganization: publicProcedure
+    .input(z.object({
+      userId: z.string(),
+      organizationId: z.string(),
+      isPrimary: z.boolean().default(false),
+      role: z.string().default('member')
+    }))
+    .mutation(async ({ input }) => {
+      const userOrg = {
+        user_id: input.userId,
+        organization_id: input.organizationId,
+        is_primary: input.isPrimary,
+        role: input.role
+      };
+      
+      // If this is being set as primary, first update all existing entries to not primary
+      if (input.isPrimary) {
+        await supabase
+          .from('user_organizations')
+          .update({ is_primary: false })
+          .eq('user_id', input.userId);
+      }
+      
+      // Now add the new relationship
+      const { data, error } = await supabase
+        .from('user_organizations')
+        .upsert(userOrg, { onConflict: 'user_id,organization_id' })
+        .select()
+        .single();
+      
+      if (error) throw new Error(`Error adding user to organization: ${error.message}`);
+      return data;
+    }),
+
+  // Remove user from organization
+  removeFromOrganization: publicProcedure
+    .input(z.object({
+      userId: z.string(),
+      organizationId: z.string()
+    }))
+    .mutation(async ({ input }) => {
+      const { data: checkData } = await supabase
+        .from('user_organizations')
+        .select('is_primary')
+        .eq('user_id', input.userId)
+        .eq('organization_id', input.organizationId)
+        .single();
+      
+      // Check if this is removing a primary org
+      const isPrimary = checkData?.is_primary;
+      
+      // Delete the relationship
+      const { error } = await supabase
+        .from('user_organizations')
+        .delete()
+        .eq('user_id', input.userId)
+        .eq('organization_id', input.organizationId);
+      
+      if (error) throw new Error(`Error removing user from organization: ${error.message}`);
+      
+      // If this was the primary org, set a new primary if any orgs remain
+      if (isPrimary) {
+        const { data: remainingOrgs } = await supabase
+          .from('user_organizations')
+          .select('organization_id')
+          .eq('user_id', input.userId)
+          .limit(1);
+        
+        if (remainingOrgs && remainingOrgs.length > 0) {
+          await supabase
+            .from('user_organizations')
+            .update({ is_primary: true })
+            .eq('user_id', input.userId)
+            .eq('organization_id', remainingOrgs[0].organization_id);
+        }
+      }
+      
+      return { success: true };
+    }),
+
+  // Set primary organization for a user
+  setPrimaryOrganization: publicProcedure
+    .input(z.object({
+      userId: z.string(),
+      organizationId: z.string()
+    }))
+    .mutation(async ({ input }) => {
+      // First, set all organizations for this user to not primary
+      await supabase
+        .from('user_organizations')
+        .update({ is_primary: false })
+        .eq('user_id', input.userId);
+      
+      // Then set the specified one as primary
+      const { data, error } = await supabase
+        .from('user_organizations')
+        .update({ is_primary: true })
+        .eq('user_id', input.userId)
+        .eq('organization_id', input.organizationId)
+        .select()
+        .single();
+      
+      if (error) throw new Error(`Error setting primary organization: ${error.message}`);
+      return data;
+    }),
+
 
   // Create a new user
+  // Update user creation to handle organization assignment
   create: publicProcedure
     .input(z.object({
       email: z.string().email(),
       full_name: z.string().min(1),
       current_position_details_id: z.string().optional().nullable(),
       level: z.enum(['Junior', 'Medior', 'Senior', 'Lead']),
-      years_in_role: z.number().min(0).max(99)
+      years_in_role: z.number().min(0).max(99),
+      organization_id: z.string().optional(),
+      add_to_organization: z.boolean().optional(),
+      is_primary: z.boolean().optional()
     }))
     .mutation(async ({ input }) => {
+      // Extract organization-related fields
+      const { organization_id, add_to_organization, is_primary, ...userData } = input;
+      
+      // Insert the user
       const { data, error } = await supabase
         .from('users')
-        .insert(input)
+        .insert(userData)
         .select()
         .single();
       
@@ -284,9 +416,27 @@ export const userRouter = createTRPCRouter({
         role: 'employee' as const
       };
       
+      // If organization ID is provided and add_to_organization flag is true, create the junction record
+      if (organization_id && add_to_organization) {
+        const userOrg = {
+          user_id: data.id,
+          organization_id: organization_id,
+          is_primary: is_primary || true,
+          role: 'member'
+        };
+        
+        const { error: junctionError } = await supabase
+          .from('user_organizations')
+          .insert(userOrg);
+        
+        if (junctionError) {
+          console.error(`Warning: Failed to add user to organization: ${junctionError.message}`);
+          // We don't throw here to avoid failing the whole operation
+        }
+      }
+      
       return userWithRole;
     }),
-
   // Update a user
   update: publicProcedure
     .input(z.object({

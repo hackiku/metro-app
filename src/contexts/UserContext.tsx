@@ -31,7 +31,7 @@ interface UserContextType {
 	error: string | null;
 
 	// Actions
-	setCurrentUser: (id: string) => void;
+	setCurrentUser: (id: string | null) => void; // Update to accept null
 	hasPermission: (permission: string) => boolean;
 }
 
@@ -42,7 +42,7 @@ export function UserProvider({
 	defaultUserId
 }: {
 	children: ReactNode;
-	defaultUserId?: string | null; // Updated to accept null
+	defaultUserId?: string | null;
 }) {
 	// Get organization from context
 	const { currentOrganization } = useOrganization();
@@ -114,16 +114,25 @@ export function UserProvider({
 	// Reset user selection when organization changes
 	useEffect(() => {
 		if (currentOrganization) {
-			setLoading(true);
+			// setLoading(true);
 			// Clear the current user since we're changing organizations
-			setCurrentUser(null);
-			setCurrentPosition(null);
+			// setCurrentUser(null);
+			// setCurrentPosition(null);
 			// The api.user.getAll query will refetch automatically
 		}
 	}, [currentOrganization]);
 
-	// Handle user switching
-	const handleSetCurrentUser = (id: string) => {
+	// Handle user switching - UPDATED to handle null values
+	const handleSetCurrentUser = (id: string | null) => {
+		// Handle null case explicitly
+		if (id === null) {
+			setCurrentUser(null);
+			setCurrentPosition(null);
+			localStorage.removeItem('currentUserId'); // Remove from local storage
+			return;
+		}
+
+		// Handle string ID case
 		const user = users.find(user => user.id === id);
 		if (user) {
 			setCurrentUser(user);
@@ -168,6 +177,38 @@ export function UserProvider({
 		error,
 		usersError
 	]);
+
+	useEffect(() => {
+		if (currentOrganization && usersData) {
+			// When organization changes and we have user data, 
+			// get organization members to check if current user is still valid
+			const checkUserInOrg = async () => {
+				try {
+					// This would typically be a separate query, but for now we'll simulate it
+					// In a real app, you'd make an API call to check if the user is in the org
+					const isUserInOrg = currentUser &&
+						usersData.some(user => user.id === currentUser.id);
+
+					if (!isUserInOrg && usersData.length > 0) {
+						// Current user is not in this org, select first available user
+						const newUser = usersData[0];
+						console.log("Switching to first available user:", newUser.full_name);
+						setCurrentUser(newUser);
+						localStorage.setItem('currentUserId', newUser.id);
+					} else if (!isUserInOrg) {
+						// No users in this org
+						setCurrentUser(null);
+						localStorage.removeItem('currentUserId');
+					}
+					// If user is in org, keep them selected
+				} catch (err) {
+					console.error("Error checking user in organization:", err);
+				}
+			};
+
+			checkUserInOrg();
+		}
+	}, [currentOrganization?.id, usersData]);
 
 	// Debug logging
 	useEffect(() => {

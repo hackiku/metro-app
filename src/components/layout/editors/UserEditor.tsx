@@ -1,7 +1,10 @@
+// src/components/layout/actions/PositionSelector.tsx
+
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { UserRole } from "~/contexts/UserContext"
+import { useOrganization } from "~/contexts/OrganizationContext"
 import { api } from "~/trpc/react"
 import {
 	Sheet,
@@ -26,12 +29,14 @@ import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { toast } from "sonner"
+import { PositionSelector } from "./PositionSelector"
 
 interface UserEditorProps {
 	currentOrganizationId?: string
 }
 
 export function UserEditor({ currentOrganizationId }: UserEditorProps) {
+	const { currentOrganization } = useOrganization()
 	const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 	const [userToDelete, setUserToDelete] = useState<string | null>(null)
 	const [editSheetOpen, setEditSheetOpen] = useState(false)
@@ -40,10 +45,13 @@ export function UserEditor({ currentOrganizationId }: UserEditorProps) {
 	const [newUser, setNewUser] = useState({
 		full_name: "",
 		email: "",
-		level: "junior",
+		level: "Junior" as "Junior" | "Medior" | "Senior" | "Lead",
 		years_in_role: 0,
+		current_position_details_id: null as string | null,
 		role: "employee" as UserRole,
 	})
+
+	const orgId = currentOrganization?.id || currentOrganizationId || ""
 
 	// Mutations
 	const utils = api.useUtils()
@@ -70,6 +78,7 @@ export function UserEditor({ currentOrganizationId }: UserEditorProps) {
 		},
 		onError: (error) => {
 			toast.error(`Failed to create user: ${error.message}`)
+			console.error("Create user error:", error)
 		},
 	})
 
@@ -84,6 +93,12 @@ export function UserEditor({ currentOrganizationId }: UserEditorProps) {
 		},
 	})
 
+	// Position details query (for both edit and create)
+	const { data: positionDetails } = api.position.getAllDetails.useQuery(
+		{ organizationId: orgId },
+		{ enabled: !!orgId, staleTime: 5 * 60 * 1000 }
+	)
+
 	const handleDelete = (userId: string) => {
 		setUserToDelete(userId)
 		setDeleteConfirmOpen(true)
@@ -96,7 +111,13 @@ export function UserEditor({ currentOrganizationId }: UserEditorProps) {
 	}
 
 	const handleEdit = (user: any) => {
-		setEditingUser({ ...user })
+		setEditingUser({
+			...user,
+			// Ensure level is one of the enum values
+			level: ["Junior", "Medior", "Senior", "Lead"].includes(user.level)
+				? user.level
+				: "Junior"
+		})
 		setEditSheetOpen(true)
 	}
 
@@ -106,18 +127,22 @@ export function UserEditor({ currentOrganizationId }: UserEditorProps) {
 				id: editingUser.id,
 				full_name: editingUser.full_name,
 				email: editingUser.email,
-				level: editingUser.level,
+				level: editingUser.level as "Junior" | "Medior" | "Senior" | "Lead",
 				years_in_role: Number(editingUser.years_in_role),
-				current_position_details_id: editingUser.current_position_details_id,
+				current_position_details_id: editingUser.current_position_details_id || null,
 			})
 		}
 	}
 
 	const handleCreateUser = () => {
+		// Make sure to match the API schema and include organization context
 		createUserMutation.mutate({
-			...newUser,
+			full_name: newUser.full_name,
+			email: newUser.email,
+			level: newUser.level,
 			years_in_role: Number(newUser.years_in_role),
-			organization_id: currentOrganizationId || "",
+			current_position_details_id: newUser.current_position_details_id,
+			organization_id: orgId
 		})
 	}
 
@@ -125,11 +150,28 @@ export function UserEditor({ currentOrganizationId }: UserEditorProps) {
 		setNewUser({
 			full_name: "",
 			email: "",
-			level: "junior",
+			level: "Junior",
 			years_in_role: 0,
-			role: "employee" as UserRole,
+			current_position_details_id: null,
+			role: "employee",
 		})
 		setCreateSheetOpen(true)
+	}
+
+	// Handle position selection for editing
+	const handlePositionChange = (positionDetailId: string | null) => {
+		setEditingUser({
+			...editingUser,
+			current_position_details_id: positionDetailId
+		})
+	}
+
+	// Handle position selection for new user
+	const handleNewPositionChange = (positionDetailId: string | null) => {
+		setNewUser({
+			...newUser,
+			current_position_details_id: positionDetailId
+		})
 	}
 
 	return {
@@ -158,48 +200,67 @@ export function UserEditor({ currentOrganizationId }: UserEditorProps) {
 
 				{/* Edit User Sheet */}
 				<Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
-					<SheetContent className="sm:max-w-md">
-						<SheetHeader>
+					<SheetContent className="sm:max-w-md overflow-y-auto">
+						<SheetHeader className="pb-4">
 							<SheetTitle>Edit User</SheetTitle>
 							<SheetDescription>Make changes to the user profile. Click save when you're done.</SheetDescription>
 						</SheetHeader>
-						<div className="grid gap-4 py-4">
-							<div className="grid gap-2">
-								<Label htmlFor="full_name">Full Name</Label>
+						<div className="grid gap-6 py-4">
+							<div className="grid gap-3">
+								<Label htmlFor="full_name" className="text-sm font-medium">Full Name</Label>
 								<Input
 									id="full_name"
 									value={editingUser?.full_name || ""}
 									onChange={(e) => setEditingUser({ ...editingUser, full_name: e.target.value })}
+									className="h-10"
 								/>
 							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="email">Email</Label>
+							<div className="grid gap-3">
+								<Label htmlFor="email" className="text-sm font-medium">Email</Label>
 								<Input
 									id="email"
 									type="email"
 									value={editingUser?.email || ""}
 									onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+									className="h-10"
 								/>
 							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="level">Level</Label>
+							<div className="grid gap-3">
+								<Label htmlFor="level" className="text-sm font-medium">Level</Label>
 								<Input
 									id="level"
 									value={editingUser?.level || ""}
 									onChange={(e) => setEditingUser({ ...editingUser, level: e.target.value })}
+									className="h-10"
+									placeholder="Junior, Medior, Senior, or Lead"
 								/>
+								<p className="text-xs text-muted-foreground">Use Junior, Medior, Senior, or Lead</p>
 							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="years_in_role">Years in Role</Label>
+							<div className="grid gap-3">
+								<Label htmlFor="years_in_role" className="text-sm font-medium">Years in Role</Label>
 								<Input
 									id="years_in_role"
 									type="number"
 									value={editingUser?.years_in_role || 0}
 									onChange={(e) => setEditingUser({ ...editingUser, years_in_role: e.target.value })}
+									className="h-10"
+									min="0"
+									max="99"
+								/>
+							</div>
+
+							{/* Position Selector */}
+							<div className="grid gap-3">
+								<Label className="text-sm font-medium">Current Position</Label>
+								<PositionSelector
+									organizationId={orgId}
+									value={editingUser?.current_position_details_id || null}
+									onChange={handlePositionChange}
+									positions={positionDetails || []}
 								/>
 							</div>
 						</div>
-						<SheetFooter>
+						<SheetFooter className="pt-4">
 							<SheetClose asChild>
 								<Button variant="outline">Cancel</Button>
 							</SheetClose>
@@ -212,48 +273,67 @@ export function UserEditor({ currentOrganizationId }: UserEditorProps) {
 
 				{/* Create User Sheet */}
 				<Sheet open={createSheetOpen} onOpenChange={setCreateSheetOpen}>
-					<SheetContent className="sm:max-w-md">
-						<SheetHeader>
+					<SheetContent className="sm:max-w-md overflow-y-auto">
+						<SheetHeader className="pb-4">
 							<SheetTitle>Create New User</SheetTitle>
 							<SheetDescription>Add a new user to your organization. Click create when you're done.</SheetDescription>
 						</SheetHeader>
-						<div className="grid gap-4 py-4">
-							<div className="grid gap-2">
-								<Label htmlFor="new_full_name">Full Name</Label>
+						<div className="grid gap-6 py-4">
+							<div className="grid gap-3">
+								<Label htmlFor="new_full_name" className="text-sm font-medium">Full Name</Label>
 								<Input
 									id="new_full_name"
 									value={newUser.full_name}
 									onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+									className="h-10"
 								/>
 							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="new_email">Email</Label>
+							<div className="grid gap-3">
+								<Label htmlFor="new_email" className="text-sm font-medium">Email</Label>
 								<Input
 									id="new_email"
 									type="email"
 									value={newUser.email}
 									onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+									className="h-10"
 								/>
 							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="new_level">Level</Label>
+							<div className="grid gap-3">
+								<Label htmlFor="new_level" className="text-sm font-medium">Level</Label>
 								<Input
 									id="new_level"
 									value={newUser.level}
-									onChange={(e) => setNewUser({ ...newUser, level: e.target.value })}
+									onChange={(e) => setNewUser({ ...newUser, level: e.target.value as any })}
+									className="h-10"
+									placeholder="Junior, Medior, Senior, or Lead"
 								/>
+								<p className="text-xs text-muted-foreground">Use Junior, Medior, Senior, or Lead</p>
 							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="new_years_in_role">Years in Role</Label>
+							<div className="grid gap-3">
+								<Label htmlFor="new_years_in_role" className="text-sm font-medium">Years in Role</Label>
 								<Input
 									id="new_years_in_role"
 									type="number"
 									value={newUser.years_in_role}
 									onChange={(e) => setNewUser({ ...newUser, years_in_role: Number(e.target.value) })}
+									className="h-10"
+									min="0"
+									max="99"
+								/>
+							</div>
+
+							{/* Position Selector */}
+							<div className="grid gap-3">
+								<Label className="text-sm font-medium">Current Position</Label>
+								<PositionSelector
+									organizationId={orgId}
+									value={newUser.current_position_details_id}
+									onChange={handleNewPositionChange}
+									positions={positionDetails || []}
 								/>
 							</div>
 						</div>
-						<SheetFooter>
+						<SheetFooter className="pt-4">
 							<SheetClose asChild>
 								<Button variant="outline">Cancel</Button>
 							</SheetClose>

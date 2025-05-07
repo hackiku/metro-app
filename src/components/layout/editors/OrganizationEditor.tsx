@@ -1,3 +1,5 @@
+// src/components/layout/editors/OrganizationEditor.tsx
+
 "use client"
 
 import { useState } from "react"
@@ -43,14 +45,30 @@ export function OrganizationEditor() {
 	// Mutations
 	const utils = api.useUtils()
 
+	// Invalidate all relevant data when organization changes
+	const invalidateAfterOrgChange = () => {
+		// Invalidate organization data
+		utils.organization.getAll.invalidate()
+
+		// Invalidate user data since org changes affect user context
+		utils.user.getAll.invalidate()
+
+		// Other related data that might depend on organization
+		utils.organization.getMembers.invalidate()
+	}
+
 	const updateOrgMutation = api.organization.update.useMutation({
-		onSuccess: () => {
+		onSuccess: (data) => {
 			toast.success("Organization updated successfully")
 			setEditSheetOpen(false)
-			utils.organization.getAll.invalidate()
+
+			// Invalidate specific organization data
 			if (editingOrg?.id) {
 				utils.organization.getById.invalidate({ id: editingOrg.id })
 			}
+
+			// Invalidate all related data
+			invalidateAfterOrgChange()
 		},
 		onError: (error) => {
 			toast.error(`Failed to update organization: ${error.message}`)
@@ -58,10 +76,12 @@ export function OrganizationEditor() {
 	})
 
 	const createOrgMutation = api.organization.create.useMutation({
-		onSuccess: () => {
+		onSuccess: (data) => {
 			toast.success("Organization created successfully")
 			setCreateSheetOpen(false)
-			utils.organization.getAll.invalidate()
+
+			// Invalidate all related data
+			invalidateAfterOrgChange()
 		},
 		onError: (error) => {
 			toast.error(`Failed to create organization: ${error.message}`)
@@ -72,7 +92,9 @@ export function OrganizationEditor() {
 		onSuccess: () => {
 			toast.success("Organization deleted successfully")
 			setDeleteConfirmOpen(false)
-			utils.organization.getAll.invalidate()
+
+			// Invalidate all related data
+			invalidateAfterOrgChange()
 		},
 		onError: (error) => {
 			toast.error(`Failed to delete organization: ${error.message}`)

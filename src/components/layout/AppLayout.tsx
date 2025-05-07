@@ -12,6 +12,35 @@ import { Navbar } from "./Navbar";
 import { CollapsibleSidebar } from "./CollapsibleSidebar";
 import { OrganizationProvider } from "~/contexts/OrganizationContext";
 import { UserProvider } from "~/contexts/UserContext";
+import { useOrganization } from "~/contexts/OrganizationContext";
+import { useUser } from "~/contexts/UserContext";
+import { api } from "~/trpc/react";
+
+// Component to handle synchronization between organization and user data
+function OrgUserSynchronizer() {
+	const { currentOrganization } = useOrganization();
+	const { currentUser } = useUser();
+	const utils = api.useUtils();
+
+	// When organization changes, pre-fetch organization members
+	useEffect(() => {
+		if (currentOrganization?.id) {
+			// Pre-fetch organization members to improve loading experience
+			utils.organization.getMembers.prefetch({ organizationId: currentOrganization.id });
+		}
+	}, [currentOrganization?.id, utils.organization.getMembers]);
+
+	// Watch for mismatches between org and user
+	useEffect(() => {
+		if (currentOrganization && currentUser) {
+			// Ensure data is fresh when both organization and user are selected
+			utils.organization.getMembers.invalidate({ organizationId: currentOrganization.id });
+		}
+	}, [currentOrganization?.id, currentUser?.id, utils.organization.getMembers]);
+
+	// This is just a synchronization component - it doesn't render anything
+	return null;
+}
 
 interface AppLayoutProps {
 	children: React.ReactNode;
@@ -59,6 +88,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
 		<OrganizationProvider defaultOrgId={getSavedId('currentOrgId')}>
 			<UserProvider defaultUserId={getSavedId('currentUserId')}>
 				<div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+					{/* Add synchronizer component to manage data consistency */}
+					<OrgUserSynchronizer />
 					<Navbar />
 
 					<ResizablePanelGroup
