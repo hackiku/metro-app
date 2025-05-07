@@ -7,7 +7,8 @@ create table public.competences (
   description text null,
   category text null,
   organization_id uuid null,
-  constraint competences_pkey primary key (id)
+  constraint competences_pkey primary key (id),
+  constraint competences_name_key unique (name)
 ) TABLESPACE pg_default;
 
 --------------------
