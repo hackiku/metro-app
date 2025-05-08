@@ -23,9 +23,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/comp
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/components/ui/collapsible";
-import { UserSelector } from "./actions/UserSelector";
 import type { LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface NavItemConfig {
 	href: string;
@@ -75,12 +74,14 @@ const navigationConfig: NavGroupConfig[] = [
 interface SidebarProps {
 	isCollapsed?: boolean;
 	onToggleCollapse?: (collapsed: boolean) => void;
+	className?: string;
 }
 
-export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse, className }: SidebarProps) {
 	const pathname = usePathname();
 	const [internalIsCollapsed, setInternalIsCollapsed] = useState(false);
-	const [managerMenuOpen, setManagerMenuOpen] = useState(true);
+	// Start with admin menu closed by default
+	const [managerMenuOpen, setManagerMenuOpen] = useState(false);
 
 	// Use either the prop or internal state
 	const isCollapsed = propIsCollapsed !== undefined ? propIsCollapsed : internalIsCollapsed;
@@ -95,11 +96,14 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse }: Side
 		}
 	};
 
+	// Calculate the width for the container
+	const width = isCollapsed ? "w-[60px]" : "w-[240px]";
+
 	return (
-		<div className="flex flex-col h-full bg-background relative overflow-hidden">
+		<div className={cn("h-full relative", width, className)}>
 			<div className={cn(
-				"flex flex-col h-full py-6 transition-all duration-300 overflow-hidden",
-				isCollapsed ? "items-center px-2 w-[60px]" : "px-4 w-full"
+				"flex flex-col h-full py-6 transition-all duration-300 overflow-hidden bg-background",
+				isCollapsed ? "items-center px-2" : "px-4"
 			)}>
 				{/* Top margin space */}
 				<div className="mb-6"></div>
@@ -108,7 +112,7 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse }: Side
 					<div className="flex flex-col h-full">
 						{navigationConfig.map((group, groupIndex) => (
 							<div key={groupIndex} className={cn(
-								groupIndex === navigationConfig.length - 1 ? "mt-auto" : "",
+								groupIndex === navigationConfig.length - 1 ? "mt-auto mb-12" : "",
 								"mb-6"
 							)}>
 								{group.title && !isCollapsed && (
@@ -119,7 +123,7 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse }: Side
 												onOpenChange={setManagerMenuOpen}
 												className="w-full"
 											>
-												<CollapsibleTrigger className="flex items-center w-full py-2 px-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-lg">
+												<CollapsibleTrigger className="flex items-center w-full py-2 px-2 text-xs font-normal text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/60 rounded-lg uppercase tracking-wider">
 													<span>{group.title}</span>
 													<ChevronRight className={cn(
 														"ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
@@ -140,7 +144,7 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse }: Side
 												</CollapsibleContent>
 											</Collapsible>
 										) : (
-											<div className="py-2 px-2 text-sm font-medium text-muted-foreground">
+											<div className="py-2 px-2 text-xs font-normal text-muted-foreground/70 uppercase tracking-wider">
 												{group.title}
 											</div>
 										)}
@@ -163,37 +167,24 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse }: Side
 								)}
 							</div>
 						))}
-
-						{/* User profile at bottom */}
-						<div className={cn(
-							"pt-4",
-							isCollapsed ? "flex justify-center" : ""
-						)}>
-							<UserSelector />
-						</div>
 					</div>
 				</TooltipProvider>
 			</div>
 
-			{/* Collapse toggle button - muted wireframe style */}
-			<div className="absolute bottom-4 right-3">
-				<div className="relative">
-					{/* Base of 3D button */}
-					<div className="absolute inset-0 rounded-md bg-muted/20" />
-
-					<Button
-						variant="ghost"
-						size="icon"
-						className="relative h-8 w-8 rounded-md bg-background text-muted-foreground/50 border border-muted-foreground/10 hover:text-muted-foreground/70 hover:translate-y-[1px] transition-all shadow-sm"
-						onClick={toggleCollapse}
-					>
-						{isCollapsed ? (
-							<ChevronRight className="h-4 w-4" />
-						) : (
-							<ChevronLeft className="h-4 w-4" />
-						)}
-					</Button>
-				</div>
+			{/* Collapse toggle button - positioned half outside the sidebar */}
+			<div className="absolute top-1/2 right-0 -mt-4 translate-x-1/2 z-10">
+				<Button
+					variant="ghost"
+					size="icon"
+					className="h-8 w-8 rounded-full bg-background hover:bg-background/90 text-muted-foreground/50 hover:text-muted-foreground transition-all shadow-sm"
+					onClick={toggleCollapse}
+				>
+					{isCollapsed ? (
+						<ChevronRight className="h-4 w-4" />
+					) : (
+						<ChevronLeft className="h-4 w-4" />
+					)}
+				</Button>
 			</div>
 		</div>
 	);

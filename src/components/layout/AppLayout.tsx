@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Navbar } from "./Navbar";
-import { MobileNavbar } from "./MobileNavbar";
 import { Sidebar } from "./Sidebar";
 import { OrganizationProvider } from "~/contexts/OrganizationContext";
 import { UserProvider } from "~/contexts/UserContext";
@@ -92,19 +91,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
 					{/* Add synchronizer component to manage data consistency */}
 					<OrgUserSynchronizer />
 
-					{/* Desktop Navbar */}
+					{/* Universal Navbar - works for both mobile and desktop */}
 					<Navbar />
-
-					{/* Mobile Navbar */}
-					<MobileNavbar />
 
 					{/* Main container with sidebar and content */}
 					<div className="flex flex-1 overflow-hidden">
-						{/* Sidebar with smooth transitions - hidden on mobile */}
-						<div className={`
-              hidden md:block transition-all duration-300 ease-in-out h-full
-              ${isCollapsed ? 'w-[60px]' : 'w-[240px]'}
-            `}>
+						{/* Sidebar - only visible on desktop */}
+						<div className="hidden md:block h-full">
 							<Sidebar
 								isCollapsed={isCollapsed}
 								onToggleCollapse={handleToggleCollapse}

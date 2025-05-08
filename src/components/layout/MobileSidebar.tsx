@@ -196,7 +196,7 @@ export function MobileNavbar() {
 				</div>
 
 				{/* Play button */}
-				<PlayButton variant="mini" />aasdasd
+				<PlayButton variant="mini" />
 
 				{/* User selector */}
 				<div className="flex justify-center">
