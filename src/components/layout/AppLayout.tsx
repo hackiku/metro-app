@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Navbar } from "./Navbar";
 import { Sidebar } from "./Sidebar";
+import { MobileSidebar } from "./MobileSidebar";
 import { OrganizationProvider } from "~/contexts/OrganizationContext";
 import { UserProvider } from "~/contexts/UserContext";
 import { useOrganization } from "~/contexts/OrganizationContext";
@@ -94,9 +95,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
 					{/* Universal Navbar - works for both mobile and desktop */}
 					<Navbar />
 
+					{/* Mobile Sidebar - only visible on mobile */}
+					<MobileSidebar />
+
 					{/* Main container with sidebar and content */}
 					<div className="flex flex-1 overflow-hidden">
-						{/* Sidebar - only visible on desktop */}
+						{/* Desktop Sidebar - only visible on desktop */}
 						<div className="hidden md:block h-full">
 							<Sidebar
 								isCollapsed={isCollapsed}
@@ -106,7 +110,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
 						{/* Main content area with curved corners */}
 						<main className="flex-1 m-2 md:m-3 md:ml-0 overflow-auto bg-neutral-100/50 dark:bg-neutral-900/30 rounded-3xl shadow-sm">
-							<div className="p-4 md:p-6 h-full">
+							<div className="p-0 md:p-6 h-full">
 								{children}
 							</div>
 						</main>

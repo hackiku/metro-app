@@ -16,7 +16,6 @@ import {
 	Briefcase,
 	BarChart2,
 	Settings,
-	HelpCircle,
 	TrendingUp
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
@@ -24,23 +23,10 @@ import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/components/ui/collapsible";
 import type { LucideIcon } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
-interface NavItemConfig {
-	href: string;
-	icon: LucideIcon;
-	text: string;
-}
-
-interface NavGroupConfig {
-	title?: string;
-	items: NavItemConfig[];
-	showDivider?: boolean;
-	collapsible?: boolean;
-}
-
-// Navigation configuration
-const navigationConfig: NavGroupConfig[] = [
+// Navigation configuration - exporting so it can be reused by MobileSidebar
+export const navigationConfig = [
 	{
 		// User perspective navigation
 		items: [
@@ -96,13 +82,14 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse, classN
 		}
 	};
 
-	// Calculate the width for the container
-	const width = isCollapsed ? "w-[60px]" : "w-[240px]";
-
 	return (
-		<div className={cn("h-full relative", width, className)}>
+		<div className={cn(
+			"flex flex-col h-full bg-background relative transition-all duration-300",
+			isCollapsed ? "w-15" : "w-56",
+			className
+		)}>
 			<div className={cn(
-				"flex flex-col h-full py-6 transition-all duration-300 overflow-hidden bg-background",
+				"flex flex-col h-full py-6 overflow-hidden",
 				isCollapsed ? "items-center px-2" : "px-4"
 			)}>
 				{/* Top margin space */}
@@ -171,12 +158,15 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse, classN
 				</TooltipProvider>
 			</div>
 
-			{/* Collapse toggle button - positioned half outside the sidebar */}
-			<div className="absolute top-1/2 right-0 -mt-4 translate-x-1/2 z-10">
+			{/* Toggle button positioned at the right edge, vertically aligned with the last menu item */}
+			<div className={cn(
+				"absolute right-0 translate-x-1/2 transition-all duration-300",
+				isCollapsed ? "bottom-20" : "bottom-[104px]"
+			)}>
 				<Button
 					variant="ghost"
 					size="icon"
-					className="h-8 w-8 rounded-full bg-background hover:bg-background/90 text-muted-foreground/50 hover:text-muted-foreground transition-all shadow-sm"
+					className="h-8 w-8 rounded-full bg-background hover:bg-background/90 text-muted-foreground/50 hover:text-muted-foreground transition-all shadow-sm border border-border/30"
 					onClick={toggleCollapse}
 				>
 					{isCollapsed ? (
@@ -184,6 +174,7 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse, classN
 					) : (
 						<ChevronLeft className="h-4 w-4" />
 					)}
+					<span className="sr-only">{isCollapsed ? "Expand" : "Collapse"} sidebar</span>
 				</Button>
 			</div>
 		</div>

@@ -117,7 +117,7 @@ export default function HrAdminPage() {
 	};
 
 	return (
-		<div className="space-y-6 p-6">
+		<div className="space-y-6">
 			{/* Actions row */}
 			<div className="flex gap-3 justify-end">
 				<Button variant="outline" size="sm" onClick={handleRefresh}>

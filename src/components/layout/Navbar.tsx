@@ -18,7 +18,7 @@ export function Navbar() {
 	const [mobileSearchExpanded, setMobileSearchExpanded] = useState(false);
 
 	return (
-		<nav className="flex h-16 items-center justify-between px-4 md:px-6">
+		<nav className="flex h-16 items-center justify-between px-4 md:px-8 md:-ml-4">
 			<div className="flex items-center gap-4">
 				{/* Organization selector */}
 				<OrganizationSelector />
