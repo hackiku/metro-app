@@ -13,6 +13,10 @@ import { PlayButton } from "./actions/PlayButton"
 import { ModeToggle } from "~/components/ui/mode-toggle"
 import { cn } from "~/lib/utils"
 
+import { CompetencesProvider } from "~/contexts/CompetencesContext";
+import { CareerPlanProvider } from "~/contexts/CareerPlanContext";
+import { DataDevTools } from "../dev/DataDevTools"
+
 export function Navbar() {
 	const [searchExpanded, setSearchExpanded] = useState(false);
 	const [mobileSearchExpanded, setMobileSearchExpanded] = useState(false);
@@ -94,6 +98,13 @@ export function Navbar() {
 				</div>
 
 				{/* Notifications */}
+				
+				<CompetencesProvider>
+					<CareerPlanProvider>
+						<DataDevTools />
+					</CareerPlanProvider>
+				</CompetencesProvider>
+
 				<Button
 					variant="ghost"
 					size="icon"
