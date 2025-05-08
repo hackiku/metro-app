@@ -1,22 +1,14 @@
-// src/components/layout/AppLayout.tsx
-
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-	ResizableHandle,
-	ResizablePanel,
-	ResizablePanelGroup
-} from "~/components/ui/resizable";
 import { Navbar } from "./Navbar";
 import { CollapsibleSidebar } from "./CollapsibleSidebar";
-import { AppSidebar } from "./Sidebar";
 import { OrganizationProvider } from "~/contexts/OrganizationContext";
 import { UserProvider } from "~/contexts/UserContext";
 import { useOrganization } from "~/contexts/OrganizationContext";
 import { useUser } from "~/contexts/UserContext";
 import { api } from "~/trpc/react";
-import { Sidebar } from "lucide-react";
+import { useMediaQuery } from "~/hooks/use-media-query";
 
 // Component to handle synchronization between organization and user data
 function OrgUserSynchronizer() {
@@ -54,10 +46,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
 	// Keep track of sidebar collapsed state
 	const [isCollapsed, setIsCollapsed] = useState(false);
-	// Default sidebar width percentage
-	const defaultSidebarSize = 4; // 15% of screen width
-	// Threshold at which sidebar collapses (in %)
-	const collapseThreshold = 10;
+
+	// Check for mobile viewport
+	const isMobile = useMediaQuery("(max-width: 768px)");
+
+	// Auto-collapse sidebar on mobile
+	useEffect(() => {
+		if (isMobile) {
+			setIsCollapsed(true);
+		}
+	}, [isMobile]);
 
 	// Ensure we're only rendering on the client side
 	useEffect(() => {
@@ -72,9 +70,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
 		return null;
 	};
 
-	// Handler for sidebar resize
-	const handleSidebarResize = (size: number) => {
-		setIsCollapsed(size < collapseThreshold);
+	// Handle toggling the sidebar collapse state
+	const handleToggleCollapse = (collapsed: boolean) => {
+		setIsCollapsed(collapsed);
 	};
 
 	// Show loading state when not on client
@@ -92,33 +90,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
 				<div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
 					{/* Add synchronizer component to manage data consistency */}
 					<OrgUserSynchronizer />
+
+					{/* Navbar */}
 					<Navbar />
 
+					{/* Main container with sidebar and content */}
+					<div className="flex flex-1 overflow-hidden">
+						{/* Sidebar with smooth transitions */}
+						<div className={`
+							transition-all duration-300 ease-in-out h-full
+							${isCollapsed ? 'w-[60px]' : 'w-[240px]'}
+						`}>
+							<CollapsibleSidebar
+								isCollapsed={isCollapsed}
+								onToggleCollapse={handleToggleCollapse}
+							/>
+						</div>
 
-					{/* <AppSidebar /> */}
-
-					<ResizablePanelGroup
-						direction="horizontal"
-						className="flex-1"
-					>
-						<ResizablePanel
-							defaultSize={defaultSidebarSize}
-							minSize={4}
-							maxSize={25}
-							onResize={handleSidebarResize}
-							className="border-r"
-						>
-							<CollapsibleSidebar isCollapsed={isCollapsed} />
-						</ResizablePanel>
-
-						<ResizableHandle withHandle className="w-[0.2px] bg-muted" />
-
-						<ResizablePanel defaultSize={100 - defaultSidebarSize}>
-							<main className="h-full overflow-auto">
-								{children}
-							</main>
-						</ResizablePanel>
-					</ResizablePanelGroup>
+						{/* Main content area */}
+						<main className="flex-1 overflow-auto p-6 bg-neutral-100/50 dark:bg-neutral-900/40 rounded-3xl">
+							{children}
+						</main>
+					</div>
 				</div>
 			</UserProvider>
 		</OrganizationProvider>
