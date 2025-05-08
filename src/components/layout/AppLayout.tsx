@@ -10,11 +10,13 @@ import {
 } from "~/components/ui/resizable";
 import { Navbar } from "./Navbar";
 import { CollapsibleSidebar } from "./CollapsibleSidebar";
+import { AppSidebar } from "./Sidebar";
 import { OrganizationProvider } from "~/contexts/OrganizationContext";
 import { UserProvider } from "~/contexts/UserContext";
 import { useOrganization } from "~/contexts/OrganizationContext";
 import { useUser } from "~/contexts/UserContext";
 import { api } from "~/trpc/react";
+import { Sidebar } from "lucide-react";
 
 // Component to handle synchronization between organization and user data
 function OrgUserSynchronizer() {
@@ -91,6 +93,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
 					{/* Add synchronizer component to manage data consistency */}
 					<OrgUserSynchronizer />
 					<Navbar />
+
+
+					{/* <AppSidebar /> */}
 
 					<ResizablePanelGroup
 						direction="horizontal"
