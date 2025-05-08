@@ -8,6 +8,73 @@
 		"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
+/* Custom scrollbar styles - Webkit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 4px; /* Reduced height for horizontal scrollbar */
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+	margin: 14px;
+}
+
+::-webkit-scrollbar-thumb {
+	background: rgba(100, 100, 100, 0.2);
+	border-radius: 20px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: rgba(100, 100, 100, 0.4);
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+	background: rgba(200, 200, 200, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+	background: rgba(200, 200, 200, 0.4);
+}
+
+/* Firefox scrollbar */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(100, 100, 100, 0.2) transparent;
+}
+
+.dark * {
+	scrollbar-color: rgba(200, 200, 200, 0.2) transparent;
+}
+
+/* Hide scrollbar when not hovering */
+.hide-scrollbar {
+	scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+	display: none;
+}
+
+/* Elements with custom scrollbar behavior */
+.custom-scrollable {
+	overflow: auto;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(100, 100, 100, 0.2) transparent;
+}
+
+.dark .custom-scrollable {
+	scrollbar-color: rgba(200, 200, 200, 0.2) transparent;
+}
+
+.custom-scrollable:hover {
+	scrollbar-color: rgba(100, 100, 100, 0.4) transparent;
+}
+
+.dark .custom-scrollable:hover {
+	scrollbar-color: rgba(200, 200, 200, 0.4) transparent;
+}
+
 .metro-station {
 	/* Prevent station from scaling with zoom */
 	transform-origin: center;

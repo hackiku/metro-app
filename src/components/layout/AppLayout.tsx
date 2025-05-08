@@ -10,6 +10,7 @@ import { useOrganization } from "~/contexts/OrganizationContext";
 import { useUser } from "~/contexts/UserContext";
 import { api } from "~/trpc/react";
 import { useMediaQuery } from "~/hooks/use-media-query";
+import { cn } from "~/lib/utils";
 
 // Component to handle synchronization between organization and user data
 function OrgUserSynchronizer() {
@@ -100,17 +101,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
 					{/* Main container with sidebar and content */}
 					<div className="flex flex-1 overflow-hidden">
-						{/* Desktop Sidebar - only visible on desktop */}
-						<div className="hidden md:block h-full">
+						{/* Desktop Sidebar - only visible on desktop, with added top padding */}
+						<div className="hidden md:block h-full pt-2">
 							<Sidebar
 								isCollapsed={isCollapsed}
 								onToggleCollapse={handleToggleCollapse}
+								className="h-[calc(100%-8px)] rounded-tl-2xl"
 							/>
 						</div>
 
 						{/* Main content area with curved corners */}
-						<main className="flex-1 m-2 md:m-3 md:ml-0 overflow-auto bg-neutral-100/50 dark:bg-neutral-900/30 rounded-3xl shadow-sm">
-							<div className="p-0 md:p-6 h-full">
+						{/* <main className="flex-1 m-2 md:m-3 md:ml-0 md:mb-0 overflow-hidden bg-neutral-100/50 dark:bg-neutral-900/30 */}
+						<main className="flex-1 overflow-hidden bg-neutral-100/80 dark:bg-neutral-800/30
+								rounded-tl-3xl rounded-bl-3xl">
+							<div className="p-0 md:p-6 h-full overflow-auto">
 								{children}
 							</div>
 						</main>

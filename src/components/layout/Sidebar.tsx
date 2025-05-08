@@ -84,7 +84,7 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse, classN
 
 	return (
 		<div className={cn(
-			"flex flex-col h-full bg-background relative transition-all duration-300",
+			"flex flex-col h-full  relative transition-all duration-300 rounded-tl-3xl",
 			isCollapsed ? "w-15" : "w-56",
 			className
 		)}>
@@ -97,50 +97,40 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse, classN
 
 				<TooltipProvider delayDuration={0}>
 					<div className="flex flex-col h-full">
-						{navigationConfig.map((group, groupIndex) => (
-							<div key={groupIndex} className={cn(
-								groupIndex === navigationConfig.length - 1 ? "mt-auto mb-12" : "",
-								"mb-6"
-							)}>
-								{group.title && !isCollapsed && (
-									<>
-										{group.collapsible ? (
-											<Collapsible
-												open={managerMenuOpen}
-												onOpenChange={setManagerMenuOpen}
-												className="w-full"
-											>
-												<CollapsibleTrigger className="flex items-center w-full py-2 px-2 text-xs font-normal text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/60 rounded-lg uppercase tracking-wider">
-													<span>{group.title}</span>
-													<ChevronRight className={cn(
-														"ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
-														managerMenuOpen && "rotate-90"
-													)} />
-												</CollapsibleTrigger>
-												<CollapsibleContent className="space-y-1 pt-1 transition-all">
-													{group.items.map((item) => (
-														<NavItem
-															key={item.href}
-															href={item.href}
-															icon={<item.icon className="h-5 w-5" />}
-															text={item.text}
-															isCollapsed={isCollapsed}
-															isActive={pathname === item.href}
-														/>
-													))}
-												</CollapsibleContent>
-											</Collapsible>
-										) : (
-											<div className="py-2 px-2 text-xs font-normal text-muted-foreground/70 uppercase tracking-wider">
-												{group.title}
-											</div>
-										)}
-									</>
-								)}
+						{/* First navigation group (always visible) */}
+						<div className="mb-6">
+							<nav className="space-y-1">
+								{navigationConfig[0].items.map((item) => (
+									<NavItem
+										key={item.href}
+										href={item.href}
+										icon={<item.icon className="h-5 w-5" />}
+										text={item.text}
+										isCollapsed={isCollapsed}
+										isActive={pathname === item.href}
+									/>
+								))}
+							</nav>
+						</div>
 
-								{(!group.collapsible || isCollapsed) && (
-									<nav className="space-y-1">
-										{group.items.map((item) => (
+						{/* Admin section with toggle */}
+						<div className="mb-6">
+							{/* Group title and toggle */}
+							{!isCollapsed ? (
+								<Collapsible
+									open={managerMenuOpen}
+									onOpenChange={setManagerMenuOpen}
+									className="w-full"
+								>
+									<CollapsibleTrigger className="flex items-center w-full py-2 px-2 text-xs font-normal text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/60 rounded-lg uppercase tracking-wider">
+										<span>admin</span>
+										<ChevronRight className={cn(
+											"ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+											managerMenuOpen && "rotate-90"
+										)} />
+									</CollapsibleTrigger>
+									<CollapsibleContent className="space-y-1 pt-1 transition-all">
+										{navigationConfig[1].items.map((item) => (
 											<NavItem
 												key={item.href}
 												href={item.href}
@@ -150,23 +140,73 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse, classN
 												isActive={pathname === item.href}
 											/>
 										))}
-									</nav>
-								)}
-							</div>
-						))}
+									</CollapsibleContent>
+								</Collapsible>
+							) : (
+								<>
+									{/* Admin toggle button when collapsed */}
+									<Collapsible
+										open={managerMenuOpen}
+										onOpenChange={setManagerMenuOpen}
+									>
+										<Tooltip>
+											<TooltipTrigger asChild>
+												<CollapsibleTrigger asChild>
+													<div
+														className="h-4 w-full rounded-full -mt-2 mb-2 flex items-center justify-center text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/40 cursor-pointer"
+													>
+														<ChevronRight className={cn(
+															"h-4 w-4 transition-transform duration-200",
+															managerMenuOpen && "rotate-90"
+														)} />
+														<span className="sr-only">Toggle admin menu</span>
+													</div>
+												</CollapsibleTrigger>
+											</TooltipTrigger>
+											<TooltipContent side="right">Admin menu</TooltipContent>
+										</Tooltip>
+										<CollapsibleContent className="space-y-1">
+											{navigationConfig[1].items.map((item) => (
+												<NavItem
+													key={item.href}
+													href={item.href}
+													icon={<item.icon className="h-5 w-5" />}
+													text={item.text}
+													isCollapsed={isCollapsed}
+													isActive={pathname === item.href}
+												/>
+											))}
+										</CollapsibleContent>
+									</Collapsible>
+								</>
+							)}
+						</div>
+
+						{/* Footer navigation (settings) */}
+						<div className="mt-auto mb-12">
+							<nav className="space-y-1">
+								{navigationConfig[2].items.map((item) => (
+									<NavItem
+										key={item.href}
+										href={item.href}
+										icon={<item.icon className="h-5 w-5" />}
+										text={item.text}
+										isCollapsed={isCollapsed}
+										isActive={pathname === item.href}
+									/>
+								))}
+							</nav>
+						</div>
 					</div>
 				</TooltipProvider>
 			</div>
 
-			{/* Toggle button positioned at the right edge, vertically aligned with the last menu item */}
-			<div className={cn(
-				"absolute right-0 translate-x-1/2 transition-all duration-300",
-				isCollapsed ? "bottom-20" : "bottom-[104px]"
-			)}>
+			{/* Toggle button positioned at the right edge, fixed position */}
+			<div className="absolute right-0 translate-x-1/2 bottom-20 z-10">
 				<Button
 					variant="ghost"
 					size="icon"
-					className="h-8 w-8 rounded-full bg-background hover:bg-background/90 text-muted-foreground/50 hover:text-muted-foreground transition-all shadow-sm border border-border/30"
+					className="h-8 w-8 rounded-full bg-background hover:bg-background/90 text-muted-foreground/50 hover:text-muted-foreground transition-all"
 					onClick={toggleCollapse}
 				>
 					{isCollapsed ? (
