@@ -46,22 +46,44 @@ export function PlayButton({ className, variant = "default" }: PlayButtonProps) 
 
 	if (variant === "mini") {
 		return (
-			<Button
-				variant="ghost"
-				size="icon"
-				className={cn(
-					"rounded-full h-8 w-8 flex items-center justify-center",
-					isPlaying ? "text-primary bg-primary/10" : "text-muted-foreground",
-					className
-				)}
-				onClick={toggleMetro}
-			>
-				{isPlaying ? (
-					<Pause className="h-4 w-4" />
-				) : (
-					<Play className="h-4 w-4 ml-0.5" />
-				)}
-			</Button>
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<div className="relative">
+							{/* Base of 3D button - subtle shadow */}
+							<div className={cn(
+								"absolute inset-0 rounded-md",
+								isPlaying
+									? "bg-muted/30 translate-y-[2px]"
+									: "bg-muted/20"
+							)} />
+
+							{/* The button itself */}
+							<Button
+								variant="ghost"
+								size="icon"
+								className={cn(
+									"relative rounded-md w-9 h-9 transition-all duration-200 border border-muted-foreground/10",
+									isPlaying
+										? "bg-muted/30 text-muted-foreground/70 translate-y-[1px] shadow-none"
+										: "bg-background text-muted-foreground/50 shadow-sm hover:translate-y-[1px] hover:text-muted-foreground/70",
+									className
+								)}
+								onClick={toggleMetro}
+							>
+								{isPlaying ? (
+									<Pause className="h-4 w-4" />
+								) : (
+									<Play className="h-4 w-4 ml-0.5" />
+								)}
+							</Button>
+						</div>
+					</TooltipTrigger>
+					<TooltipContent>
+						{isPlaying ? "Close Metro" : "Open Metro"}
+					</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
 		);
 	}
 
@@ -69,32 +91,41 @@ export function PlayButton({ className, variant = "default" }: PlayButtonProps) 
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger asChild>
-					<Button
-						variant={isPlaying ? "secondary" : "default"}
-						size="sm"
-						className={cn(
-							"rounded-xl shadow-sm h-9 px-3.5 transition-all duration-300",
+					<div className="relative">
+						{/* Base layer for 3D effect */}
+						<div className={cn(
+							"absolute inset-0 rounded-md",
 							isPlaying
-								? "bg-primary/15 text-primary hover:bg-primary/20"
-								: "bg-primary/90 text-primary-foreground hover:bg-primary/80",
-							className
-						)}
-						onClick={toggleMetro}
-					>
-						<div className="flex items-center">
-							{isPlaying ? (
-								<>
-									<Pause className="h-4 w-4 mr-2" />
-									<span>Stop Metro</span>
-								</>
-							) : (
-								<>
-									<Play className="h-4 w-4 mr-2 ml-0.5" />
-									<span>Start Metro</span>
-								</>
+								? "bg-muted/30 translate-y-[2px]"
+								: "bg-muted/20"
+						)} />
+
+						{/* The button itself */}
+						<Button
+							variant="outline"
+							size="sm"
+							className={cn(
+								"relative rounded-md shadow-sm h-9 px-3.5 transition-all duration-200 border border-muted-foreground/10",
+								isPlaying
+									? "bg-muted/30 text-muted-foreground/70 translate-y-[1px] shadow-none"
+									: "bg-background text-muted-foreground/70 hover:translate-y-[1px] hover:text-muted-foreground",
+								className
 							)}
-						</div>
-					</Button>
+							onClick={toggleMetro}
+						>
+							<div className="flex items-center">
+								{isPlaying ? (
+									<>
+										<Pause className="h-4 w-4" />
+									</>
+								) : (
+									<>
+										<Play className="h-4 w-4" />
+									</>
+								)}
+							</div>
+						</Button>
+					</div>
 				</TooltipTrigger>
 				<TooltipContent>
 					{isPlaying ? "Return to previous view" : "Open Metro Map"}

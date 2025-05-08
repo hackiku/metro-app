@@ -68,24 +68,41 @@ export function MobileNavbar() {
 			<div className="flex items-center gap-3">
 				<Sheet open={open} onOpenChange={setOpen}>
 					<SheetTrigger asChild>
-						<Button variant="ghost" size="icon" className="rounded-full">
-							<Menu className="h-5 w-5" />
-							<span className="sr-only">Toggle menu</span>
-						</Button>
+						<div className="relative">
+							{/* Base of 3D button */}
+							<div className="absolute inset-0 rounded-md bg-muted/20" />
+
+							<Button
+								variant="ghost"
+								size="icon"
+								className="relative rounded-md h-9 w-9 bg-background text-muted-foreground/50 border border-muted-foreground/10 hover:text-muted-foreground/70 hover:translate-y-[1px] transition-all shadow-sm"
+							>
+								<Menu className="h-5 w-5" />
+								<span className="sr-only">Toggle menu</span>
+							</Button>
+						</div>
 					</SheetTrigger>
 					<SheetContent side="left" className="w-[85%] max-w-[300px] p-0 border-0">
+						<div className="sr-only">Navigation Menu</div>
 						<div className="flex flex-col h-full bg-background">
 							<div className="p-4 flex items-center justify-between">
 								<OrganizationSelector />
 								<SheetClose asChild>
-									<Button variant="ghost" size="icon" className="rounded-full">
-										<X className="h-5 w-5" />
-									</Button>
+									<div className="relative">
+										<div className="absolute inset-0 rounded-md bg-muted/20" />
+										<Button
+											variant="ghost"
+											size="icon"
+											className="relative rounded-md h-9 w-9 bg-background text-muted-foreground/50 border border-muted-foreground/10 hover:text-muted-foreground/70 hover:translate-y-[1px] transition-all shadow-sm"
+										>
+											<X className="h-5 w-5" />
+										</Button>
+									</div>
 								</SheetClose>
 							</div>
 
 							<div className="p-4">
-								<PlayButton />
+								<PlayButton variant="default" />
 							</div>
 
 							<div className="flex-1 overflow-auto pt-2 pb-4 px-4">
@@ -163,7 +180,7 @@ export function MobileNavbar() {
 				</Link>
 			</div>
 
-			<div className="flex items-center gap-2">
+			<div className="flex items-center gap-4">
 				<PlayButton variant="mini" />
 				<ModeToggle />
 			</div>

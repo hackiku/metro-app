@@ -17,16 +17,13 @@ import {
 	BarChart2,
 	Settings,
 	HelpCircle,
-	TrendingUp,
-	Play,
-	Pause
+	TrendingUp
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/components/ui/collapsible";
 import { UserSelector } from "./actions/UserSelector";
-import { PlayButton } from "./actions/PlayButton";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 
@@ -58,7 +55,7 @@ const navigationConfig: NavGroupConfig[] = [
 	},
 	{
 		// HR planning & management
-		title: "Management",
+		title: "admin",
 		items: [
 			{ href: "/hr", icon: BarChart2, text: "HR Admin" },
 			{ href: "/job-family", icon: Layers, text: "Job Families" },
@@ -104,17 +101,8 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse }: Side
 				"flex flex-col h-full py-6 transition-all duration-300 overflow-hidden",
 				isCollapsed ? "items-center px-2 w-[60px]" : "px-4 w-full"
 			)}>
-				{/* Top section with PlayButton */}
-				<div className={cn(
-					"flex items-center mb-6",
-					isCollapsed ? "justify-center" : "px-2"
-				)}>
-					{isCollapsed ? (
-						<PlayButton variant="mini" />
-					) : (
-						<PlayButton />
-					)}
-				</div>
+				{/* Top margin space */}
+				<div className="mb-6"></div>
 
 				<TooltipProvider delayDuration={0}>
 					<div className="flex flex-col h-full">
@@ -187,19 +175,26 @@ export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse }: Side
 				</TooltipProvider>
 			</div>
 
-			{/* Collapse toggle button - more subtle design */}
-			<Button
-				variant="ghost"
-				size="icon"
-				className="absolute bottom-4 right-3 h-8 w-8 rounded-full bg-background text-muted-foreground opacity-60 hover:opacity-100 hover:bg-muted/40"
-				onClick={toggleCollapse}
-			>
-				{isCollapsed ? (
-					<ChevronRight className="h-4 w-4" />
-				) : (
-					<ChevronLeft className="h-4 w-4" />
-				)}
-			</Button>
+			{/* Collapse toggle button - muted wireframe style */}
+			<div className="absolute bottom-4 right-3">
+				<div className="relative">
+					{/* Base of 3D button */}
+					<div className="absolute inset-0 rounded-md bg-muted/20" />
+
+					<Button
+						variant="ghost"
+						size="icon"
+						className="relative h-8 w-8 rounded-md bg-background text-muted-foreground/50 border border-muted-foreground/10 hover:text-muted-foreground/70 hover:translate-y-[1px] transition-all shadow-sm"
+						onClick={toggleCollapse}
+					>
+						{isCollapsed ? (
+							<ChevronRight className="h-4 w-4" />
+						) : (
+							<ChevronLeft className="h-4 w-4" />
+						)}
+					</Button>
+				</div>
+			</div>
 		</div>
 	);
 }

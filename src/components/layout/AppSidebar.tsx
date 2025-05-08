@@ -1,175 +1,250 @@
-"use client"
+"use client";
 
-import { usePathname } from "next/navigation"
-import Link from "next/link"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
-	Home,
-	Play,
+	ChevronLeft,
+	ChevronRight,
 	Compass,
 	Map,
-	BarChart2,
-	TrendingUp,
 	MessageSquare,
+	Factory,
+	Home,
 	Layers,
 	Briefcase,
-	Factory,
+	BarChart2,
 	Settings,
 	HelpCircle,
-	ChevronDown,
-	Users
-} from "lucide-react"
+	TrendingUp
+} from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
+import { Button } from "~/components/ui/button";
+import { cn } from "~/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/components/ui/collapsible";
+import { UserSelector } from "./actions/UserSelector";
+import type { LucideIcon } from "lucide-react";
+import { useState } from "react";
 
-import { cn } from "~/lib/utils"
-import { Button } from "~/components/ui/button"
-import { ScrollArea } from "~/components/ui/scroll-area"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/components/ui/collapsible"
+interface NavItemConfig {
+	href: string;
+	icon: LucideIcon;
+	text: string;
+}
 
-import {
-	Sidebar,
-	SidebarContent,
-	SidebarFooter,
-	SidebarHeader,
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	SidebarProvider,
-	SidebarTrigger,
-	SidebarMenuSub,
-	SidebarMenuSubItem,
-	SidebarMenuSubButton,
-	SidebarGroup,
-	SidebarGroupContent,
-	SidebarGroupLabel
-} from "~/components/ui/sidebar"
+interface NavGroupConfig {
+	title?: string;
+	items: NavItemConfig[];
+	showDivider?: boolean;
+	collapsible?: boolean;
+}
 
-import { ModeToggle } from "~/components/ui/mode-toggle"
-import { OrganizationSelector } from "./actions/OrganizationSelector"
-import { UserSelector } from "./actions/UserSelector"
+// Navigation configuration
+const navigationConfig: NavGroupConfig[] = [
+	{
+		// User perspective navigation
+		items: [
+			{ href: "/", icon: Home, text: "Dashboard" },
+			{ href: "/destinations", icon: Compass, text: "Destinations" },
+			{ href: "/route", icon: Map, text: "Route Plan" },
+			{ href: "/comparison", icon: BarChart2, text: "Comparison" },
+			{ href: "/growth", icon: TrendingUp, text: "Growth" },
+			{ href: "/conversation", icon: MessageSquare, text: "Conversation" },
+		]
+	},
+	{
+		// HR planning & management
+		title: "Management",
+		items: [
+			{ href: "/hr", icon: BarChart2, text: "HR Admin" },
+			{ href: "/job-family", icon: Layers, text: "Job Families" },
+			{ href: "/competences", icon: Briefcase, text: "Competences" },
+			{ href: "/company", icon: Factory, text: "Company" },
+		],
+		collapsible: true
+	},
+	{
+		// Footer navigation
+		items: [
+			{ href: "/settings", icon: Settings, text: "Settings" },
+		]
+	}
+];
 
-export function AppSidebar() {
-	const pathname = usePathname()
+interface SidebarProps {
+	isCollapsed?: boolean;
+	onToggleCollapse?: (collapsed: boolean) => void;
+}
 
-	// Define navigation items
-	const mainNavItems = [
-		{ href: "/", icon: Home, text: "Dashboard" },
-		{ href: "/metro", icon: Play, text: "Metro" },
-		{ href: "/destinations", icon: Compass, text: "Destinations" },
-		{ href: "/route", icon: Map, text: "Route Plan" },
-		{ href: "/comparison", icon: BarChart2, text: "Comparison" },
-		{ href: "/growth", icon: TrendingUp, text: "Growth" },
-		{ href: "/conversation", icon: MessageSquare, text: "Conversation" },
-	]
+export function Sidebar({ isCollapsed: propIsCollapsed, onToggleCollapse }: SidebarProps) {
+	const pathname = usePathname();
+	const [internalIsCollapsed, setInternalIsCollapsed] = useState(false);
+	const [managerMenuOpen, setManagerMenuOpen] = useState(true);
 
-	const managerNavItems = [
-		{ href: "/hr", icon: BarChart2, text: "HR Admin" },
-		{ href: "/job-family", icon: Layers, text: "Job Families" },
-		{ href: "/competences", icon: Briefcase, text: "Competences" },
-		{ href: "/company", icon: Factory, text: "Company" },
-	]
+	// Use either the prop or internal state
+	const isCollapsed = propIsCollapsed !== undefined ? propIsCollapsed : internalIsCollapsed;
 
-	const bottomNavItems = [
-		{ href: "/settings", icon: Settings, text: "Settings" },
-		{ href: "/help", icon: HelpCircle, text: "Help & Support" },
-	]
+	// Toggle collapse state
+	const toggleCollapse = () => {
+		const newState = !isCollapsed;
+		if (onToggleCollapse) {
+			onToggleCollapse(newState);
+		} else {
+			setInternalIsCollapsed(newState);
+		}
+	};
 
 	return (
-		<SidebarProvider defaultOpen={true}>
-			<Sidebar className="hidden md:flex">
-				<SidebarHeader className="border-b border-border">
-					<div className="flex items-center justify-between px-4 py-2">
-						<OrganizationSelector />
-						<SidebarTrigger />
-					</div>
-				</SidebarHeader>
+		<div className="flex flex-col h-full bg-background relative overflow-hidden">
+			<div className={cn(
+				"flex flex-col h-full py-6 transition-all duration-300 overflow-hidden",
+				isCollapsed ? "items-center px-2 w-[60px]" : "px-4 w-full"
+			)}>
+				{/* Top margin space */}
+				<div className="mb-6"></div>
 
-				<SidebarContent>
-					<ScrollArea className="h-full">
-						{/* Main Navigation Group */}
-						<SidebarGroup>
-							<SidebarGroupLabel>Navigation</SidebarGroupLabel>
-							<SidebarGroupContent>
-								<SidebarMenu>
-									{mainNavItems.map((item) => (
-										<SidebarMenuItem key={item.href}>
-											<SidebarMenuButton
-												asChild
-												isActive={pathname === item.href}
-												tooltip={item.text}
+				<TooltipProvider delayDuration={0}>
+					<div className="flex flex-col h-full">
+						{navigationConfig.map((group, groupIndex) => (
+							<div key={groupIndex} className={cn(
+								groupIndex === navigationConfig.length - 1 ? "mt-auto" : "",
+								"mb-6"
+							)}>
+								{group.title && !isCollapsed && (
+									<>
+										{group.collapsible ? (
+											<Collapsible
+												open={managerMenuOpen}
+												onOpenChange={setManagerMenuOpen}
+												className="w-full"
 											>
-												<Link href={item.href}>
-													<item.icon className="h-4 w-4" />
-													<span>{item.text}</span>
-												</Link>
-											</SidebarMenuButton>
-										</SidebarMenuItem>
-									))}
-								</SidebarMenu>
-							</SidebarGroupContent>
-						</SidebarGroup>
+												<CollapsibleTrigger className="flex items-center w-full py-2 px-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-lg">
+													<span>{group.title}</span>
+													<ChevronRight className={cn(
+														"ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+														managerMenuOpen && "rotate-90"
+													)} />
+												</CollapsibleTrigger>
+												<CollapsibleContent className="space-y-1 pt-1 transition-all">
+													{group.items.map((item) => (
+														<NavItem
+															key={item.href}
+															href={item.href}
+															icon={<item.icon className="h-5 w-5" />}
+															text={item.text}
+															isCollapsed={isCollapsed}
+															isActive={pathname === item.href}
+														/>
+													))}
+												</CollapsibleContent>
+											</Collapsible>
+										) : (
+											<div className="py-2 px-2 text-sm font-medium text-muted-foreground">
+												{group.title}
+											</div>
+										)}
+									</>
+								)}
 
-						{/* Manager Options (with Collapsible) */}
-						<SidebarGroup>
-							<Collapsible className="group/collapsible">
-								<SidebarGroupLabel asChild>
-									<CollapsibleTrigger className="flex w-full items-center justify-between">
-										<span>Management</span>
-										<ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-									</CollapsibleTrigger>
-								</SidebarGroupLabel>
-								<CollapsibleContent>
-									<SidebarGroupContent>
-										<SidebarMenu>
-											{managerNavItems.map((item) => (
-												<SidebarMenuItem key={item.href}>
-													<SidebarMenuButton
-														asChild
-														isActive={pathname === item.href}
-														tooltip={item.text}
-													>
-														<Link href={item.href}>
-															<item.icon className="h-4 w-4" />
-															<span>{item.text}</span>
-														</Link>
-													</SidebarMenuButton>
-												</SidebarMenuItem>
-											))}
-										</SidebarMenu>
-									</SidebarGroupContent>
-								</CollapsibleContent>
-							</Collapsible>
-						</SidebarGroup>
-
-						{/* Bottom Navigation Group */}
-						<SidebarGroup className="mt-auto">
-							<SidebarGroupContent>
-								<SidebarMenu>
-									{bottomNavItems.map((item) => (
-										<SidebarMenuItem key={item.href}>
-											<SidebarMenuButton
-												asChild
+								{(!group.collapsible || isCollapsed) && (
+									<nav className="space-y-1">
+										{group.items.map((item) => (
+											<NavItem
+												key={item.href}
+												href={item.href}
+												icon={<item.icon className="h-5 w-5" />}
+												text={item.text}
+												isCollapsed={isCollapsed}
 												isActive={pathname === item.href}
-												tooltip={item.text}
-											>
-												<Link href={item.href}>
-													<item.icon className="h-4 w-4" />
-													<span>{item.text}</span>
-												</Link>
-											</SidebarMenuButton>
-										</SidebarMenuItem>
-									))}
-								</SidebarMenu>
-							</SidebarGroupContent>
-						</SidebarGroup>
-					</ScrollArea>
-				</SidebarContent>
+											/>
+										))}
+									</nav>
+								)}
+							</div>
+						))}
 
-				<SidebarFooter className="border-t border-border p-4">
-					<div className="flex items-center justify-between">
-						<UserSelector />
-						<ModeToggle />
+						{/* User profile at bottom */}
+						<div className={cn(
+							"pt-4",
+							isCollapsed ? "flex justify-center" : ""
+						)}>
+							<UserSelector />
+						</div>
 					</div>
-				</SidebarFooter>
-			</Sidebar>
-		</SidebarProvider>
-	)
+				</TooltipProvider>
+			</div>
+
+			{/* Collapse toggle button - muted wireframe style */}
+			<div className="absolute bottom-4 right-3">
+				<div className="relative">
+					{/* Base of 3D button */}
+					<div className="absolute inset-0 rounded-md bg-muted/20" />
+
+					<Button
+						variant="ghost"
+						size="icon"
+						className="relative h-8 w-8 rounded-md bg-background text-muted-foreground/50 border border-muted-foreground/10 hover:text-muted-foreground/70 hover:translate-y-[1px] transition-all shadow-sm"
+						onClick={toggleCollapse}
+					>
+						{isCollapsed ? (
+							<ChevronRight className="h-4 w-4" />
+						) : (
+							<ChevronLeft className="h-4 w-4" />
+						)}
+					</Button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function NavItem({
+	href,
+	icon,
+	text,
+	isCollapsed,
+	isActive
+}: {
+	href: string;
+	icon: React.ReactNode;
+	text: string;
+	isCollapsed: boolean;
+	isActive: boolean;
+}) {
+	if (isCollapsed) {
+		return (
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Link
+						href={href}
+						className={cn(
+							"flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+							isActive
+								? "bg-primary/15 text-primary"
+								: "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+						)}
+					>
+						{icon}
+					</Link>
+				</TooltipTrigger>
+				<TooltipContent side="right">
+					{text}
+				</TooltipContent>
+			</Tooltip>
+		);
+	}
+
+	return (
+		<Link
+			href={href}
+			className={cn(
+				"flex items-center space-x-3 rounded-lg px-3 py-2 text-sm transition-colors",
+				isActive
+					? "bg-primary/15 text-primary"
+					: "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+			)}
+		>
+			{icon}
+			<span>{text}</span>
+		</Link>
+	);
 }
