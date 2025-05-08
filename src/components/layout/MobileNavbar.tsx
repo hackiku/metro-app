@@ -22,13 +22,14 @@ import {
 	Settings,
 	HelpCircle,
 	ChevronDown,
-	Users
+	X
 } from "lucide-react"
 import { Button } from "~/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "~/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from "~/components/ui/sheet"
 import { ModeToggle } from "~/components/ui/mode-toggle"
 import { UserSelector } from "./actions/UserSelector"
 import { OrganizationSelector } from "./actions/OrganizationSelector"
+import { PlayButton } from "./actions/PlayButton"
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -41,10 +42,9 @@ export function MobileNavbar() {
 	const [open, setOpen] = useState(false)
 	const [managerMenuOpen, setManagerMenuOpen] = useState(false)
 
-	// Define navigation items - same structure as in AppSidebar
+	// Define navigation items - same structure as in Sidebar
 	const mainNavItems = [
 		{ href: "/", icon: Home, text: "Dashboard" },
-		{ href: "/metro", icon: Play, text: "Metro" },
 		{ href: "/destinations", icon: Compass, text: "Destinations" },
 		{ href: "/route", icon: Map, text: "Route Plan" },
 		{ href: "/comparison", icon: BarChart2, text: "Comparison" },
@@ -61,60 +61,64 @@ export function MobileNavbar() {
 
 	const bottomNavItems = [
 		{ href: "/settings", icon: Settings, text: "Settings" },
-		{ href: "/help", icon: HelpCircle, text: "Help & Support" },
 	]
 
 	return (
-		<nav className="flex h-16 items-center justify-between border-b border-border px-4 md:hidden">
+		<nav className="md:hidden flex h-16 items-center justify-between px-4">
 			<div className="flex items-center gap-3">
 				<Sheet open={open} onOpenChange={setOpen}>
 					<SheetTrigger asChild>
-						<Button variant="ghost" size="icon" className="md:hidden">
+						<Button variant="ghost" size="icon" className="rounded-full">
 							<Menu className="h-5 w-5" />
 							<span className="sr-only">Toggle menu</span>
 						</Button>
 					</SheetTrigger>
-					<SheetContent side="left" className="w-[80%] max-w-[300px] p-0">
-						<div className="flex flex-col h-full">
-							<div className="border-b border-border p-4">
+					<SheetContent side="left" className="w-[85%] max-w-[300px] p-0 border-0">
+						<div className="flex flex-col h-full bg-background">
+							<div className="p-4 flex items-center justify-between">
 								<OrganizationSelector />
+								<SheetClose asChild>
+									<Button variant="ghost" size="icon" className="rounded-full">
+										<X className="h-5 w-5" />
+									</Button>
+								</SheetClose>
 							</div>
 
-							<div className="flex-1 overflow-auto py-2">
+							<div className="p-4">
+								<PlayButton />
+							</div>
+
+							<div className="flex-1 overflow-auto pt-2 pb-4 px-4">
 								{/* Main Navigation */}
-								<div className="px-3 py-2">
-									<h3 className="mb-2 px-4 text-xs font-medium text-muted-foreground">Navigation</h3>
-									<div className="space-y-1">
-										{mainNavItems.map((item) => (
-											<NavItem
-												key={item.href}
-												href={item.href}
-												icon={<item.icon className="mr-2 h-4 w-4" />}
-												active={pathname === item.href}
-											>
-												{item.text}
-											</NavItem>
-										))}
-									</div>
+								<div className="space-y-1 mb-6">
+									{mainNavItems.map((item) => (
+										<NavItem
+											key={item.href}
+											href={item.href}
+											icon={<item.icon className="mr-2 h-4 w-4" />}
+											active={pathname === item.href}
+											onClick={() => setOpen(false)}
+										>
+											{item.text}
+										</NavItem>
+									))}
 								</div>
 
 								{/* Management Section with Collapsible */}
-								<div className="px-3 py-2">
+								<div className="mb-6">
 									<Collapsible
 										open={managerMenuOpen}
 										onOpenChange={setManagerMenuOpen}
 										className="w-full"
 									>
-										<CollapsibleTrigger asChild>
-											<button className="flex w-full items-center justify-between rounded-md px-4 py-2 text-sm font-medium hover:bg-accent">
-												<span>Management</span>
-												<ChevronDown className={cn(
-													"h-4 w-4 transition-transform",
-													managerMenuOpen && "rotate-180"
-												)} />
-											</button>
+										<CollapsibleTrigger className="flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40">
+											<span>Management</span>
+											<ChevronDown className={cn(
+												"ml-auto h-4 w-4 transition-transform",
+												managerMenuOpen && "rotate-180"
+											)} />
 										</CollapsibleTrigger>
-										<CollapsibleContent className="space-y-1">
+										<CollapsibleContent className="space-y-1 pt-1">
 											{managerNavItems.map((item) => (
 												<NavItem
 													key={item.href}
@@ -122,6 +126,7 @@ export function MobileNavbar() {
 													icon={<item.icon className="mr-2 h-4 w-4" />}
 													active={pathname === item.href}
 													className="pl-6"
+													onClick={() => setOpen(false)}
 												>
 													{item.text}
 												</NavItem>
@@ -131,24 +136,22 @@ export function MobileNavbar() {
 								</div>
 
 								{/* Bottom Navigation */}
-								<div className="mt-6 px-3 py-2">
-									<h3 className="mb-2 px-4 text-xs font-medium text-muted-foreground">Support</h3>
-									<div className="space-y-1">
-										{bottomNavItems.map((item) => (
-											<NavItem
-												key={item.href}
-												href={item.href}
-												icon={<item.icon className="mr-2 h-4 w-4" />}
-												active={pathname === item.href}
-											>
-												{item.text}
-											</NavItem>
-										))}
-									</div>
+								<div className="mt-auto space-y-1">
+									{bottomNavItems.map((item) => (
+										<NavItem
+											key={item.href}
+											href={item.href}
+											icon={<item.icon className="mr-2 h-4 w-4" />}
+											active={pathname === item.href}
+											onClick={() => setOpen(false)}
+										>
+											{item.text}
+										</NavItem>
+									))}
 								</div>
 							</div>
 
-							<div className="border-t border-border p-4">
+							<div className="p-4 flex justify-center">
 								<UserSelector />
 							</div>
 						</div>
@@ -161,18 +164,7 @@ export function MobileNavbar() {
 			</div>
 
 			<div className="flex items-center gap-2">
-				<Button variant="ghost" size="icon" className="text-muted-foreground">
-					<Search className="h-5 w-5" />
-					<span className="sr-only">Search</span>
-				</Button>
-
-				<Button variant="ghost" size="icon" className="text-muted-foreground" asChild>
-					<Link href="https://preview--career-compass-thierry.lovable.app/" target="blank">
-						<Bell className="h-5 w-5" />
-						<span className="sr-only">Notifications</span>
-					</Link>
-				</Button>
-
+				<PlayButton variant="mini" />
 				<ModeToggle />
 			</div>
 		</nav>
@@ -185,17 +177,21 @@ interface NavItemProps {
 	children: React.ReactNode
 	active?: boolean
 	className?: string
+	onClick?: () => void
 }
 
-function NavItem({ href, icon, children, active, className }: NavItemProps) {
+function NavItem({ href, icon, children, active, className, onClick }: NavItemProps) {
 	return (
 		<Link
 			href={href}
 			className={cn(
-				"flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-				active ? "bg-accent text-accent-foreground" : "transparent",
+				"flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+				active
+					? "bg-primary/15 text-primary"
+					: "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
 				className
 			)}
+			onClick={onClick}
 		>
 			{icon}
 			{children}

@@ -169,7 +169,7 @@ export function CollapsibleSidebar({ isCollapsed: propIsCollapsed, onToggleColla
 										"my-4",
 										isCollapsed ? "w-6 mx-auto" : ""
 									)}>
-										<div className="h-[1px] bg-border/50 w-full" />
+										{/* <div className="h-[1px] bg-border/50 w-full" /> */}
 									</div>
 								)}
 							</div>

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Navbar } from "./Navbar";
-import { CollapsibleSidebar } from "./CollapsibleSidebar";
+import { MobileNavbar } from "./MobileNavbar";
+import { Sidebar } from "./Sidebar";
 import { OrganizationProvider } from "~/contexts/OrganizationContext";
 import { UserProvider } from "~/contexts/UserContext";
 import { useOrganization } from "~/contexts/OrganizationContext";
@@ -87,29 +88,34 @@ export default function AppLayout({ children }: AppLayoutProps) {
 	return (
 		<OrganizationProvider defaultOrgId={getSavedId('currentOrgId')}>
 			<UserProvider defaultUserId={getSavedId('currentUserId')}>
-				<div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+				<div className="flex h-screen flex-col overflow-hidden bg-background/75 text-foreground">
 					{/* Add synchronizer component to manage data consistency */}
 					<OrgUserSynchronizer />
 
-					{/* Navbar */}
+					{/* Desktop Navbar */}
 					<Navbar />
+
+					{/* Mobile Navbar */}
+					<MobileNavbar />
 
 					{/* Main container with sidebar and content */}
 					<div className="flex flex-1 overflow-hidden">
-						{/* Sidebar with smooth transitions */}
+						{/* Sidebar with smooth transitions - hidden on mobile */}
 						<div className={`
-							transition-all duration-300 ease-in-out h-full
-							${isCollapsed ? 'w-[60px]' : 'w-[240px]'}
-						`}>
-							<CollapsibleSidebar
+              hidden md:block transition-all duration-300 ease-in-out h-full
+              ${isCollapsed ? 'w-[60px]' : 'w-[240px]'}
+            `}>
+							<Sidebar
 								isCollapsed={isCollapsed}
 								onToggleCollapse={handleToggleCollapse}
 							/>
 						</div>
 
-						{/* Main content area */}
-						<main className="flex-1 overflow-auto p-6 bg-neutral-100/50 dark:bg-neutral-900/40 rounded-3xl">
-							{children}
+						{/* Main content area with curved corners */}
+						<main className="flex-1 m-2 md:m-3 md:ml-0 overflow-auto bg-neutral-100/50 dark:bg-neutral-900/30 rounded-3xl shadow-sm">
+							<div className="p-4 md:p-6 h-full">
+								{children}
+							</div>
 						</main>
 					</div>
 				</div>
