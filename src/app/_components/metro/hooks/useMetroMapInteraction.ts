@@ -1,7 +1,7 @@
 // src/app/_components/metro/hooks/useMetroMapInteraction.ts
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { LayoutData } from '../engine/types';
+import type { LayoutData } from '~/types/engine';
 
 export interface UseMetroMapInteractionProps {
   layout: LayoutData;
